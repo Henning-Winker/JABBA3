@@ -153,8 +153,11 @@ One routine, run on every fit (fast parts) with the refit-based parts on request
 ## Open decisions
 - **[open] RTMB or compiled TMB.** RTMB: no compiler, model readable in R, fast enough for surplus production models.
   Compiled TMB: matches FLicc's build setup. Leaning RTMB.
-- **[open] Relation to FLicc-SPM.** JABBA3 as the surplus production side of the FLicc family, or a shared production /
-  selectivity core used by both.
+- **[proposal, 30 Oct] Relation to FLicc-SPM.** JABBA3 is the RTMB surplus production and observation core (process error, lag,
+  Selex EB/SB mapping, CPUE, catch error, OSA, convergence); FLicc-SPM adds the length likelihood, the per-recruit block (r, m,
+  EB/SB curves, D_spr) and the SPR link on top of it. First interface: `flicc2jabba(fit)` passing selectivity, SPR and life
+  history as priors/inputs; later a joint objective. FLicc stays compiled TMB for paper 1. Evidence that SPMs lack the depletion
+  information the SPR link supplies: project doc `claude/flicc-spm-handover-2026-10-30.md`.
 - Fit class: decided, FLicc pattern (see above). For reference, Laurie Kell's FLABBA prototype (2020) defines an S4 class
   `biodyn` extending FLComp with slots catch (FLQuant), indices and indices.se (FLQuants), stock, diags, priors (array); the
   rest is a copy of JABBA 1.x with base graphics and no dplyr.
