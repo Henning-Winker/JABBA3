@@ -113,6 +113,23 @@ is written.
   hindcast MASE.
 - A light S4 or S3 fit class wrapping these, with `summary()`, `plot()` and `as.FLQuants()` methods. **[open]**
 
+### 4b. Diagnostics routine: `jb3_diags(fit)` = JABBA set + SPiCT set
+One routine, run on every fit (fast parts) with the refit-based parts on request.
+- **OSA residuals by default** (particle filter at the mode, 0.04-0.09 s per fit; calibrated: mean 0, sd 1, ACF ~0,
+  runs-test rejection 2% on simulated data). Ordinary residuals from smoothed states are shrunk and autocorrelated by
+  construction, so tests on them are biased; OSA residuals are the primary basis for residual tests.
+- **JABBA set** (kept for continuity and ss3diags compatibility): ordinary index residuals, RMSE, SDNR, runs test with
+  three-sigma limits (run on OSA residuals by default, on ordinary residuals as "classic"), retrospective with Mohn's rho
+  (`retro = n`), hindcast cross-validation with MASE (`hindcast = n`), process-error deviations.
+- **SPiCT set** (on OSA residuals, as `plotspict.diagnostic`): per index, bias t-test, Ljung-Box (lag 4), Shapiro-Wilk;
+  panels residuals over time / ACF / QQ with the p-values in the titles (flagged when < 0.05); catch too when catch error
+  is on.
+- **Posterior predictive check only from full posteriors** (NUTS or JAGS). With the RTMB mode the MVN draws would test the
+  Laplace approximation rather than the model, so PPC is skipped (an approximate version only on explicit request).
+- Convergence verdict (`jb3_convergence`) included, and a one-table summary of all tests with pass/flag.
+- Power is limited: on simulated data the OSA residuals did not detect an omitted 3-year production lag that biased
+  terminal status by +0.14. Residual tests check the error assumptions; they are not structural diagnostics.
+
 ### 5. Graphics
 - JAGG functions moved in (advice plot after `FLRef::plotAdvice()`, fits, residuals, runs test, Kobe, retro, hindcast),
   reading from the FLR outputs through one tidy layer.
