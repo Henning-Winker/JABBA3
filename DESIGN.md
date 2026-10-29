@@ -43,6 +43,14 @@ is written.
 | `sdc` | `sdc` | `catch.cv` | catch observation SD (off = catch known, as default in JABBA 2 sims; on = catch with error) |
 | `sdf` | `sdf` | (inactive "fdev") | SD of an F random walk; only if a catch-conditioned-on-F formulation is added later |
 
+### 1d. Index observation error: two forms (`obs.error`)
+- `"additive"` (**default, as JABBA 2; SS3-like extra SD**): total SD_t = sqrt(se_t^2 + sdi^2), se_t from `index.var`
+  (or the JABBA fixed minimum, 0.1 without SEs, 0.001 added with SEs); `sdi` estimated per index or variance group,
+  no prior (JABBA's diffuse gamma on 1/sdi^2 kept for continuity in the JAGS-like setting).
+- `"spict"` (option): total SD_t = sdi x w_t, `sdi` estimated per index with no floor; `index.var` enters only as relative
+  year weights w_t (normalised to mean 1), as SPiCT's `stdevfacI`; optional lognormal prior on `sdi` via `priors$sdi`
+  (off by default, as in the SPiCT benchmarks).
+
 ### 2. Specification
 - `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` (lognormal; beta allowed for psi), every prior with an
   on/off switch. **JABBA stays JABBA:** defaults follow JABBA 2, with one change, the process error prior.
@@ -55,7 +63,7 @@ is written.
 | `m` / `BmsyK` | shape | fixed from BmsyK (0.4 default); on to estimate m |
 | `q` | catchability | off (flat on log q) |
 | `sdb` | process error SD | **on: LN(0.80 x sigR x r^0.45, 0.3)**, r = median of the r prior, sigR = 0.5 unless given (FishLife relation for sd at Bmsy). Replaces igamma(0.001, 0.001), whose right-skewed posterior collapses the mode towards zero. |
-| `sdi` | additive index SD | estimated, no prior (fixed part from index.var) |
+| `sdi` | index SD | estimated, no prior; additive to index.var by default, or SPiCT form (`obs.error = "spict"`) with optional LN prior |
 | `sdc` | catch SD | JABBA catch CV when catch error is on |
 | `kdyn` | depletion dependence of sdb (Tier 2) | on when the dynamic form is used (life-history centre, sd 0.15) |
 
