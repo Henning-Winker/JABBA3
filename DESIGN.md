@@ -10,6 +10,15 @@ is written.
 3. FLR-native inputs and outputs; ggplot2 graphics from JAGG; classic JABBA inputs via a helper.
 4. Built-in validation against JABBA 2.x so results are traceable for existing users.
 
+## Decisions so far (29 Oct 2026)
+- Follow the FLicc pattern: FLR S4 classes for inputs and outputs (FLQuant / FLQuants / FLIndices in, FLQuants / FLPar out),
+  the fit itself a plain list with an S3 tag (`jabba3`) holding engine internals (RTMB objective, optimiser result,
+  stanfit, settings).
+- Inputs: `catch` and `index` (FLIndexBiomass in FLIndices).
+- Error terms named as in SPiCT: `sdb`, `sdi`, `sdc` (and `sdf` if an F process is ever added).
+- Priors as one named list; every prior has an on/off switch. Default: run with the r prior.
+- No dplyr. Base R in the core; data.table only where it pays (long tables of draws, covariance or MCMC summaries).
+
 ## Architecture
 
 ### 1. Data
@@ -18,9 +27,43 @@ is written.
 - Legacy helper: `jb3_data_jabba(catch, cpue, se, ...)` converts the JABBA 2 data frames to the same internal data object.
 - Internal: one plain list consumed by the model (no FLR objects inside the objective), so FLR stays optional at fit time.
 
+### 1b. What FLIndexBiomass can store (checked against FLCore 2.6.33)
+- `index`: the index (quant "all"). `index.var`: one value per year; use it for the fixed log-scale SD of the index
+  (documented convention) with `distribution = "lognormal"`. `index.q`: starting or fixed catchability.
+- `sel.pattern` exists but is fixed to quant "all" in FLIndexBiomass (1 x years), so it cannot hold a selectivity curve.
+  There is no `catch.sel` slot. Selex EB/SB curves (or selectivity-at-age) therefore need either an age-based `FLIndex`
+  (sel.pattern by age) or a separate argument, as in JABBA 2 (`index.ebsb`). **[open]**
+- Catch by fleet as `FLQuants`; fleet selectivity likewise from a separate argument (or an FLBRP) for Selex.
+
+### 1c. Error terms (SPiCT naming)
+| JABBA3 | SPiCT | JABBA 2 | Meaning |
+|---|---|---|---|
+| `sdb` | `sdb` | `sigma.proc` | process error SD of log biomass (constant, or at Bmsy when depletion-dependent) |
+| `sdi` | `sdi` | `tau` (sigma.est) | estimated additive index observation SD, one per index (or per variance group); total = sqrt(index.var^2 + sdi^2) |
+| `sdc` | `sdc` | `catch.cv` | catch observation SD (off = catch known, as default in JABBA 2 sims; on = catch with error) |
+| `sdf` | `sdf` | (inactive "fdev") | SD of an F random walk; only if a catch-conditioned-on-F formulation is added later |
+
 ### 2. Specification
-- `jb3_priors()`: one named list. K, r (or derived from Fmsy), psi, shape (Bmsy/K), q, sigma.proc (lognormal by default,
-  life-history helper), sigma.obs (fixed + estimated), k (depletion dependence), catch CV.
+- `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` on the natural scale with a lognormal prior (as in
+  SPiCT, where each prior is c(mean on log scale, sd, use flag)). Proposed entries and defaults:
+
+| Prior | Meaning | Default | SPiCT name (default) |
+|---|---|---|---|
+| `r` | intrinsic growth rate | **on** (user, FishLife or from Fmsy) | `logr` (off) |
+| `K` | carrying capacity | off (soft bounds only) **[open]**; JABBA 2 always had a weak K prior (CV 1) | `logK` (off; start 4 x max catch) |
+| `psi` | initial depletion B1/K | on, JABBA 2 default (0.9, CV 0.25) **[open]** | `logbkfrac` (off) |
+| `m` / `BmsyK` | shape | off: shape fixed from BmsyK = 0.4; on to estimate | `logn` (on: log 2, sd 2) |
+| `q` | catchability (per index) | off | `logq` (off) |
+| `sdb` | process error SD | on: LN(2 x life-history floor, 0.3) | `logsdb` (off) |
+| `sdi` | additive index SD | off | `logsdi` (off) |
+| `sdc` | catch SD | fixed when catch error is on | `logsdc` (off) |
+| `sdi/sdb` | ratio (stabiliser) | off; optional | `logalpha` (on: log 1, sd 2) |
+| `kdyn` | depletion dependence of sdb (Tier 2) | on when the dynamic form is used (life-history centre, sd 0.15) | (none) |
+
+  SPiCT estimates K freely by default: only `logn`, `logalpha` and `logbeta` (= sdc/sdf) carry default priors, all wide
+  (sd 2); everything else is available but switched off. The JABBA3 defaults stay closer to JABBA (r and psi on, shape
+  fixed) and add the informative `sdb` prior that makes the posterior mode reliable.
+  Name for the depletion-dependence exponent: `kdyn` (not `k`, to avoid confusion with K). **[open]**
 - `jb3_model()`: structure. Shape (Schaefer / Fox / Pella / estimated m), production lag, process variance form
   (constant / floor with k / dynamic), Selex EB/SB curves by fleet, catch error, soft bounds.
 - Settings separate from priors, mirroring FLicc's `settings` list.
@@ -49,8 +92,9 @@ is written.
   Compiled TMB: matches FLicc's build setup. Leaning RTMB.
 - **[open] Relation to FLicc-SPM.** JABBA3 as the surplus production side of the FLicc family, or a shared production /
   selectivity core used by both.
-- **[open] Fit class.** S4 (FLR style, e.g. building on Laurie Kell's FLABBA prototype `jabba-class.R`) or S3 list (FLicc
-  style).
+- Fit class: decided, FLicc pattern (see above). For reference, Laurie Kell's FLABBA prototype (2020) defines an S4 class
+  `biodyn` extending FLComp with slots catch (FLQuant), indices and indices.se (FLQuants), stock, diags, priors (array); the
+  rest is a copy of JABBA 1.x with base graphics and no dplyr.
 - **[open] Version 1 scope.** Proposed: single stock; single- and multi-fleet Selex; lag, dynamic process variance (Tier 2)
   and sigma.proc prior; projections; FLR outputs; graphics; validation. Later: JARA, auxiliary data, catch-only.
 - **[open] Authors and licence.** EUPL (>= 1.2) as JABBA/JAGG; author list to complete.
