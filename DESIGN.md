@@ -83,6 +83,28 @@ is written.
 - Step 1 of the Tier 2 two-step uses an informative lognormal prior on sigma.proc (centre 2 x life-history floor, log sd
   0.3): with it the RTMB mode reproduces the JAGS posterior median (BioProcDyn `output_rtmb/RESULTS_RTMB.md`, section 6).
 
+### 3b. Fitting workflows: Tier 1, Tier 2, Selex (automatic or manual)
+- Manual: everything is set in `jb3_model()` (lag, process-variance form and level, k prior, Selex curves) and fitted once.
+- Automatic: `workflow =` in the fit call runs the steps internally and returns all fits with the final one on top:
+  - `"tier1"`: lag at age at maturity.
+  - `"tier2"`: step 1 = constant sdb (FishLife sdb prior), step 2 = depletion-dependent sdb with the level tuned on step 1
+    (sd_msy = sdb1 / sqrt(mean(x^-2k)) over the step-1 B/Bmsy) and k estimated, plus the lag.
+  - `"selex"` / `"selex_tier2"`: the same on the SSB state with EB/SB-mapped index and removals.
+  - `"protocol"`: chooses by selectivity relative to maturity (paper protocol: Lc < Lm50 -> Tier 2 + post-hoc EB-to-SSB
+    conversion; at/after maturity or dome -> Selex + Tier 2).
+- Each step is also available on its own (e.g. `jb3_tier2(fit1)` takes any step-1 fit), so the steps can be run, inspected
+  and adjusted one at a time. With RTMB a full Tier 2 workflow is ~0.5 s, so the automatic route is cheap enough for sims.
+
+### 3c. Optimisation and convergence (as in FLicc)
+- nlminb, then Newton polishing (up to 3 steps; Hessian by finite differences of the gradient with random effects; steps
+  that do not lower the objective are rejected), then gradient-guarded restarts (accepted only if the gradient falls and
+  the objective does not rise), and a final polish.
+- `jb3_convergence(fit)`: table of checks with plain-language interpretation (optimiser code, max gradient, Hessian
+  positive definite, SEs available, eigenvalues) and an overall tier from the Newton decrement 0.5 g'H^-1 g:
+  ok < 0.001, warning <= 0.1, fail above 0.1 or with a non-positive-definite Hessian.
+- Simulation outputs carry the tier, so failed fits (e.g. near-unidentified state paths with short-lived stocks and a lag)
+  are flagged rather than silently averaged.
+
 ### 4. Outputs
 - `FLQuants`: stock (B/Bmsy), harvest (F/Fmsy), biomass, catch (observed / estimated), EB for Selex; iterations = draws
   (1 for mode-only fits, with log-scale SEs attached).
