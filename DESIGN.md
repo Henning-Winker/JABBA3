@@ -52,14 +52,14 @@ is written.
   (off by default, as in the SPiCT benchmarks).
 
 ### 2. Specification
-- `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` (lognormal; beta allowed for psi), every prior with an
+- `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` (lognormal; beta allowed for bkinit), every prior with an
   on/off switch. **JABBA stays JABBA:** defaults follow JABBA 2, with one change, the process error prior.
 
 | Prior | Meaning | Default (as JABBA 2 unless noted) |
 |---|---|---|
 | `r` | intrinsic growth rate | **on** (user value, FishLife or from Fmsy) |
 | `K` | carrying capacity | on, weak (JABBA: 8 x max catch, CV 1) |
-| `psi` | initial depletion B1/K | on (JABBA: 0.9, CV 0.25) |
+| `bkinit` | initial depletion B1/K (JABBA 2: `psi`, accepted as alias by the legacy helper; SPiCT: `bkfrac`) | on (JABBA: 0.9, CV 0.25) |
 | `m` / `BmsyK` | shape | fixed from BmsyK (0.4 default); on to estimate m |
 | `q` | catchability | off (flat on log q) |
 | `sdb` | process error SD | **on: LN(0.80 x sigR x r^0.45, 0.3)**, r = median of the r prior, sigR = 0.5 unless given (FishLife relation for sd at Bmsy). Replaces igamma(0.001, 0.001), whose right-skewed posterior collapses the mode towards zero. |
