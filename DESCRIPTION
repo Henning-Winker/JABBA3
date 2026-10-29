@@ -1,0 +1,32 @@
+Package: JABBA3
+Type: Package
+Title: Bayesian State-Space Surplus Production Models in 'RTMB'
+Version: 3.0.0.9000
+Authors@R: c(
+    person("Henning", "Winker", email = "henning.winker@gmail.com",
+           role = c("aut", "cre")))
+Description: The next generation of 'JABBA' (Just Another Bayesian Biomass
+    Assessment), now with hyperdrive. Fits Bayesian state-space surplus
+    production models in 'RTMB' in well under a second, so you can spend less
+    time waiting for chains to converge and more time arguing about priors.
+    Full posteriors are available through 'tmbstan' (NUTS) for those who still
+    like their MCMC. Inputs and outputs follow 'FLR' conventions for use with
+    'ggplotFL', 'FLRef' and 'mse', and helpers convert classic 'JABBA' inputs
+    so old scripts survive the jump to hyperspace.
+License: EUPL (>= 1.2)
+Encoding: UTF-8
+Depends:
+    R (>= 4.1)
+Imports:
+    RTMB,
+    Matrix,
+    stats
+Suggests:
+    tmbstan,
+    FLCore,
+    ggplot2,
+    ggplotFL,
+    FLRef,
+    testthat (>= 3.0.0)
+URL: https://github.com/Henning-Winker/JABBA3
+BugReports: https://github.com/Henning-Winker/JABBA3/issues
