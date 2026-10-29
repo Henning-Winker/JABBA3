@@ -51,6 +51,9 @@ is written.
   year weights w_t (normalised to mean 1), as SPiCT's `stdevfacI`; optional lognormal prior on `sdi` via `priors$sdi`
   (off by default, as in the SPiCT benchmarks).
 
+- No bias correction on the index (decided 29 Oct): log I ~ N(log(qB), SD), so qB is the median index, as in JABBA 2,
+  SPiCT and SS3; with constant SD a correction would only rescale q. No option is provided.
+
 ### 2. Specification
 - `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` (lognormal; beta allowed for bkinit), every prior with an
   on/off switch. **JABBA stays JABBA:** defaults follow JABBA 2, with one change, the process error prior.
