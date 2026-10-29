@@ -44,26 +44,26 @@ is written.
 | `sdf` | `sdf` | (inactive "fdev") | SD of an F random walk; only if a catch-conditioned-on-F formulation is added later |
 
 ### 2. Specification
-- `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` on the natural scale with a lognormal prior (as in
-  SPiCT, where each prior is c(mean on log scale, sd, use flag)). Proposed entries and defaults:
+- `jb3_priors()`: one named list, each entry `c(median, log.sd, on)` (lognormal; beta allowed for psi), every prior with an
+  on/off switch. **JABBA stays JABBA:** defaults follow JABBA 2, with one change, the process error prior.
 
-| Prior | Meaning | Default | SPiCT name (default) |
-|---|---|---|---|
-| `r` | intrinsic growth rate | **on** (user, FishLife or from Fmsy) | `logr` (off) |
-| `K` | carrying capacity | off (soft bounds only) **[open]**; JABBA 2 always had a weak K prior (CV 1) | `logK` (off; start 4 x max catch) |
-| `psi` | initial depletion B1/K | on, JABBA 2 default (0.9, CV 0.25) **[open]** | `logbkfrac` (off) |
-| `m` / `BmsyK` | shape | off: shape fixed from BmsyK = 0.4; on to estimate | `logn` (on: log 2, sd 2) |
-| `q` | catchability (per index) | off | `logq` (off) |
-| `sdb` | process error SD | on: LN(2 x life-history floor, 0.3) | `logsdb` (off) |
-| `sdi` | additive index SD | off | `logsdi` (off) |
-| `sdc` | catch SD | fixed when catch error is on | `logsdc` (off) |
-| `sdi/sdb` | ratio (stabiliser) | off; optional | `logalpha` (on: log 1, sd 2) |
-| `kdyn` | depletion dependence of sdb (Tier 2) | on when the dynamic form is used (life-history centre, sd 0.15) | (none) |
+| Prior | Meaning | Default (as JABBA 2 unless noted) |
+|---|---|---|
+| `r` | intrinsic growth rate | **on** (user value, FishLife or from Fmsy) |
+| `K` | carrying capacity | on, weak (JABBA: 8 x max catch, CV 1) |
+| `psi` | initial depletion B1/K | on (JABBA: 0.9, CV 0.25) |
+| `m` / `BmsyK` | shape | fixed from BmsyK (0.4 default); on to estimate m |
+| `q` | catchability | off (flat on log q) |
+| `sdb` | process error SD | **on: LN(0.80 x sigR x r^0.45, 0.3)**, r = median of the r prior, sigR = 0.5 unless given (FishLife relation for sd at Bmsy). Replaces igamma(0.001, 0.001), whose right-skewed posterior collapses the mode towards zero. |
+| `sdi` | additive index SD | estimated, no prior (fixed part from index.var) |
+| `sdc` | catch SD | JABBA catch CV when catch error is on |
+| `kdyn` | depletion dependence of sdb (Tier 2) | on when the dynamic form is used (life-history centre, sd 0.15) |
 
-  SPiCT estimates K freely by default: only `logn`, `logalpha` and `logbeta` (= sdc/sdf) carry default priors, all wide
-  (sd 2); everything else is available but switched off. The JABBA3 defaults stay closer to JABBA (r and psi on, shape
-  fixed) and add the informative `sdb` prior that makes the posterior mode reliable.
-  Name for the depletion-dependence exponent: `kdyn` (not `k`, to avoid confusion with K). **[open]**
+  As in the SPiCT benchmarks (r prior on; priors on sdi, sdb, alpha and beta switched off), no ratio priors (alpha = sdi/sdb,
+  beta = sdc/sdf) are used.
+  To check before release: the FishLife centre is 1.2-3.8x the diffuse-prior JAGS medians on the BioProcDyn case-study OMs
+  (e.g. cod 0.24 vs 0.064, sardine 0.44 vs 0.18); the JABBA 2 soft upper bound sigmaproc_bound = 0.2 conflicts with
+  centres above 0.2 and should go (or be raised).
 - `jb3_model()`: structure. Shape (Schaefer / Fox / Pella / estimated m), production lag, process variance form
   (constant / floor with k / dynamic), Selex EB/SB curves by fleet, catch error, soft bounds.
 - Settings separate from priors, mirroring FLicc's `settings` list.
