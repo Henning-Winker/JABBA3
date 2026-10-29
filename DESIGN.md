@@ -61,7 +61,7 @@ is written.
 | `K` | carrying capacity | on, weak (JABBA: 8 x max catch, CV 1) |
 | `bkinit` | initial depletion B1/K (JABBA 2: `psi`, accepted as alias by the legacy helper; SPiCT: `bkfrac`) | on (JABBA: 0.9, CV 0.25) |
 | `m` / `BmsyK` | shape | fixed from BmsyK (0.4 default); on to estimate m |
-| `q` | catchability | off (flat on log q) |
+| `q` | catchability | estimated as log q, flat on log q (decided 29 Oct; departs from JABBA 2's uniform on q). Optional lognormal prior via `priors$q`; legacy `q.prior = "uniform"` reproduces JABBA 2. Note: uniform on q leans towards large q and small biomass; flat log q gives ~0.01-0.04 more optimistic status (BioProcDyn RESULTS_RTMB 7d). |
 | `sdb` | process error SD | **on: LN(0.80 x sigR x r^0.45, 0.3)**, r = median of the r prior, sigR = 0.5 unless given (FishLife relation for sd at Bmsy). Replaces igamma(0.001, 0.001), whose right-skewed posterior collapses the mode towards zero. |
 | `sdi` | index SD | estimated, no prior; additive to index.var by default, or SPiCT form (`obs.error = "spict"`) with optional LN prior |
 | `sdc` | catch SD | JABBA catch CV when catch error is on |
