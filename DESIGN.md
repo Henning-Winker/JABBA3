@@ -27,6 +27,14 @@ is written.
 - Legacy helper: `jb3_data_jabba(catch, cpue, se, ...)` converts the JABBA 2 data frames to the same internal data object.
 - Internal: one plain list consumed by the model (no FLR objects inside the objective), so FLR stays optional at fit time.
 
+### 1a. Auxiliary data: effort and fishing-pressure indices
+- Effort is fitted to fishing pressure, as in JABBA 2 (`auxiliary.type = "effort"`: qA x H, with the lag option) and SPiCT
+  (log E ~ N(log q_f + log F, sde)): effort is an observation of the harvest rate with its own error term.
+- Not as in sraplus, which converts catch/effort to a CPUE-type index (C / (q E), optionally Baranov) and fits it to biomass, so
+  effort's own error is never modelled.
+- Optional catchability creep on q_E (q_E,t = q_E (1 + delta)^t, delta with an on/off lognormal prior).
+- Other auxiliary types (Z, F/Fmsy, B/Bmsy, B/K) carried over from JABBA 2.
+
 ### 1b. What FLIndexBiomass can store (checked against FLCore 2.6.33)
 - `index`: the index (quant "all"). `index.var`: one value per year; use it for the fixed log-scale SD of the index
   (documented convention) with `distribution = "lognormal"`. `index.q`: starting or fixed catchability.
@@ -69,6 +77,7 @@ is written.
 | `sdi` | index SD | estimated, no prior; additive to index.var by default, or SPiCT form (`obs.error = "spict"`) with optional LN prior |
 | `sdc` | catch SD | JABBA catch CV when catch error is on |
 | `kdyn` | depletion dependence of sdb (Tier 2) | on when the dynamic form is used (life-history centre, sd 0.15) |
+| status priors | B/K, B/Bmsy or F/Fmsy at any years (list) | off; generalises JABBA 2's single-year `b.prior` (cf. sraplus initial/terminal depletion and U/Umsy priors, e.g. from FMI or swept-area ratio) |
 
   As in the SPiCT benchmarks (r prior on; priors on sdi, sdb, alpha and beta switched off), no ratio priors (alpha = sdi/sdb,
   beta = sdc/sdf) are used.
@@ -83,6 +92,8 @@ is written.
 - `engine = "rtmb"`: posterior mode of the fixed effects, states (and catch deviations) Laplace-integrated; uncertainty
   from the joint precision (Wald on the log scale) or pseudo-posterior draws.
 - `engine = "nuts"`: tmbstan on the same objective, all states sampled.
+  Non-centred process errors (states as deviations x sdb) for NUTS, as in sraplus, to avoid the funnel between sdb and the states
+  (low ESS seen with the centred form).
 - Step 1 of the Tier 2 two-step uses an informative lognormal prior on sigma.proc (centre 2 x life-history floor, log sd
   0.3): with it the RTMB mode reproduces the JAGS posterior median (BioProcDyn `output_rtmb/RESULTS_RTMB.md`, section 6).
 
@@ -134,6 +145,8 @@ One routine, run on every fit (fast parts) with the refit-based parts on request
   terminal status by +0.14. Residual tests check the error assumptions; they are not structural diagnostics.
 
 ### 5. Graphics
+- Prior vs posterior: `jbplot_priorpost()` (ggplot), densities per parameter with the prior/posterior variance ratio (PPVR), after
+  JABBA's `jbplot_ppdist()` and sraplus' `plot_prior_posterior()`.
 - JAGG functions moved in (advice plot after `FLRef::plotAdvice()`, fits, residuals, runs test, Kobe, retro, hindcast),
   reading from the FLR outputs through one tidy layer.
 
