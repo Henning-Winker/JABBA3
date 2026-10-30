@@ -223,7 +223,8 @@ jbplot_procdev <- function(x, steps = FALSE){
 #' @param year year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}
 #' @param style "points" (draws as points with contour lines) or "contours" (filled 50/80/95\% highest-density regions,
 #'   as \code{jbplot_biplot()})
-#' @param contours probability levels of the highest-density contour lines of the terminal-year uncertainty (needs MASS;
+#' @param contours contour lines on the uncertainty points: \code{TRUE}/probability levels (default 50/80/95\%) or \code{FALSE}
+#'   for points only; highest-density contours of the terminal-year uncertainty (needs MASS;
 #'   \code{NULL} to omit)
 #' @export
 jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95), style = c("points", "contours")){
@@ -246,8 +247,9 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   ggplot2::ggplot() +
     ggplot2::geom_rect(data = qd, ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = .data$ymin, ymax = .data$ymax, fill = .data$zone), alpha = 0.85) +
     ggplot2::scale_fill_manual(values = fills, breaks = qd$zone, labels = qd$lab, name = paste("Uncertainty", y)) +
-    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey55", alpha = 0.45, size = 1.3)) +
-    (if(style == "points" && length(contours)) .kobe_contours(pt, contours)) +
+    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8)) +
+    (if(style == "points" && !isFALSE(contours) && length(contours))
+      .kobe_contours(pt, if(isTRUE(contours)) c(0.5, 0.8, 0.95) else contours)) +
     (if(style == "contours") .kobe_filled(pt, c(xmax, ymax))) +
     ggplot2::geom_path(data = trj, ggplot2::aes(.data$stock, .data$harvest), linewidth = 0.6) +
     ggplot2::geom_point(data = trj, ggplot2::aes(.data$stock, .data$harvest), shape = 21, fill = "white", size = 1.4) +
@@ -267,9 +269,8 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   z <- sort(k$z, decreasing = TRUE); cz <- cumsum(z)/sum(z)
   lev <- sapply(probs, function(p) z[which(cz >= p)[1]])
   g <- expand.grid(stock = k$x, harvest = k$y); g$z <- as.vector(k$z)
-  cols <- grDevices::colorRampPalette(c("navy", "lightskyblue"))(length(lev))   # inner (50%) dark to outer (95%) light
-  lapply(seq_along(lev), function(i) ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z),
-                                                           breaks = lev[i], colour = cols[i], linewidth = 0.7))
+  ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z), breaks = sort(lev),
+                        colour = "black", linewidth = 0.4)
 }
 
 

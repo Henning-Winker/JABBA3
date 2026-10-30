@@ -19,7 +19,8 @@ jbplot_kobe(
 
 \item{year}{year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}}
 
-\item{contours}{probability levels of the highest-density contour lines of the terminal-year uncertainty (needs MASS;
+\item{contours}{contour lines on the uncertainty points: \code{TRUE}/probability levels (default 50/80/95\%) or \code{FALSE}
+for points only; highest-density contours of the terminal-year uncertainty (needs MASS;
 \code{NULL} to omit)}
 
 \item{style}{"points" (draws as points with contour lines) or "contours" (filled 50/80/95\% highest-density regions,

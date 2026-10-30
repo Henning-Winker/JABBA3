@@ -65,7 +65,7 @@ nested 90% and 60% bands and the MSY reference points as labelled lines.
 
 ```{r qs-kobe, fig.height = 5}
 jbplot_kobe(fit)
-jbplot_kobe(fit, style = "contours")   # filled 50/80/95% regions, as jbplot_biplot()
+jbplot_kobe(fit, style = "contours")   # filled 50/80/95% regions, as jbplot_biplot(); contours = FALSE: points only
 ```
 
 `jbplot_all(fit, dir)` writes all standard plots of a fit to PNG files.
