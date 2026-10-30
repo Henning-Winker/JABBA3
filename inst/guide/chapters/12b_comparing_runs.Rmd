@@ -33,7 +33,7 @@ jbplot_summary(runs)
 `jbplot_advice(fit, proj = )` appends projection scenarios (dashed) to the
 assessment:
 
-```{r cmp-advice-proj, fig.height = 4}
+```{r cmp-advice-proj, fig.height = 7, fig.width = 7}
 jbplot_advice(fit, proj = pj)
 ```
 

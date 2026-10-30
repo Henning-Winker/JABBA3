@@ -4,7 +4,7 @@
 \alias{jbplot_advice}
 \title{Advice plot}
 \usage{
-jbplot_advice(x, rel = TRUE, panels = NULL, nested = TRUE, ...)
+jbplot_advice(x, rel = TRUE, panels = NULL, nested = TRUE, ncol = 1, ...)
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
@@ -14,6 +14,8 @@ jbplot_advice(x, rel = TRUE, panels = NULL, nested = TRUE, ...)
 \item{panels}{quantities to show instead of the default set}
 
 \item{nested}{nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval}
+
+\item{ncol}{facet columns}
 
 \item{...}{passed to \code{jbplot_trj()} (e.g. \code{extra}, \code{proj}, \code{drop.last}, \code{probs})}
 }

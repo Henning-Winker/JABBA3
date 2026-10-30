@@ -195,8 +195,9 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
 #' @param panels quantities to show instead of the default set
 #' @param ... passed to \code{jbplot_trj()} (e.g. \code{extra}, \code{proj}, \code{drop.last}, \code{probs})
 #' @export
-jbplot_advice <- function(x, rel = TRUE, panels = NULL, nested = TRUE, ...)
-  jbplot_trj(x, type = panels %||% (if(rel) c("B/Bmsy", "F/Fmsy", "Catch") else c("B", "F", "Catch")), nested = nested, ...)
+jbplot_advice <- function(x, rel = TRUE, panels = NULL, nested = TRUE, ncol = 1, ...)
+  jbplot_trj(x, type = panels %||% (if(rel) c("B/Bmsy", "F/Fmsy", "Catch") else c("B", "F", "Catch")), nested = nested,
+             ncol = ncol, ...)
 
 #' Process error deviations and process SD
 #' @inheritParams jbplot_trj
@@ -653,7 +654,7 @@ jbplot_all <- function(fit, dir = ".", retro = NULL, hc = NULL, proj = NULL, wid
   if(!is.null(proj)){ pl$projection <- jbplot_projection(proj); if(nrow(proj$scenarios) > 1) pl$crisk <- jbplot_crisk(proj) }
   fn <- file.path(dir, paste0(fit$run, "_", names(pl), ".png"))
   for(i in seq_along(pl)){
-    h <- if(names(pl)[i] == "spict_diags") 2.6*length(unique(fit$index$index)) else if(names(pl)[i] %in% c("nuts_pairs", "nuts_rhat")) width else height
+    h <- if(names(pl)[i] == "spict_diags") 2.6*length(unique(fit$index$index)) else if(names(pl)[i] %in% c("nuts_pairs", "nuts_rhat")) width else if(names(pl)[i] == "advice") 1.4*height else height
     ggplot2::ggsave(fn[i], pl[[i]], width = width, height = h, dpi = dpi)
   }
   invisible(fn)

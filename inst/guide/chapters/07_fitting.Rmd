@@ -41,7 +41,7 @@ reference points such as $B_{lim}$, `drop.last` to drop the last year of F and
 catch, `proj` to append projections (dashed) and `probs` for other bands. A
 list of fits is coloured by run.
 
-```{r fit-advice-extra, fig.height = 4}
+```{r fit-advice-extra, fig.height = 7, fig.width = 7}
 jbplot_advice(fit, extra = c(Blim = 0.5, Bpa = 0.8), drop.last = TRUE)
 ```
 
