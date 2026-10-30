@@ -1,0 +1,40 @@
+# Summary of checks and functions
+
+| # | Check | Red flag | Action |
+|---|---|---|---|
+| 1 | data (`jbplot_data`) | no contrast; conflicting indices | r prior, status priors; separate `sdi`; sensitivity runs |
+| 2 | prior and posterior (`jbplot_priorpost`) | posterior = prior; posterior at the edge | report; revisit priors |
+| 3 | convergence (`jb3_convergence`) | gradient, Hessian, Newton decrement | restarts; priors on r or K; fewer groups |
+| 4 | residuals (`jbplot_residuals`, `jbplot_runs`, `jb3_diags`) | trends, failed runs or Ljung-Box tests | lag + AR(1); index conflict |
+| 5 | retrospective (`jb3_retro`) | Mohn's rho beyond -0.15 to 0.20 | recent data, q |
+| 6 | hindcast (`jb3_hindcast`) | MASE > 1 | index without prediction skill |
+| 7 | process deviations (`jbplot_procdev`) | long runs of one sign | `rho = 0.75`, `lag = amat` |
+| 8 | NUTS (`jb3_nuts_diags`, `jbplot_nuts`) | $\hat{R} > 1.01$, low ESS, divergences, E-BFMI < 0.3 | longer chains; `adapt_delta`; priors |
+
+| Topic | Recommendation |
+|---|---|
+| Process error | lag at the age at maturity + AR(1) with $\rho = 0.75$ (sensitivity 0.5, 0.9); FishLife prior on $\sigma_{MSY}$ |
+| Shape | Pella with $B_{MSY}/K = 0.4$ unless known; convert the r prior with the shape |
+| Engine | posterior mode for exploration, diagnostics, retro and hindcast; NUTS for final runs |
+| Simulation testing and MSE | `se = FALSE, osa = FALSE` |
+
+## Function reference
+
+| Area | Functions |
+|---|---|
+| Data | `jb3_data()`, `jb3_data_jabba()` |
+| Priors and model | `jb3_priors()`, `jb3_model()` |
+| Fitting | `jabba3()`, `jb3_draws()` |
+| Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |
+| Convergence | `jb3_convergence()` |
+| Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
+| NUTS diagnostics | `jb3_nuts_diags()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
+| Projections | `jb3_project()` |
+| FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
+| Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |
+| Graphics | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_fits()`, `jbplot_residuals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_priorpost()`, `jbplot_production()`, `jbplot_procdev()`, `jbplot_data()`, `jbplot_catch()`, `jbplot_retro()`, `jbplot_hcxval()`, `jbplot_projection()`, `jbplot_steps()`, `jbplot_all()` |
+| Graphics helpers | `theme_jabba3()`, `scale_x_year()`, `jb3cols()` |
+| Information | `jabba3_info()` |
+
+*Planned: auxiliary data (effort), multi-fleet Selex, non-centred NUTS for the
+states, a worked simulation-testing example.*

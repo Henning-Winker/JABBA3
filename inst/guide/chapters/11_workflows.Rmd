@@ -1,0 +1,32 @@
+# BioProcDyn workflows
+
+The workflows of the BioProcDyn protocol run automatically with
+`jabba3(..., workflow = )`, or step by step with `jb3_tier1()` and
+`jb3_tier2()` on any fit. All steps are kept in `$steps`.
+
+| `workflow` | Steps |
+|---|---|
+| `"tier1"` | production lag at the age at maturity (`amat`) |
+| `"tier2"` | step 1: constant process error (FishLife prior); step 2: dynamic $\sigma_t = \sigma_{MSY} x_t^{-k}$ with the level tuned on step 1, $\sigma_{MSY} = \hat\sigma_1 / \sqrt{\mathrm{mean}(x_{1,t}^{-2k})}$, k estimated with the life-history prior, plus the lag |
+| `"selex"`, `"selex_tier1"`, `"selex_tier2"` | the same with the spawning-biomass state (needs `model$ebsb`) |
+
+```{r wf-tier2}
+wf <- jabba3(d, pr, jb3_model(shape = "fox"), workflow = "tier2", amat = 3)
+names(wf$steps)
+```
+
+```{r wf-steps, fig.height = 6}
+jbplot_steps(wf)
+```
+
+Step by step, from an existing fit:
+
+```{r wf-step}
+t1 <- jb3_tier1(fit, amat = 3)
+t1$model$lag
+```
+
+> The BioProcDyn simulations found that the depletion-dependent process error
+> of Tier 2, although present in the operating models, did not remove the
+> optimism; lag + AR(1) (`jb3_model(lag = amat, rho = 0.75)`) did. The tiers
+> are kept for comparison and sensitivity.

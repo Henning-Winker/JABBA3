@@ -1,0 +1,121 @@
+# Model options
+
+The model structure is set with `jb3_model()`, separately from the priors.
+
+| Setting | Default | Role |
+|---|---|---|
+| `shape` | `"pella"` | `"pella"` (shape from `BmsyK`), `"schaefer"` ($B_{MSY}/K = 0.5$) or `"fox"` ($m = 1.001$) |
+| `BmsyK` | 0.4 | $B_{MSY}/K$ for the Pella-Tomlinson form |
+| `lag` | 0 | production lag in years (age at maturity) |
+| `rho` | 0 | AR(1) coefficient of the process deviations |
+| `rw`, `rw.scale` | `FALSE`, 1 | random walk in the process deviations (the conditional $\rho = 1$ limit) |
+| `sdb.form` | `"const"` | `"dyn"`: process error SD $\sigma_t = \sigma_{MSY}(B_t/B_{MSY})^{-k}$ |
+| `sdb.fixed` | `NULL` | fix the process error SD (used by Tier 2) |
+| `xlim` | `c(0.2, 3)` | bounds of $B/B_{MSY}$ in the dynamic SD |
+| `biascor` | `FALSE` | lognormal bias correction of the process error |
+| `start` | `"all"` | `"index"`: no process error before the first index year |
+| `obs.error` | `"additive"` | `"additive"`: SD $= \sqrt{se^2 + sdi^2}$ (JABBA); `"spict"`: SD $= sdi \times w_t$ |
+| `se.min`, `se.na` | `NULL`, 0.3 | minimum SE; SE where an index has SEs but a year has none |
+| `sets.q`, `sets.var` | one per index | catchability and variance groups |
+| `catch.error`, `sdc` | `TRUE`, 0.1 | catch with lognormal error |
+| `ebsb`, `ebsb.index`, `ebsb.catch`, `ebsb.removal` | `NULL` | Selex: spawning biomass as the state, with EB/SB curves |
+| `q.uniform` | `FALSE` | JABBA 2 (JAGS) uniform prior on q |
+| `P.bound`, `K.bound`, `sdi.bound` | JABBA 2 | soft bounds |
+
+## Shape
+
+```{r model-shape}
+fits.shape <- lapply(c(schaefer = "schaefer", pella = "pella", fox = "fox"), function(s)
+  jabba3(d, pr, jb3_model(shape = s), osa = FALSE))
+t(sapply(fits.shape, function(f) c(Fmsy = f$refpts["Fmsy", "est"], MSY = f$refpts["MSY", "est"],
+                                   BmsyK = f$refpts["BmsyK", "est"], B.Bmsy = tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1))))
+```
+
+> With the same r prior the three shapes imply different $F_{MSY}$; convert
+> the r prior with the shape (section *Priors*) when comparing shapes.
+
+## Process error: lag and persistence (recommended)
+
+The BioProcDyn simulations showed that the standard assumption of independent
+process error with no lag makes surplus production models over-optimistic
+about rebuilding, and more so for late-maturing stocks. The true process
+deviations are persistent (lag-1 autocorrelation 0.7-0.8 for most life
+histories) and a model with independent deviations absorbs this persistence
+into r and K. The recommended configuration is
+
+- a **production lag** at the age at 50% maturity, `lag = amat`;
+- **AR(1) process deviations** with $\rho = 0.75$ (sensitivity 0.5 and 0.9);
+  $\sigma_{MSY}$ stays the marginal SD, $d_t \sim N(\rho d_{t-1}, \sigma^2(1-\rho^2))$;
+- the FishLife prior on $\sigma_{MSY}$ (default).
+
+```{r model-ar1}
+rec <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, rho = 0.75))
+rec
+```
+
+```{r model-ar1-plot, fig.height = 6}
+jbplot_trj(list(Current = fit, `Lag + AR(1)` = rec), type = c("B/Bmsy", "F/Fmsy"))
+```
+
+> Provisional: the FishLife calibration suggests a life-history default
+> $\rho \approx \exp(-2.2/GT)$, with GT the generation time (about 0.4 for
+> GT = 3 and 0.8 for GT = 10 or more); $\rho = 0.75$ corresponds to GT of
+> 6-10 years.
+
+$\rho$ can be estimated with a normal prior, by switching `priors$rho` on;
+with a single index this is less stable than fixing it.
+
+```{r model-rhoest}
+pr.rho <- jb3_priors(d, r = c(0.2, 0.5), rho = c(0.7, 0.15, 1))
+fr <- jabba3(d, pr.rho, jb3_model(shape = "fox", lag = 3), osa = FALSE)
+fr$report$rho
+```
+
+## Depletion-dependent process error
+
+`sdb.form = "dyn"` makes the process error SD increase at low biomass,
+$\sigma_t = \sigma_{MSY} x_t^{-k}$ with $x_t = B_t/B_{MSY}$ bounded to `xlim`,
+and k estimated with the life-history prior `kdyn`. In BioProcDyn modelling
+this inflation did not reduce the bias, so it is an option (and part of the
+Tier 2 workflow, section *Workflows*), not the default.
+
+```{r model-dyn}
+fd <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, sdb.form = "dyn"), osa = FALSE)
+fd$pars[c("sdb", "kdyn"), c("est", "lci", "uci")]
+```
+
+## Index observation error
+
+`obs.error = "additive"` (default, as JABBA 2) adds an estimated SD `sdi` to
+the input standard errors, $SD_t = \sqrt{se_t^2 + sdi^2}$.
+`obs.error = "spict"` uses SPiCT's form, $SD_t = sdi \times w_t$, where the
+input SEs enter only as relative weights $w_t$ (as `stdevfacI`); a prior on
+`sdi` is then available through `priors$sdi` (here on, as without it the SD of
+the second bigeye index collapses towards zero). Indices can share catchability
+(`sets.q`) or variance (`sets.var`), e.g. `sets.q = c(1, 1)` for two segments
+of one fleet.
+
+```{r model-obs}
+pr.sdi <- jb3_priors(d, r = c(0.2, 0.5), sdi = c(0.1, 0.5, 1))
+fsp <- jabba3(d, pr.sdi, jb3_model(shape = "fox", obs.error = "spict"), osa = FALSE)
+fsp$pars[grep("sdi", rownames(fsp$pars)), c("est", "lci", "uci")]
+```
+
+## Catch error
+
+With `catch.error = TRUE` (default) the catch is estimated with lognormal error
+(SD `sdc = 0.1`) as random effects, as JABBA 2's `add.catch.CV = TRUE`; this
+absorbs small inconsistencies between catch and production. `catch.error = FALSE`
+treats the catch as known.
+
+## Selex (spawning biomass as the state)
+
+With `ebsb` the state is spawning biomass and the indices and removals are
+mapped to it through the equilibrium ratio of exploitable to spawning biomass,
+a function of depletion given as a curve `c(u1, u2, u3, P1, P2)` (or a named
+list of curves, one per selectivity), assigned to indices with `ebsb.index`
+and to the removals with `ebsb.catch`. The priors are then on the
+spawning-biomass scale. The curves come from an age-structured equilibrium
+analysis (e.g. FLBRP) or from a JABBA 2 Selex setup via `jbinput2jabba3()`.
+Selex is a special case for stocks where the fishery selects well below
+maturity and is not covered further here.

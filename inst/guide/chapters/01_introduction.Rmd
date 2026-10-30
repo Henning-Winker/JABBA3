@@ -1,0 +1,58 @@
+# JABBA3: surplus production models without the JAGS
+
+JABBA3 fits **Bayesian state-space surplus production models**: biomass
+dynamics driven by a Pella-Tomlinson production function, fishery removals and
+process error, fitted to one or more abundance indices. It is the successor of
+JABBA (Just Another Bayesian Biomass Assessment; Winker et al. 2018), rebuilt
+in RTMB (Kristensen et al. 2016) and with inputs and outputs in FLR (Kell et
+al. 2007):
+
+- **The same model family as JABBA 2.** Schaefer, Fox and Pella-Tomlinson
+  production, the JABBA priors (r, K, initial depletion, shape), process error
+  after the catch, additive index variance and catch with error. With the same
+  priors JABBA3 reproduces the JABBA 2 RTMB engine to within $10^{-4}$ in
+  $\log B/B_{MSY}$.
+- **Fast.** The log-depletion states are integrated by the Laplace
+  approximation and the fixed effects estimated at the posterior mode; a fit
+  takes well under a second, so retrospectives, hindcasts, sensitivity runs and
+  simulation testing are cheap.
+- **Fully Bayesian when needed.** The same objective can be sampled with NUTS
+  (tmbstan; Monnahan and Kristensen 2018) for final runs and credible
+  intervals.
+- **Process error from BioProcDyn.** Production lag at the age at maturity,
+  AR(1) process deviations, depletion-dependent process error and a
+  life-history (FishLife) prior on its scale.
+- **Diagnostics.** One-step-ahead (OSA) residuals by particle filter, runs
+  tests, the SPiCT residual tests, retrospective analysis (Mohn's rho) and
+  hindcast cross-validation (MASE).
+- **FLR inside.** Catch as `FLQuant`, indices as `FLIndices`; status, reference
+  points and parameters out as `FLQuants` and `FLPar`.
+- **Converters.** Classic JABBA data frames, JABBA 2 `build_jabba()` objects
+  and SPiCT input lists convert to JABBA3 inputs.
+
+How JABBA 2 options map to JABBA3:
+
+| JABBA 2 | JABBA3 |
+|---|---|
+| `build_jabba(catch, cpue, se, ...)` | `jb3_data()` + `jb3_priors()` + `jb3_model()`, or `jbinput2jabba3(jbinput)` |
+| `fit_jabba()` (JAGS) | `jabba3(engine = "rtmb")` (mode) or `jabba3(engine = "nuts")` |
+| `r.prior`, `K.prior`, `psi.prior` | `jb3_priors(r = , K = , bkinit = )`, each `c(median, log.sd, on)` |
+| `sigma.proc.prior` (inverse-gamma) | `jb3_priors(sdb = "fishlife")` (lognormal, life-history centre) |
+| `model.type`, `BmsyK` | `jb3_model(shape = , BmsyK = )` |
+| `sigma.est`, `fixed.obsE` | estimated `sdi` + input SEs (`obs.error = "additive"`) |
+| `add.catch.CV` | `jb3_model(catch.error = TRUE, sdc = 0.1)` |
+| `jbplot_*()` | `jbplot_*()` (ggplot2) |
+
+## About this guide
+
+**Part I** (sections 3-9) goes through an assessment from the data to stock
+status: data, priors, model options, fitting, convergence and residual
+diagnostics, with **checks** at each step (what to look at, what is a red flag,
+what to do about it). **Part II** (sections 10-15) covers NUTS, the BioProcDyn
+process-error workflows, projections, FLR outputs, converters from JABBA 2 and
+SPiCT, and the model equations. Section 16 summarises the checks and the
+functions. The examples use the built-in ICCAT data (`data(iccat)`): Atlantic
+bigeye tuna, white marlin, South Atlantic swordfish and blue marlin.
+
+> This is a first draft (prototype, 30 October 2026). Interfaces may still
+> change.

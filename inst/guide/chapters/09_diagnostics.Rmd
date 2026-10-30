@@ -1,0 +1,77 @@
+# Check 4: residual diagnostics
+
+## One-step-ahead residuals
+
+The residuals of a state-space model computed from the smoothed states are
+shrunk and autocorrelated by construction, so the classic tests are biased.
+JABBA3 computes **one-step-ahead (OSA) residuals** (Thygesen et al. 2017) by a
+particle filter (`jb3_osa()`, run by `jabba3(osa = TRUE)`): each observation is
+predicted from the data up to the previous one. Under a correct model they are
+independent N(0, 1).
+
+```{r diag-osa, fig.height = 4}
+jbplot_residuals(fit)
+```
+
+`jbplot_residuals(fit, type = "ordinary")` shows the classic log residuals.
+
+## Runs tests
+
+The runs test (Wald-Wolfowitz) checks for too few runs of residual signs
+(autocorrelation), with three-sigma limits from the average moving range (as
+JABBA, ss3diags and JAGG). Green: passed ($p \ge 0.05$); red: failed.
+
+```{r diag-runs, fig.height = 4}
+jbplot_runs(fit)
+```
+
+## The JABBA and SPiCT test sets
+
+`jb3_diags()` gives one table per index: RMSE, SDNR, runs test and the share
+outside the three-sigma limits (the JABBA set), and the bias t-test, Ljung-Box
+test (lag 4) and Shapiro-Wilk normality test (the SPiCT set, as
+`plotspict.diagnostic()`). `flag` is `TRUE` when any test has $p < 0.05$.
+
+```{r diag-table}
+jb3_diags(fit)
+```
+
+```{r diag-spict, fig.height = 5.5}
+jbplot_spdiags(fit)
+```
+
+> Residual tests check the error assumptions; they have little power to detect
+> structural misspecification such as an omitted production lag. Use the
+> retrospective and hindcast as well.
+
+## Retrospective analysis
+
+`jb3_retro()` refits with the last 1 to `n` years of all data removed and
+computes Mohn's rho.
+
+```{r diag-retro, fig.height = 4}
+rt <- jb3_retro(fit, n = 5)
+rt$rho
+jbplot_retro(rt)
+```
+
+## Hindcast cross-validation
+
+`jb3_hindcast()` removes the last 1 to `n` years of the indices (catch kept),
+predicts each removed observation one step ahead, and computes the mean
+absolute scaled error (MASE; Kell et al. 2021; Carvalho et al. 2021), the prediction error
+relative to a naive prediction (the last observed value). MASE < 1: the model
+predicts better than the naive guess.
+
+```{r diag-hc, fig.height = 4}
+hc <- jb3_hindcast(fit, n = 5)
+hc$mase
+jbplot_hcxval(hc)
+```
+
+| What | Red flag | Action |
+|---|---|---|
+| OSA residuals | trends, runs test failed | lag, AR(1), index conflict; separate `sdi` |
+| Ljung-Box | p < 0.05 | autocorrelated residuals: process error persistence (AR(1)), or index trends in q |
+| Mohn's rho | beyond -0.15 to 0.20 | retrospective pattern; check recent data and q |
+| MASE | > 1 | no prediction skill for that index |

@@ -1,0 +1,51 @@
+# Data
+
+## Data frames (JABBA format)
+
+`jb3_data()` takes the JABBA 2 data frames directly: `catch`
+(`year, catch[, fleet 2, ...]`), `cpue` (`year, index1, index2, ...`, `NA` for
+missing years) and optionally `se` (log-scale standard errors, same columns as
+`cpue`). Catches by fleet are summed for the fit and kept in `catch.fleets`.
+
+```{r data-df}
+d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+d$years
+str(d$I)
+```
+
+```{r data-plot, fig.height = 5}
+jbplot_data(d)
+```
+
+## FLR objects
+
+The native input is catch as an `FLQuant` (or `FLQuants` by fleet) and indices
+as `FLIndices` of `FLIndexBiomass`, with the log-scale standard errors in
+`index.var`. `jbdat2flr()` converts the JABBA data frames, and `flr2jbdat()`
+converts back:
+
+```{r data-flr}
+library(FLCore)
+x <- jbdat2flr(bet$catch, bet$cpue, bet$se)
+names(x)                    # auxiliary is NULL when not given
+x$catch[, ac(2013:2017)]
+names(x$indices)
+index.var(x$indices[[2]])[, ac(2013:2017)]
+d.flr <- jb3_data(x$catch, x$indices, stock = "bet")
+all.equal(d.flr$I, d$I, check.attributes = FALSE)
+```
+
+Several catch columns give `FLQuants` (one per fleet) unless `fleets = FALSE`.
+`jbcatch2flq()` and `jbidx2FLIndices()` convert the catch and the indices
+separately.
+
+## Check 1: the data
+
+`jbplot_data()` shows the catch and the indices. Look for:
+
+| What | Red flag | Action |
+|---|---|---|
+| contrast | indices flat while catch changes, or the reverse | r and K are confounded; tighter r prior, or use status priors |
+| index overlap | indices in conflict where they overlap | separate `sdi`; drop or down-weight one index; sensitivity runs |
+| standard errors | very small SEs (< 0.05) | the estimated `sdi` adds variance, but check where the SEs come from |
+| catch | gaps, early catch reconstructed | `catch.error = TRUE` (default); start later with `bkinit` prior |

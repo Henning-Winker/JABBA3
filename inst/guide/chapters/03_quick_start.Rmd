@@ -1,0 +1,36 @@
+# Quick start: your first fit
+
+Atlantic bigeye tuna: catch from 1950 and two Japanese longline CPUE indices
+with log-scale standard errors, in the JABBA data-frame format.
+
+```{r qs-data}
+data(iccat)
+names(iccat)
+bet <- iccat$bet
+head(bet$catch, 3)
+head(bet$cpue[bet$cpue$year >= 1959, ], 3)
+```
+
+Three steps: data, priors, fit.
+
+```{r qs-fit}
+d   <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+pr  <- jb3_priors(d, r = c(0.2, 0.5))
+fit <- jabba3(d, pr, jb3_model(shape = "fox"), ndraws = 1000)
+fit
+```
+
+The print shows the convergence verdict, the estimates with 95% intervals and
+the stock status in the last year. `ndraws = 1000` adds draws from the
+multivariate normal approximation at the mode, used for the Kobe plot and
+projections. The fitting took `r round(fit$time, 2)` s.
+
+```{r qs-advice, fig.height = 6}
+jbplot_advice(fit)
+```
+
+```{r qs-kobe, fig.height = 5}
+jbplot_kobe(fit)
+```
+
+`jbplot_all(fit, dir)` writes all standard plots of a fit to PNG files.

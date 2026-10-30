@@ -1,0 +1,21 @@
+# FLR outputs
+
+`jb3_flqs()` returns the time series as `FLQuants` (`stock` = B/Bmsy, `harvest`
+= F/Fmsy, `biomass`, `F` and `catch`), with the draws as iterations when the
+fit has draws; `jb3_flpar()` returns parameters, reference points and current
+status as an `FLPar`.
+
+```{r flr}
+fq <- jb3_flqs(fit)
+names(fq)
+dim(fq$stock)
+jb3_flpar(fit)
+```
+
+These plot with ggplotFL and can be used in FLR workflows (e.g. as the output
+of an estimator in `mse`):
+
+```{r flr-plot, fig.height = 5, eval = requireNamespace("ggplotFL", quietly = TRUE)}
+library(ggplotFL)
+plot(fq[c("stock", "harvest", "catch")]) + ggplot2::geom_hline(yintercept = 1, linetype = 2)
+```

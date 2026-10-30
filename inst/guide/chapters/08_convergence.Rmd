@@ -1,0 +1,21 @@
+# Check 3: convergence
+
+`jb3_convergence()` follows FLicc: the optimiser code, the largest gradient,
+a positive definite Hessian, finite standard errors and the Newton decrement
+(the expected further decrease of the objective by one Newton step). The fit
+is classed `ok`, `warning` or `failed`.
+
+```{r conv}
+jb3_convergence(fit)
+fit$convergence$tier
+```
+
+| What | Red flag | Action |
+|---|---|---|
+| max gradient | > 0.001 | refit (`nstart`), check priors and bounds |
+| Hessian | not positive definite | a parameter is not identified: priors on r or K, fewer q or variance groups |
+| Newton decrement | > 0.1 | not at the optimum; simplify the model |
+| estimates at bounds | K at `K.bound`, B/K at `P.bound` | prior-data conflict; revisit priors |
+
+The fit internally polishes the optimum with Newton steps and restarts from
+jittered values when the gradient is large (`nstart`).

@@ -1,0 +1,24 @@
+# Projections
+
+`jb3_project()` projects the stock under constant catch (`catch`) or constant
+$F/F_{MSY}$ (`fmsy`) scenarios, from the NUTS draws or from MVN draws at the
+mode (generated if the fit has none), with process error (and its AR(1)
+persistence and the lag).
+
+```{r proj}
+pj <- jb3_project(fit, catch = c(60000, 70000, 80000), nyears = 10)
+pj$scenarios
+head(pj$ts[pj$ts$quantity == "B/Bmsy", ], 4)
+```
+
+`p.above` is the probability of being above the reference ($B > B_{MSY}$ or
+$F < F_{MSY}$).
+
+```{r proj-plot, fig.height = 6}
+jbplot_projection(pj)
+```
+
+```{r proj-f, fig.height = 6}
+pf <- jb3_project(rec, fmsy = c(0.5, 0.8, 1), nyears = 10)
+jbplot_projection(pf)
+```

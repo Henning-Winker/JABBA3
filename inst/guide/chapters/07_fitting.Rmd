@@ -1,0 +1,85 @@
+# Fitting
+
+`jabba3()` fits the model.
+
+| Argument | Default | Role |
+|---|---|---|
+| `engine` | `"rtmb"` | `"rtmb"`: posterior mode, states Laplace-integrated; `"nuts"`: full posterior with tmbstan |
+| `ndraws` | 0 | draws from the MVN approximation at the mode (Kobe plot, projections) |
+| `nuts` | `list()` | tmbstan settings: `chains`, `iter`, `warmup`, `seed`, `cores`, `thin`, `control` |
+| `osa` | `TRUE` | one-step-ahead residuals by particle filter |
+| `se` | `TRUE` | standard errors by the delta method; `FALSE` for fast point estimates |
+| `workflow`, `amat` | `"none"` | BioProcDyn workflows (section *Workflows*) |
+| `run` | `NULL` | run name for plots |
+| `peels`, `index.peels` | 0 | remove the last years of all data or of the indices (used by retro and hindcast) |
+| `nstart` | 4 | guarded restarts |
+
+## Posterior mode
+
+The default: the log-depletion states (and catch deviations) are integrated by
+the Laplace approximation, and the fixed effects (log K, log r, log q, initial
+depletion, process and observation SDs) are estimated at the mode of the
+posterior. Intervals come from the delta method on the log scale.
+
+```{r fit-mode}
+fit$time
+fit$pars[, c("est", "lci", "uci")]
+fit$refpts[, c("est", "lci", "uci")]
+head(fit$ts[fit$ts$quantity == "B/Bmsy", ], 3)
+```
+
+The time series in `fit$ts` hold B, F, B/Bmsy, F/Fmsy, B/K, catch and the
+process deviations with 95% intervals.
+
+```{r fit-trj, fig.height = 6}
+jbplot_trj(fit)
+```
+
+## Fast point estimates
+
+For simulation testing, MSE and large grids, `se = FALSE, osa = FALSE` skips
+the standard errors and residuals:
+
+```{r fit-fast}
+system.time(fq <- jabba3(d, pr, jb3_model(shape = "fox"), se = FALSE, osa = FALSE))
+fq$pars[c("K", "r"), "est"]
+```
+
+## Full posterior with NUTS
+
+`engine = "nuts"` samples all parameters and states of the same model with
+tmbstan (no Laplace approximation), started from the mode. Posterior medians
+and quantiles replace the mode summaries in `pars`, `refpts` and `ts`.
+
+```{r fit-nuts}
+fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts",
+             nuts = list(chains = 3, iter = 1000, cores = 3))
+fn
+```
+
+> 1000 iterations per chain keep this guide fast; use at least 2000 (and check
+> the NUTS diagnostics, section *NUTS diagnostics*) for final runs.
+
+## Fit to the indices
+
+```{r fit-fits, fig.height = 4}
+jbplot_fits(fit)
+```
+
+`jbplot_fits(fit, log = TRUE)` plots on the log scale; the shaded band is the
+posterior predictive interval including observation error.
+
+## Production function and process deviations
+
+```{r fit-prod, fig.height = 4.5}
+jbplot_production(fit)
+```
+
+```{r fit-procdev, fig.height = 3.5}
+jbplot_procdev(fit)
+```
+
+| What | Red flag | Action |
+|---|---|---|
+| process deviations | long runs of the same sign | persistence: AR(1) with `rho = 0.75` and the lag |
+| production plot | catch persistently above the production curve while biomass increases | the production function is wrong for the data: lag, shape, index trends |
