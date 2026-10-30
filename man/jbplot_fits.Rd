@@ -15,7 +15,7 @@ jbplot_fits(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dodgerblue")
 
 \item{steps}{for a workflow fit, plot all steps}
 
-\item{colour}{ribbon colour for a single run}
+\item{colour}{interval colour for a single run (grey; projections are coloured by scenario)}
 }
 \description{
 Observations, fitted index with its 95\% interval and the 95\% predictive interval (grey), one facet per index.

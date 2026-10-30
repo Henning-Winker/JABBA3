@@ -78,7 +78,7 @@ jb3cols <- function(n, alpha = 1){
 #' labelled lines (FLRef::plotAdvice style). Several fits (a list, or the steps of a workflow fit) are coloured by run.
 #' With \code{nested = TRUE} the plot follows JAGG's \code{jagg_advice()}: a 90\% (alpha 0.2) and a 60\% band (alpha 0.4)
 #' around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
-#' Projections from \code{\link{jb3_project}()} are appended as dashed lines (one per scenario).
+#' Projections from \code{\link{jb3_project}()} are appended after the last year (one colour per scenario, with intervals).
 #' @param x a \code{jabba3} fit, a list of fits, or a workflow fit
 #' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
 #'   "Process SD", "Surplus production", "EB"
@@ -87,17 +87,17 @@ jb3cols <- function(n, alpha = 1){
 #' @param extra named vector of extra reference points (names starting with B go to the biomass panel, F to the F panel,
 #'   on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/Bmsy)
 #' @param ncol facet columns
-#' @param colour ribbon colour for a single run
+#' @param colour interval colour for a single run (grey; projections are coloured by scenario)
 #' @param nested nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval
 #' @param probs five probabilities for \code{nested}: outer and inner bands and the median
 #' @param drop.last drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})
-#' @param proj optional output of \code{\link{jb3_project}()}, drawn dashed after the last year
+#' @param proj optional output of \code{\link{jb3_project}()}, appended after the last year
 #' @param label.size size of the reference point labels
 #' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
 #'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit
 #' @export
 jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"), steps = FALSE, refpts = TRUE, extra = NULL,
-                       ncol = NULL, colour = "dodgerblue", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
+                       ncol = NULL, colour = "grey45", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
                        drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
@@ -133,16 +133,15 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
         data.frame(scenario = sc, year = y0, quantity = l$quantity, est = l$est, lci = l$lci, uci = l$uci) }))
       pr <- rbind(last, pr); pr$quantity <- factor(pr$quantity, levels = type); pr$scenario <- factor(pr$scenario, unique(proj$ts$scenario))
       nsc <- length(unique(pr$scenario))
-      if(nsc == 1 && nr == 1){
-        p <- p + ggplot2::geom_ribbon(data = pr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = colour, alpha = 0.15) +
-          ggplot2::geom_line(data = pr, linetype = 2, linewidth = 0.6)
-      } else {
-        if(nr == 1){
-          pcol <- stats::setNames(jb3cols(nsc), levels(pr$scenario))
-          p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario, colour = .data$scenario), linetype = 2, linewidth = 0.6) +
-            ggplot2::scale_colour_manual(values = pcol, name = NULL)
-        } else p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario), linetype = 2, linewidth = 0.4, colour = "grey30")
-      }
+      mxp <- stats::ave(pr$est, pr$quantity, FUN = function(x) 3*max(abs(x), na.rm = TRUE))
+      pr$uci <- pmin(pr$uci, mxp)                                   # guard against exploding intervals
+      if(nr == 1){
+        pcol <- stats::setNames(if(nsc == 1) "dodgerblue" else jb3cols(nsc), levels(pr$scenario))
+        p <- p + ggplot2::geom_ribbon(data = pr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci, group = .data$scenario,
+                                                              fill = .data$scenario), alpha = 0.15, inherit.aes = TRUE) +
+          ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario, colour = .data$scenario), linewidth = 0.7) +
+          ggplot2::scale_colour_manual(values = pcol, name = NULL) + ggplot2::scale_fill_manual(values = pcol, name = NULL)
+      } else p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario), linewidth = 0.4, colour = "grey30")
     }
   }
   p <- p + ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = ncol) + scale_x_year() +
