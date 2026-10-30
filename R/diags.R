@@ -115,17 +115,18 @@ jb3_project <- function(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 10
   if(is.null(catch) && is.null(fmsy)) catch <- round(utils::tail(fit$data$catch, 1)*seq(0.6, 1.2, 0.2))
   sc <- if(!is.null(fmsy)) data.frame(type = "F/Fmsy", value = fmsy) else data.frame(type = "Catch", value = catch)
   pp <- dr$pars; K <- pp$K; r <- pp$r; m <- pp$m; BmsyK <- pp$Bmsy/pp$K; Hmsy <- pp$Fmsy; sdb <- pp$sdb; kd <- pp$kdyn
-  P0 <- dr$`B/K`
+  P0 <- dr$`B/K`; rho <- fit$report$rho; Dl <- dr$`Process deviation`[, N]
   rem <- function(p) if(d$eb.rem) .rho_curve(p, d$ebm[d$ebcc, ]) else 1
   sdf <- function(x) if(d$dyn) sdb*pmin(pmax(x, d$xlim[1]), d$xlim[2])^(-kd) else sdb
   out <- lapply(seq_len(nrow(sc)), function(s){
-    P <- cbind(P0, matrix(NA, nd, nyears)); Cm <- Hm <- matrix(NA, nd, nyears)
+    P <- cbind(P0, matrix(NA, nd, nyears)); Cm <- Hm <- matrix(NA, nd, nyears); D <- Dl
     for(t in seq_len(nyears)){
       tt <- N + t; Pp <- P[, tt - 1]; Pl <- P[, max(1, tt - 1 - d$lag0)]
       C <- if(sc$type[s] == "Catch") rep(sc$value[s], nd) else pmin(sc$value[s]*Hmsy, 0.99)*Pp*K*rem(Pp)
       pm <- log(pmax(Pp + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C/(K*rem(Pp)), 0.001))
       v <- sdf(Pp/BmsyK)^2
-      P[, tt] <- exp(stats::rnorm(nd, pm - if(d$biascor) 0.5*v else 0, sqrt(v)))
+      D <- stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2)))
+      P[, tt] <- exp(pm - (if(d$biascor) 0.5*v else 0) + D)
       Cm[, t] <- C; Hm[, t] <- C/(Pp*K*rem(Pp))/Hmsy
     }
     py <- max(yrs) + seq_len(nyears)

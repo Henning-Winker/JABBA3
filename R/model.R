@@ -8,6 +8,8 @@
 #' @param sdb.form "const" (default) or "dyn": process error SD sdb_t = sdb x (B/Bmsy)^-k (Tier 2)
 #' @param sdb.fixed fixed process error SD at Bmsy instead of estimating it (Tier 2 sets the tuned level here)
 #' @param xlim bounds of B/Bmsy in the dynamic SD
+#' @param rho AR(1) coefficient of the process deviations (0 = independent, default). sdb stays the marginal SD:
+#'   d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$rho} is switched on.
 #' @param biascor lognormal process error bias correction (log mean - var/2)
 #' @param start "all" (default): process error in all years; "index": deterministic before the first index year
 #'   (JABBA 2 \code{proc.dev.all = FALSE})
@@ -29,7 +31,7 @@
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
-                      sdb.fixed = NULL, xlim = c(0.2, 3), biascor = FALSE, start = c("all", "index"),
+                      sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, biascor = FALSE, start = c("all", "index"),
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1){
@@ -44,7 +46,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
     if(is.null(names(ebsb))) names(ebsb) <- paste0("sel", seq_along(ebsb))
     ebsb <- lapply(ebsb, function(e){ e <- as.numeric(e); if(length(e) != 5) stop("each ebsb curve is c(u1, u2, u3, P1, P2)", call. = FALSE); e })
   }
-  structure(list(shape = shape, BmsyK = BmsyK, m = m, lag = lag, sdb.form = sdb.form, sdb.fixed = sdb.fixed, xlim = xlim,
+  if(rho < 0 || rho >= 1) stop("rho must be in [0, 1)", call. = FALSE)
+  structure(list(shape = shape, rho = rho, BmsyK = BmsyK, m = m, lag = lag, sdb.form = sdb.form, sdb.fixed = sdb.fixed, xlim = xlim,
                  biascor = biascor, start = start, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
@@ -55,7 +58,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
 print.jb3model <- function(x, ...){
   cat("JABBA3 model:", x$shape, sprintf("(m = %.3f, Bmsy/K = %.3f)", x$m, x$BmsyK),
       "\n  production lag:", x$lag, "\n  process error:", if(x$sdb.form == "const") "constant sdb" else "dynamic sdb x (B/Bmsy)^-k",
-      if(!is.null(x$sdb.fixed)) sprintf("(level fixed at %.3f)", x$sdb.fixed) else "", if(x$biascor) "+ bias correction" else "",
+      if(!is.null(x$sdb.fixed)) sprintf("(level fixed at %.3f)", x$sdb.fixed) else "", if(x$biascor) "+ bias correction" else "", if(x$rho > 0) sprintf("+ AR(1) rho = %.2f", x$rho) else "",
       if(x$start == "index") "\n  deterministic before the first index year" else "",
       "\n  index error:", x$obs.error, if(x$catch.error) sprintf("\n  catch error: sdc = %.2f", x$sdc) else "",
       if(!is.null(x$ebsb)) paste0("\n  Selex: ", length(x$ebsb), " EB/SB curve(s), removals ", if(x$ebsb.removal) "on EB" else "on SB") else "", "\n")

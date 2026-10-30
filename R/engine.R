@@ -49,6 +49,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
     sdb.ig = priors$sdb.type == "igamma", q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
     sdi.pr = priors$sdi,
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,
+    rho.fix = model$rho, est.rho = priors$rho[3] == 1, rho.pr = priors$rho,
     dyn = model$sdb.form == "dyn", est.k = model$sdb.form == "dyn" && priors$kdyn[3] == 1, xlim = model$xlim,
     biascor = isTRUE(model$biascor), spict = model$obs.error == "spict",
     catch.err = isTRUE(model$catch.error), sdc = model$sdc, q.uniform = isTRUE(model$q.uniform),
@@ -63,6 +64,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
   if(!dat$est.m) map$logm <- factor(NA)
   if(!dat$est.sdb) map$logsdb <- factor(NA)
   if(!dat$est.k) map$tk <- factor(NA)
+  if(!dat$est.rho) map$trho <- factor(NA)
   if(!dat$catch.err) map$cdev <- factor(rep(NA, N))
   random <- c("logP", if(dat$catch.err) "cdev")
   list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok,
@@ -89,7 +91,7 @@ jb3_inits <- function(dat, jitter = 0){
   sdb0 <- if(dat$sdb.ig) 0.1 else dat$sdb.pr[1]
   k0 <- min(max((dat$kd.pr[1] + 0.5)/2.5, 0.05), 0.95)
   lapply(list(logK = log(K), logr = log(r), logq = lq, lbk = log(bk), logm = log(m),
-       logsdb = log(if(dat$est.sdb) sdb0 else dat$sdb.fix), logsdi = rep(log(0.2), dat$nvar), tk = stats::qlogis(k0),
+       logsdb = log(if(dat$est.sdb) sdb0 else dat$sdb.fix), logsdi = rep(log(0.2), dat$nvar), tk = stats::qlogis(k0), trho = stats::qlogis(min(max((if(dat$est.rho) dat$rho.pr[1] else dat$rho.fix)/0.99, 0.01), 0.99)),
        logP = log(P), cdev = rep(0, N)), unname)
 }
 
@@ -140,7 +142,15 @@ jb3_nll <- function(par, dat){
   Pl <- P[lagidx[-N]]
   Pmean <- c(lbk, log(smax(P[-N] + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - estC[-N]/(K*rem[-N]), 0.001, 1e-7)))
   mu <- Pmean; if(biascor) mu[-1] <- Pmean[-1] - 0.5*v[-1]
-  nll <- nll - sum(dnorm(logP, mu, sqrt(v), TRUE))
+  if(est.rho){ prho <- 1/(1 + exp(-trho)); rho <- 0.99*prho
+    nll <- nll - dnorm(rho, rho.pr[1], rho.pr[2], TRUE) - log(0.99*prho*(1 - prho)) } else rho <- rho.fix
+  if(est.rho || rho.fix > 0){
+    # AR(1) process deviations with marginal SD sdb_t: d_t ~ N(rho d_{t-1}, v_t (1 - rho^2)), first transition N(0, v_2)
+    d <- logP - mu
+    nll <- nll - dnorm(logP[1], mu[1], sqrt(v[1]), TRUE)
+    if(N > 1) nll <- nll - dnorm(d[2], 0, sqrt(v[2]), TRUE)
+    if(N > 2) nll <- nll - sum(dnorm(d[3:N], rho*d[2:(N - 1)], sqrt(v[3:N]*(1 - rho^2) + 1e-8), TRUE))
+  } else nll <- nll - sum(dnorm(logP, mu, sqrt(v), TRUE))
   procdev <- logP - Pmean
   #--- soft penalties (JABBA 2)
   penB <- smin(logP - log(P.bound[1]), 0, 1e-4) + smax(logP - log(P.bound[2]), 0, 1e-4)
@@ -168,9 +178,10 @@ jb3_nll <- function(par, dat){
   RTMB::ADREPORT(logbk); RTMB::ADREPORT(logsdb); RTMB::ADREPORT(logsdi); RTMB::ADREPORT(logq); RTMB::ADREPORT(procdev)
   if(est.m) RTMB::ADREPORT(logm)
   if(est.k) RTMB::ADREPORT(kdyn)
+  if(est.rho) RTMB::ADREPORT(rho)
   if(catch.err) RTMB::ADREPORT(estC)
   RTMB::REPORT(K); RTMB::REPORT(r); RTMB::REPORT(q); RTMB::REPORT(bk); RTMB::REPORT(m); RTMB::REPORT(sdb); RTMB::REPORT(sdi)
-  RTMB::REPORT(kdyn); RTMB::REPORT(BmsyK); RTMB::REPORT(Hmsy); RTMB::REPORT(MSY); RTMB::REPORT(P); RTMB::REPORT(BBmsy)
+  RTMB::REPORT(kdyn); RTMB::REPORT(rho); RTMB::REPORT(BmsyK); RTMB::REPORT(Hmsy); RTMB::REPORT(MSY); RTMB::REPORT(P); RTMB::REPORT(BBmsy)
   RTMB::REPORT(H); RTMB::REPORT(HHmsy); RTMB::REPORT(estC); RTMB::REPORT(Pmean); RTMB::REPORT(procdev); RTMB::REPORT(sdt)
   RTMB::REPORT(v); RTMB::REPORT(rem); RTMB::REPORT(rem.msy); RTMB::REPORT(Imean); RTMB::REPORT(sdI)
   nll

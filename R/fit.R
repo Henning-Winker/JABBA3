@@ -176,6 +176,8 @@ jb3_output <- function(best, setup, sdreport = TRUE){
                 p1("m", if(dat$est.m) g("logm") else NULL, rep$m))
   if(dat$dyn){ k <- g("kdyn"); pars <- rbind(pars, data.frame(par = "kdyn", est = rep$kdyn,
     lci = if(is.null(k)) NA else k[1] - 1.96*k[2], uci = if(is.null(k)) NA else k[1] + 1.96*k[2], se.log = NA)) }
+  if(dat$est.rho || dat$rho.fix > 0){ k <- g("rho"); pars <- rbind(pars, data.frame(par = "rho", est = rep$rho,
+    lci = if(is.null(k)) NA else k[1] - 1.96*k[2], uci = if(is.null(k)) NA else k[1] + 1.96*k[2], se.log = NA)) }
   refpts <- rbind(p1("Bmsy", g("logBmsy"), rep$BmsyK*rep$K, mu), p1("Fmsy", g("logFmsy"), rep$Hmsy), p1("MSY", g("logMSY"), rep$MSY, mu),
                   p1("K", g("logK"), rep$K, mu), p1("BmsyK", NULL, rep$BmsyK))
   rownames(pars) <- pars$par; rownames(refpts) <- refpts$par
