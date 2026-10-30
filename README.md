@@ -80,7 +80,7 @@ flq <- jb3_flqs(fit)
 | Diagnostics | OSA residuals (particle filter), `jb3_diags()` (JABBA set + SPiCT set), `jb3_retro()` (Mohn's rho), `jb3_hindcast()` (MASE) |
 | Projections | `jb3_project()`: constant catch or F/Fmsy, with process error and lag |
 | Outputs | `jb3_flqs()` (FLQuants, iterations = draws), `jb3_flpar()` |
-| Graphics | `jbplot_advice`, `_trj`, `_kobe`, `_fits`, `_residuals`, `_runs`, `_spdiags`, `_priorpost`, `_production`, `_procdev`, `_data`, `_catch`, `_retro`, `_hcxval`, `_projection`, `_steps`, `_all` |
+| Graphics | all JAGG and JABBA plots in ggplot2: `jbplot_advice` (nested 90/60% bands, extra refpts, projections), `_trj`, `_kobe` (any year), `_biplot`, `_fits`, `_residuals`, `_stdresiduals`, `_runs`, `_spdiags`, `_ppc`, `_priorpost`, `_bprior`, `_spphase`, `_spdyn`, `_procdev`, `_data`, `_indices`, `_catch`, `_catcherror`, `_ebsb_status`, `_retro`, `_hcxval`, `_projection`, `_crisk`, `_steps`, `_ensemble`, `_summary`, `_all` |
 
 ## Gallery (Atlantic bigeye tuna, Fox model)
 

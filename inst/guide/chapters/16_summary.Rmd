@@ -33,7 +33,12 @@
 | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_nuts_diags()` |
 | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
 | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |
-| Graphics | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_fits()`, `jbplot_residuals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_priorpost()`, `jbplot_spphase()`, `jbplot_spdyn()`, `jbplot_procdev()`, `jbplot_data()`, `jbplot_catch()`, `jbplot_retro()`, `jbplot_hcxval()`, `jbplot_projection()`, `jbplot_steps()`, `jbplot_all()` |
+| Graphics: data | `jbplot_data()`, `jbplot_indices()` |
+| Graphics: estimates | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_biplot()`, `jbplot_procdev()`, `jbplot_catch()`, `jbplot_catcherror()`, `jbplot_spphase()`, `jbplot_spdyn()`, `jbplot_production()`, `jbplot_ebsb_status()` |
+| Graphics: priors | `jbplot_priorpost()`, `jbplot_bprior()` |
+| Graphics: diagnostics | `jbplot_fits()`, `jbplot_residuals()`, `jbplot_stdresiduals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_ppc()`, `jbplot_retro()`, `jbplot_hcxval()` |
+| Graphics: runs and projections | `jbplot_steps()`, `jbplot_ensemble()`, `jbplot_summary()`, `jbplot_projection()`, `jbplot_crisk()` |
+| Graphics: all | `jbplot_all()` |
 | Graphics helpers | `theme_jabba3()`, `scale_x_year()`, `jb3cols()` |
 | Information | `jabba3_info()` |
 

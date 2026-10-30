@@ -35,6 +35,44 @@ process deviations with 95% intervals.
 jbplot_trj(fit)
 ```
 
+`jbplot_trj()` and `jbplot_advice()` share the JAGG options: `nested = TRUE`
+for 90/60% bands (the default in `jbplot_advice()`), `extra` for further
+reference points such as $B_{lim}$, `drop.last` to drop the last year of F and
+catch, `proj` to append projections (dashed) and `probs` for other bands. A
+list of fits is coloured by run.
+
+```{r fit-advice-extra, fig.height = 4}
+jbplot_advice(fit, extra = c(Blim = 0.5, Bpa = 0.8), drop.last = TRUE)
+```
+
+`jbplot_kobe(fit, year = )` shows the uncertainty in any year (gold diamond),
+and `jbplot_biplot()` is the 'post-modern' biplot of Quinn and Collie (2005),
+as JABBA's: $B/B_{MSY}$ against $F/F_{MSY}$ with the zones of a hockey-stick
+harvest control rule (target 0.8 $F_{MSY}$, threshold 0.2 $B_{MSY}$) and the
+50/80/95% density contours of the terminal status.
+
+```{r fit-kobe-year, fig.height = 4.5}
+jbplot_kobe(fit, year = 2000)
+```
+
+```{r fit-biplot, fig.height = 4.5}
+jbplot_biplot(fit)
+```
+
+## Catch
+
+With catch error (the default) the estimated catch can depart a little from the
+observed catch. `jbplot_catch()` shows both, and `jbplot_catcherror()` adds the
+log ratio of estimated to observed catch (as JABBA's `jbplot_catcherror()`).
+
+```{r fit-catch, fig.height = 3.5}
+jbplot_catch(fit)
+```
+
+```{r fit-catcherror, fig.height = 4.5}
+jbplot_catcherror(fit)
+```
+
 ## Fast point estimates
 
 For simulation testing, MSE and large grids, `se = FALSE, osa = FALSE` skips
@@ -74,6 +112,19 @@ posterior predictive interval including observation error.
 ```{r fit-prod, fig.height = 4.5}
 jbplot_spphase(fit)
 jbplot_spdyn(fit)
+```
+
+`jbplot_spphase()` (as JABBA's `jbplot_spphase()`) plots the catch against
+biomass over the production curve on the Kobe colours mapped to production
+space: below the line $C = F_{MSY} B$ the stock is fished below $F_{MSY}$. The
+hatched band left of $B_{MSY}$ marks catches below the production curve but
+above that line. `jbplot_spdyn()` plots the realised surplus production,
+$B_{t+1} - B_t + C_t$, against the expected curve; departures are the process
+deviations (and the lag) in production units. `rel = TRUE` gives $B/K$ and
+$C/MSY$ axes, and `jbplot_production(fit, type = "phase" | "dyn")` calls either.
+
+```{r fit-prod-rel, fig.height = 4.5}
+jbplot_production(fit, type = "phase", rel = TRUE)
 ```
 
 ```{r fit-procdev, fig.height = 3.5}

@@ -4,16 +4,21 @@
 \alias{jbplot_advice}
 \title{Advice plot}
 \usage{
-jbplot_advice(x, rel = TRUE, ...)
+jbplot_advice(x, rel = TRUE, panels = NULL, nested = TRUE, ...)
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
 
 \item{rel}{relative (default) or absolute quantities}
 
-\item{...}{passed to \code{jbplot_trj()}}
+\item{panels}{quantities to show instead of the default set}
+
+\item{nested}{nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval}
+
+\item{...}{passed to \code{jbplot_trj()} (e.g. \code{extra}, \code{proj}, \code{drop.last}, \code{probs})}
 }
 \description{
 Stock status (B/Bmsy, F/Fmsy) and catch with MSY reference points, as \code{FLRef::plotAdvice()} and JAGG's
-\code{jagg_advice()}; \code{rel = FALSE} for B, F and catch on absolute scales.
+\code{jagg_advice()}; \code{rel = FALSE} for B, F and catch on absolute scales. Nested 90/60\% bands by default
+(\code{nested = FALSE} for the 95\% interval).
 }

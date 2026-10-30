@@ -73,6 +73,15 @@ pr.st <- jb3_priors(d, r = c(0.2, 0.5),
 pr.st$status
 ```
 
+After fitting, `jbplot_bprior()` compares each status prior with the posterior
+of that quantity in that year, with the posterior-to-prior mean and variance
+ratios (PPMR, PPVR) as in JABBA:
+
+```{r priors-bprior, fig.height = 3.5}
+fit.st <- jabba3(d, pr.st, jb3_model(shape = "fox"), osa = FALSE)
+jbplot_bprior(fit.st)
+```
+
 ## Check 2: prior and posterior
 
 After fitting, `jbplot_priorpost()` compares each prior with the posterior.

@@ -15,6 +15,31 @@ jbplot_residuals(fit)
 
 `jbplot_residuals(fit, type = "ordinary")` shows the classic log residuals.
 
+`jbplot_stdresiduals()` shows the ordinary residuals standardised by the total
+observation SD, as JABBA's plot of the same name, with SDNR and its 95%
+critical value:
+
+```{r diag-std, fig.height = 4}
+jbplot_stdresiduals(fit)
+```
+
+## Posterior predictive check
+
+`jbplot_ppc()` compares, draw by draw, the discrepancy of the observed indices
+from the fitted ones, $D = \sum ((\log I - \log \hat{I})/\sigma)^2$, with that
+of indices replicated from the observation model (as JABBA's `jbplot_PPC()`).
+The Bayesian p-value $P(D^{rep} > D^{obs})$ is near 0.5 for a well-specified
+observation model; values near 1 mean the indices are fitted more closely than
+the observation error implies (here the process error absorbs part of the
+index variation), values near 0 that they are fitted less well. It uses the
+draws of the fit (NUTS or MVN) and generates MVN draws if there are none.
+
+```{r diag-ppc, fig.height = 3.5}
+pp <- jbplot_ppc(fit)
+attr(pp, "ppc")
+pp
+```
+
 ## Runs tests
 
 The runs test (Wald-Wolfowitz) checks for too few runs of residual signs
@@ -24,6 +49,11 @@ JABBA, ss3diags and JAGG). Green: passed ($p \ge 0.05$); red: failed.
 ```{r diag-runs, fig.height = 4}
 jbplot_runs(fit)
 ```
+
+The test table is in the plot's attribute `"runs"`
+(`attr(jbplot_runs(fit), "runs")`); `mixing = "two.sided"` also flags too many
+runs. Likewise `jbplot_retro()` and `jbplot_hcxval()` return Mohn's rho and
+MASE in attributes `"rho"` and `"mase"`.
 
 ## The JABBA and SPiCT test sets
 

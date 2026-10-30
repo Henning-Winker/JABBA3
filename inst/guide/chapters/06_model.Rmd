@@ -119,3 +119,12 @@ spawning-biomass scale. The curves come from an age-structured equilibrium
 analysis (e.g. FLBRP) or from a JABBA 2 Selex setup via `jbinput2jabba3()`.
 Selex is a special case for stocks where the fishery selects well below
 maturity and is not covered further here.
+
+`jbplot_ebsb_status()` shows the spawning biomass status (the state) with the
+exploitable biomass status implied by each curve, EB/EB~MSY~ = (SB/SB~MSY~)
+$\times$ $\rho$(SB/K)/$\rho$(SB~MSY~/K). With an illustrative curve:
+
+```{r model-selex, fig.height = 4}
+fsel <- jabba3(d, pr, jb3_model(shape = "fox", ebsb = c(0.6, 1.2, 3, 0.1, 1)), osa = FALSE)
+jbplot_ebsb_status(fsel)
+```

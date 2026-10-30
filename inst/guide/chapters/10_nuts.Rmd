@@ -46,6 +46,26 @@ jbplot_nuts(fn, "pairs", pars = c("logK", "logr", "logq", "logsdb"))
 jbplot_nuts(fn, "trace", pars = c("logK", "logr"), inc_warmup = TRUE)
 ```
 
+Each type is also its own function: `jbplot_trace()`, `jbplot_rank()`,
+`jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()` and
+`jbplot_energy()`.
+
+```{r nuts-single, fig.height = 3}
+jbplot_rank(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_mcmcdens(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_mcmcacf(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_trace(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_energy(fn)
+```
+
+```{r nuts-rhat, fig.height = 6}
+jbplot_rhat(fn)
+```
+
+```{r nuts-pairs2, fig.height = 4.5, fig.width = 5}
+jbplot_pairs(fn, pars = c("logK", "logr"))
+```
+
 | What | Red flag | Action |
 |---|---|---|
 | $\hat{R}$, ESS | $\hat{R} > 1.01$ or ESS < 100 per chain | more iterations (`iter`); check the pairs plot |

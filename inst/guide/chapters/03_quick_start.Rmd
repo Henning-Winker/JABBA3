@@ -29,6 +29,9 @@ projections. The fitting took `r round(fit$time, 2)` s.
 jbplot_advice(fit)
 ```
 
+The advice plot follows FLRef's `plotAdvice()` and JAGG: the median with
+nested 90% and 60% bands and the MSY reference points as labelled lines.
+
 ```{r qs-kobe, fig.height = 5}
 jbplot_kobe(fit)
 ```

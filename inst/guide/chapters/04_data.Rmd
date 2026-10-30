@@ -17,6 +17,13 @@ str(d$I)
 jbplot_data(d)
 ```
 
+`jbplot_indices()` shows each index scaled to its mean with the 95% interval
+from the input standard errors, as JABBA's plot of the same name:
+
+```{r data-indices, fig.height = 4}
+jbplot_indices(d)
+```
+
 ## FLR objects
 
 The native input is catch as an `FLQuant` (or `FLQuants` by fleet) and indices

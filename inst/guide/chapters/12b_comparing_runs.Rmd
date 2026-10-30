@@ -1,0 +1,52 @@
+# Comparing runs and risk
+
+## Ensembles and sensitivity runs
+
+`jbplot_ensemble()` compares a list of fits (scenarios, sensitivity runs, the
+steps of a workflow), as JABBA's plot of the same name: trajectories coloured
+by run and a Kobe plot with each run's terminal uncertainty and its median.
+With `joint = TRUE` the runs are pooled with equal weights into one ensemble.
+
+```{r cmp-runs}
+fsch <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "schaefer"), osa = FALSE)
+runs <- list(Fox = fit, Schaefer = fsch, `Lag + AR(1)` = rec)
+```
+
+```{r cmp-ensemble, fig.width = 10, fig.height = 5}
+jbplot_ensemble(runs)
+```
+
+```{r cmp-ensemble-joint, fig.width = 10, fig.height = 5}
+jbplot_ensemble(runs, joint = TRUE)
+```
+
+`jbplot_summary()` gives the overview of JABBA's `jbplot_summary()`: B, F,
+$B/B_{MSY}$, $F/F_{MSY}$ and $B/K$ by run, and the production curves with
+$B_{MSY}$ and MSY.
+
+```{r cmp-summary, fig.width = 10, fig.height = 8}
+jbplot_summary(runs)
+```
+
+## Projections on the advice plot
+
+`jbplot_advice(fit, proj = )` appends projection scenarios (dashed) to the
+assessment:
+
+```{r cmp-advice-proj, fig.height = 4}
+jbplot_advice(fit, proj = pj)
+```
+
+## Risk curves
+
+`jbplot_crisk()` plots, as JABBA's `jbplot_Crisk()`, the probability that
+$B < B_{MSY}$, that $F > F_{MSY}$ and that $B < 0.5 B_{MSY}$ (`bfrac`) against
+the scenario value (F/F~MSY~ or catch), one line per projection year:
+
+```{r cmp-crisk, fig.height = 4}
+jbplot_crisk(pj)
+```
+
+```{r cmp-crisk-catch, fig.height = 4}
+jbplot_crisk(pc)
+```

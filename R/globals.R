@@ -6,3 +6,4 @@ utils::globalVariables(c("logK","logr","logq","lbk","logm","logsdb","logsdi","tk
 # ggplot2 aesthetics in the NUTS diagnostics
 utils::globalVariables(c("iter","value","chain","bin","count","lag","acf","par","x","y","xmin","xmax","ymin","ymax","v","lt",
   "flag","what","density","metric","group","rk"))
+utils::globalVariables(c("stock", "harvest"))
