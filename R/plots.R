@@ -60,6 +60,7 @@ jb3cols <- function(n, alpha = 1){
 
 # a fit, a workflow fit (steps = TRUE), or a list of fits -> named list of fits
 .fitlist <- function(x, steps = FALSE){
+  if(inherits(x, "jb3ensemble") && steps) return(c(x$fits, list(Ensemble = x)))
   if(inherits(x, "jabba3")){
     if(steps && !is.null(x$steps)) return(x$steps)
     return(stats::setNames(list(x), x$run))
@@ -487,7 +488,8 @@ jbplot_production <- function(fit, type = c("phase", "dyn"), rel = FALSE){
   g <- function(q) fit$ts$est[fit$ts$quantity == q]
   B <- g("B"); b <- seq(0, max(K, B, na.rm = TRUE), length.out = 400)
   sp <- r/(m - 1)*b*(1 - (b/K)^(m - 1))
-  trj <- data.frame(year = fit$years, B = B, C = g("Catch"), SP = g("Surplus production"))
+  sp0 <- g("Surplus production"); if(!length(sp0)) sp0 <- NA
+  trj <- data.frame(year = fit$years, B = B, C = g("Catch"), SP = sp0)
   sx <- if(rel) K else 1; sy <- if(rel) MSY else 1
   trj$B <- trj$B/sx; trj$C <- trj$C/sy; trj$SP <- trj$SP/sy
   list(curve = data.frame(b = b/sx, sp = sp/sy), trj = trj,
@@ -598,9 +600,11 @@ jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyear
     ggplot2::geom_line(data = pr, ggplot2::aes(colour = .data$scenario), linewidth = 0.7) +
     ggplot2::scale_colour_manual(values = cols) + ggplot2::scale_fill_manual(values = cols) +
     ggplot2::geom_hline(data = data.frame(quantity = factor(intersect(type, c("B/Bmsy", "F/Fmsy")), levels = type)), ggplot2::aes(yintercept = 1), linetype = 2) +
-    ggplot2::geom_vline(xintercept = y0, linetype = 3) +
+    ggplot2::geom_vline(xintercept = c(y0, if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) proj$tac.year - 1), linetype = 3) +
     ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = 1) + ggplot2::expand_limits(y = 0) + scale_x_year() +
-    ggplot2::labs(x = "Year", y = NULL) + theme_jabba3()
+    ggplot2::labs(x = "Year", y = NULL,
+                  caption = if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) paste("dotted: last assessment year and last intermediate year; TAC year", proj$tac.year)) +
+    theme_jabba3()
 }
 
 #' Catch: observed and estimated

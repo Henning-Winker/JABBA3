@@ -25,6 +25,35 @@ the stock status in the last year. `ndraws = 1000` adds draws from the
 multivariate normal approximation at the mode, used for the Kobe plot and
 projections. The fitting took `r round(fit$time, 2)` s.
 
+## Quick output: `plot(fit)`
+
+`plot(fit)` (or `jabbaplot3(fit)`) is the one-page summary of a fit, as SPiCT's
+`plot()`:
+
+- **top row:** biomass (with the observed indices scaled by $q$ as points), $F$
+  and catch, with MSY reference points and $B_{thr} = 0.5 B_{MSY}$ and
+  $B_{lim} = 0.3 B_{MSY}$;
+- **middle row:** $B/B_{MSY}$ (again with the scaled indices), $F/F_{MSY}$ and the
+  Kobe plot with the uncertainty of the terminal year;
+- **bottom row:** the process deviations, the realised surplus production
+  $B_{t+1} - B_t + C_t$ against biomass with the production curve, and the
+  production phase plot: catches against biomass on the Kobe colours, with the
+  MSY band.
+
+```{r qs-plot, fig.height = 9, fig.width = 10}
+plot(fit)
+```
+
+`plot(fit, "simple")` gives a 2 x 2 version ($B/B_{MSY}$, $F/F_{MSY}$, catch,
+Kobe; as SPiCT's `plot2()`), and `panels = ` picks any set of panels, e.g.
+`plot(fit, panels = c("B/Bmsy", "F/Fmsy", "fits", "residuals"))`.
+
+```{r qs-simple, fig.height = 6, fig.width = 8}
+plot(fit, "simple")
+```
+
+## Individual plots
+
 ```{r qs-advice, fig.height = 7, fig.width = 7}
 jbplot_advice(fit)
 ```

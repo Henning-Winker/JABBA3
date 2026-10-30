@@ -19,7 +19,7 @@ jbplot_ensemble(
 
 \item{joint}{pool the runs into one ensemble}
 
-\item{kobe}{add the Kobe panel (needs patchwork)}
+\item{kobe}{add the Kobe panel (needs patchwork); FALSE returns the trajectory panels only}
 
 \item{ndraws}{draws per run (from the fit's draws, or lognormal at the mode)}
 }

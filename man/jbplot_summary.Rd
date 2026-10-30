@@ -4,12 +4,16 @@
 \alias{jbplot_summary}
 \title{Summary of one or several fits}
 \usage{
-jbplot_summary(x, steps = FALSE)
+jbplot_summary(x, steps = FALSE, kobe = TRUE, ndraws = 1000)
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
 
 \item{steps}{for a workflow fit, show all steps}
+
+\item{kobe}{add the Kobe panel with the terminal-year status (FALSE: trajectories and production curves only)}
+
+\item{ndraws}{points per run in the Kobe cloud}
 }
 \description{
 As JABBA's \code{jbplot_summary()}: B, F, B/Bmsy, F/Fmsy and B/K trajectories with 95\% intervals, and the surplus

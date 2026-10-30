@@ -28,6 +28,13 @@ $B_{MSY}$ and MSY.
 jbplot_summary(runs)
 ```
 
+`kobe = FALSE` drops the Kobe panel in `jbplot_summary()` and `jbplot_ensemble()`.
+`jabbaplot3()` takes a list of runs too, with a choice of panels:
+
+```{r cmp-jabbaplot3, fig.width = 10, fig.height = 6.5}
+jabbaplot3(runs, panels = c("B/Bmsy", "F/Fmsy", "Catch", "kobe", "production", "procdev"))
+```
+
 ## Projections on the advice plot
 
 `jbplot_advice(fit, proj = )` appends projection scenarios (dashed) to the

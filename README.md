@@ -41,6 +41,7 @@ pr  <- jb3_priors(d, r = c(0.2, 0.5))                           # JABBA 2 defaul
 fit <- jabba3(d, pr, jb3_model(shape = "fox"), ndraws = 1000)   # ~1 s, OSA residuals included
 fit; summary(fit)
 
+plot(fit)                    # one-page summary (3 x 3, as SPiCT plot()); plot(fit, "simple") for 2 x 2
 jbplot_advice(fit); jbplot_kobe(fit); jbplot_fits(fit)
 jbplot_runs(fit); jbplot_spdiags(fit); jbplot_priorpost(fit)
 
@@ -84,6 +85,10 @@ flq <- jb3_flqs(fit)
 | Graphics | all JAGG and JABBA plots in ggplot2: `jbplot_advice` (nested 90/60% bands, extra refpts, projections), `_trj`, `_kobe` (any year), `_biplot`, `_fits`, `_residuals`, `_stdresiduals`, `_runs`, `_spdiags`, `_ppc`, `_priorpost`, `_bprior`, `_spphase`, `_spdyn`, `_procdev`, `_data`, `_indices`, `_catch`, `_catcherror`, `_ebsb_status`, `_retro`, `_hcxval`, `_projection`, `_crisk`, `_steps`, `_ensemble`, `_summary`, `_all` |
 
 ## Gallery (Atlantic bigeye tuna, Fox model)
+
+`plot(fit)`:
+
+![](man/figures/plot_fit.png)
 
 | | |
 |---|---|

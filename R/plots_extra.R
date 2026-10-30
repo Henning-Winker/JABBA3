@@ -232,10 +232,16 @@ jbplot_bprior <- function(fit){
 #' @param x a list of \code{jabba3} fits (named), or a workflow fit
 #' @param type quantities for the trajectory panels
 #' @param joint pool the runs into one ensemble
-#' @param kobe add the Kobe panel (needs patchwork)
+#' @param kobe add the Kobe panel (needs patchwork); FALSE returns the trajectory panels only
 #' @param ndraws draws per run (from the fit's draws, or lognormal at the mode)
 #' @export
 jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joint = FALSE, kobe = TRUE, ndraws = 1000){
+  if(inherits(x, "jb3ensemble") && joint){                       # weighted ensemble: its own (weighted) draws
+    p1 <- jbplot_trj(x, type = type, ncol = 2) +
+      ggplot2::labs(subtitle = paste0("Weighted ensemble of ", length(x$fits), " runs (", paste(sprintf("%s %.2f", names(x$weights), x$weights), collapse = ", "), ")"))
+    if(!kobe || !requireNamespace("patchwork", quietly = TRUE)) return(p1)
+    return(p1 + .kobe_panel(list(Ensemble = x), ndraws) + patchwork::plot_layout(widths = c(2, 1.2)))
+  }
   fl <- .fitlist(x, steps = TRUE); nr <- length(fl)
   if(!joint) p1 <- jbplot_trj(fl, type = type, ncol = 2) else {
     d <- do.call(rbind, lapply(type, function(q){
@@ -247,6 +253,12 @@ jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joi
     p1 <- jbplot_trj(ens, type = type, ncol = 2) + ggplot2::labs(subtitle = paste("Ensemble of", nr, "runs (equal weights)"))
   }
   if(!kobe || !requireNamespace("patchwork", quietly = TRUE)) return(p1)
+  p2 <- .kobe_panel(fl, ndraws, joint)
+  p1 + p2 + patchwork::plot_layout(widths = c(2, 1.2))
+}
+
+# Kobe panel: each run's terminal-year uncertainty cloud and median (or the pooled cloud with joint = TRUE)
+.kobe_panel <- function(fl, ndraws = 1000, joint = FALSE){
   cl <- do.call(rbind, lapply(names(fl), function(n){ f <- fl[[n]]; z <- .kobe_cloud(f, length(f$years), ndraws); z$run <- n; z }))
   if(joint) cl$run <- "Ensemble"
   runs <- unique(cl$run); cl$run <- factor(cl$run, runs)
@@ -264,7 +276,7 @@ jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joi
     ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax), expand = FALSE) +
     ggplot2::labs(x = expression(B/B[MSY]), y = expression(F/F[MSY]), subtitle = paste("Status", max(fl[[1]]$years))) +
     theme_jabba3() + ggplot2::theme(legend.position = "bottom")
-  p1 + p2 + patchwork::plot_layout(widths = c(2, 1.2))
+  p2
 }
 
 #' Catch risk curves
@@ -303,8 +315,10 @@ jbplot_crisk <- function(proj, years = NULL, bfrac = 0.5){
 #' production curves with Bmsy and MSY marked, coloured by run.
 #' @param x a \code{jabba3} fit, a list of fits, or a workflow fit
 #' @param steps for a workflow fit, show all steps
+#' @param kobe add the Kobe panel with the terminal-year status (FALSE: trajectories and production curves only)
+#' @param ndraws points per run in the Kobe cloud
 #' @export
-jbplot_summary <- function(x, steps = FALSE){
+jbplot_summary <- function(x, steps = FALSE, kobe = TRUE, ndraws = 1000){
   fl <- .fitlist(x, steps); runs <- names(fl)
   p1 <- jbplot_trj(fl, type = c("B", "F", "B/Bmsy", "F/Fmsy", "B/K"), ncol = 3)
   cv <- do.call(rbind, lapply(runs, function(n){ z <- .spcurve(fl[[n]]); data.frame(run = n, z$curve) }))
@@ -318,7 +332,8 @@ jbplot_summary <- function(x, steps = FALSE){
     ggplot2::labs(x = "Biomass", y = "Surplus production") + theme_jabba3() +
     ggplot2::theme(legend.position = if(length(runs) == 1) "none" else "right")
   if(!requireNamespace("patchwork", quietly = TRUE)) return(list(p1, p2))
-  p1 / (p2 + patchwork::plot_spacer() + patchwork::plot_layout(widths = c(2, 1))) + patchwork::plot_layout(heights = c(2, 1))
+  p3 <- if(kobe) .kobe_panel(fl, ndraws) + ggplot2::theme(legend.position = "none") else patchwork::plot_spacer()
+  p1 / (p2 + p3 + patchwork::plot_layout(widths = c(2, 1))) + patchwork::plot_layout(heights = c(2, 1))
 }
 
 #' Selex: spawning and exploitable biomass status

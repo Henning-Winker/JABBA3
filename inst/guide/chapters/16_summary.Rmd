@@ -29,7 +29,8 @@
 | Convergence | `jb3_convergence()` |
 | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
 | NUTS diagnostics | `jb3_nuts_diags()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
-| Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch) |
+| Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch; optional intermediate years), `jb3_fwd()` (forecast controls, as `fw_jabba_ctrl()`) |
+| Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
 | FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
 | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_nuts_diags()` |
 | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
@@ -38,7 +39,8 @@
 | Graphics: estimates | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_biplot()`, `jbplot_procdev()`, `jbplot_catch()`, `jbplot_catcherror()`, `jbplot_spphase()`, `jbplot_spdyn()`, `jbplot_production()`, `jbplot_ebsb_status()` |
 | Graphics: priors | `jbplot_priorpost()`, `jbplot_bprior()` |
 | Graphics: diagnostics | `jbplot_fits()`, `jbplot_residuals()`, `jbplot_stdresiduals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_ppc()`, `jbplot_retro()`, `jbplot_hcxval()` |
-| Graphics: runs and projections | `jbplot_steps()`, `jbplot_ensemble()`, `jbplot_summary()`, `jbplot_projection()`, `jbplot_crisk()` |
+| Graphics: runs and projections | `jbplot_steps()`, `jbplot_ensemble()`, `jbplot_summary()`, `jbplot_projection()`, `jbplot_crisk()`, `jbplot_hcr()` |
+| Graphics: overview | `plot()` / `jabbaplot3()` (3 x 3 panels, single fit or runs) |
 | Graphics: all | `jbplot_all()` |
 | Graphics helpers | `theme_jabba3()`, `scale_x_year()`, `jb3cols()` |
 | Information | `jabba3_info()` |
