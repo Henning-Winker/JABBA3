@@ -29,3 +29,11 @@ test_that("workflows, options and outputs run", {
   expect_s3_class(jbplot_advice(f), "ggplot")
   expect_s3_class(jbplot_kobe(f), "ggplot")
 })
+
+test_that("AR(1) process error and fast mode run", {
+  f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox", lag = 3, rho = 0.75), osa = TRUE)
+  expect_equal(f$report$rho, 0.75)
+  expect_true(f$convergence$tier %in% c("ok", "warning"))
+  g <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
+  expect_equal(g$convergence$tier, "ok")
+})

@@ -14,6 +14,7 @@ jb3_priors(
   q = NULL,
   m = c(NA, 0.3, 0),
   kdyn = NULL,
+  rho = c(0.7, 0.15, 0),
   sdi = c(0.2, 0.5, 0),
   status = NULL,
   psi = NULL
@@ -42,6 +43,9 @@ diffuse inverse-gamma(0.001, 0.001) on the variance (not recommended for the pos
 
 \item{kdyn}{depletion dependence of the process error SD (\code{sdb.form = "dyn"}), \code{c(mean, sd, on)} normal
 on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.064 - 0.155 log r)}, sd 0.15}
+
+\item{rho}{AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
+default (rho fixed by \code{jb3_model(rho = )})}
 
 \item{sdi}{index observation SD prior (only with \code{obs.error = "spict"}), off by default}
 

@@ -48,6 +48,12 @@ jbplot_runs(fit); jbplot_spdiags(fit); jbplot_priorpost(fit)
 wf <- jabba3(d, pr, jb3_model(shape = "fox"), workflow = "tier2", amat = 3)
 jbplot_steps(wf)
 
+# BioProcDyn recommended configuration: lag at amat + AR(1) process error (rho = 0.75)
+rec <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, rho = 0.75))
+
+# fast point estimates for simulation testing (~0.1 s per fit)
+fq <- jabba3(d, pr, jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
+
 # full posterior with NUTS
 fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000))
 
@@ -64,7 +70,7 @@ flq <- jb3_flqs(fit)
 |---|---|
 | Data | `jb3_data()` (FLQuant/FLIndices or data frames), `jb3_data_jabba()` (JABBA 2 inputs) |
 | Priors | `jb3_priors()`: one list, each `c(median, log.sd, on)`; r on, K, bkinit (alias psi), sdb (FishLife default), q (flat log q unless given), m, kdyn, sdi, status priors |
-| Model | `jb3_model()`: Schaefer/Fox/Pella, production lag, constant or dynamic sdb, bias correction, additive (JABBA) or SPiCT index error, catch error, Selex EB/SB curves |
+| Model | `jb3_model()`: Schaefer/Fox/Pella, production lag, AR(1) process deviations (`rho`, stationary with sdb as marginal SD; or estimated via `priors$rho`), random walk option, constant or dynamic sdb, bias correction, additive (JABBA) or SPiCT index error, catch error, Selex EB/SB curves |
 | Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan |
 | Convergence | FLicc-style: nlminb, Newton polishing, guarded restarts, Newton decrement verdict; `jb3_convergence()` |
 | Workflows | `workflow = "tier1" / "tier2" / "selex" / "selex_tier1" / "selex_tier2"`; `jb3_tier1()`, `jb3_tier2()` |

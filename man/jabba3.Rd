@@ -15,6 +15,7 @@ jabba3(
   workflow = c("none", "tier1", "tier2", "selex", "selex_tier1", "selex_tier2"),
   amat = NULL,
   run = NULL,
+  se = TRUE,
   peels = 0,
   index.peels = 0,
   nstart = 4,
@@ -43,6 +44,9 @@ Kobe cloud and projections; intervals come from the delta method otherwise.}
 \item{amat}{age at 50\% maturity (production lag for the Tier 1 / Tier 2 workflows)}
 
 \item{run}{name of the run (scenario)}
+
+\item{se}{compute standard errors (sdreport). \code{FALSE} gives point estimates only, about twice as fast, for
+simulation testing; the convergence verdict then rests on the gradient (no Hessian check)}
 
 \item{peels, index.peels}{internal: retrospective (all data) and hindcast (index only) peels}
 

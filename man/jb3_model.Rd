@@ -11,6 +11,9 @@ jb3_model(
   sdb.form = c("const", "dyn"),
   sdb.fixed = NULL,
   xlim = c(0.2, 3),
+  rho = 0,
+  rw = FALSE,
+  rw.scale = 1,
   biascor = FALSE,
   start = c("all", "index"),
   obs.error = c("additive", "spict"),
@@ -42,6 +45,13 @@ jb3_model(
 \item{sdb.fixed}{fixed process error SD at Bmsy instead of estimating it (Tier 2 sets the tuned level here)}
 
 \item{xlim}{bounds of B/Bmsy in the dynamic SD}
+
+\item{rho}{AR(1) coefficient of the process deviations (0 = independent, default). sdb stays the marginal SD:
+d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$rho} is switched on.}
+
+\item{rw}{random walk in the process deviations (the conditional rho = 1 limit): d_t ~ N(d_{t-1}, (rw.scale sdb_t)^2)}
+
+\item{rw.scale}{innovation SD of the random walk relative to sdb (e.g. sqrt(1 - 0.7^2) to match AR(1) rho = 0.7)}
 
 \item{biascor}{lognormal process error bias correction (log mean - var/2)}
 
