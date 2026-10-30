@@ -280,7 +280,9 @@ jb3_jointindex <- function(fit, format = c("data.frame", "FLIndexBiomass"), name
 #' of the estimated total where any series was filled), used by the catch error of the model in place of the constant
 #' \code{sdc}. \code{jb3_fill_table()} gives the original series with the NAs replaced by predictions and the total.
 #' @param catch data.frame(year, catch[, more series]); NA for missing values (years can also be absent)
-#' @param se observation SD (log scale) for known catches (JARA: \code{fixed.obsE = 0.001})
+#' @param se observation SD (log scale) for known catches: a single value (JARA: \code{fixed.obsE = 0.001}) or a data.frame
+#'   with the same layout as \code{catch} (year, then one column per series; as JARA's catch SE matrix), e.g. to give
+#'   assumed start values a larger SE than reported catches; missing entries take 0.01
 #' @param drift random walk with drift (default TRUE with a time block, otherwise FALSE)
 #' @param timeblock optional year(s) after which the drift changes (JARA \code{timeblock})
 #' @param na.below optional threshold: catches below it are treated as unobserved
@@ -302,7 +304,11 @@ jb3_catchfill <- function(catch, se = 0.01, drift = !is.null(timeblock), timeblo
   if(is.null(names(cc)) || ncol(cc) == 2) names(cc)[2] <- names(cc)[2] %||% "catch"
   yrs <- years %||% seq(min(cc$year), max(cc$year))
   I <- data.frame(year = yrs); S <- data.frame(year = yrs)
-  for(v in names(cc)[-1]){ I[[v]] <- as.numeric(cc[[v]])[match(yrs, cc$year)]; S[[v]] <- se }
+  sdf <- is.data.frame(se) || is.matrix(se)
+  if(sdf){ se <- as.data.frame(se); se[[1]] <- as.numeric(se[[1]])
+    if(!all(names(cc)[-1] %in% names(se)[-1])) names(se)[-1] <- names(cc)[-1] }
+  for(v in names(cc)[-1]){ I[[v]] <- as.numeric(cc[[v]])[match(yrs, cc$year)]
+    S[[v]] <- if(sdf){ x <- as.numeric(se[[v]])[match(yrs, se[[1]])]; ifelse(is.finite(x), x, 0.01) } else se }
   if(!is.null(na.below)) for(v in names(I)[-1]) I[[v]][is.finite(I[[v]]) & I[[v]] < na.below] <- NA
   fit <- jb3_trend(I, S, type = "census", variance.weighting = "fixed", drift = drift, timeblock = timeblock, sdp.pr = sdp.pr,
                    osa = FALSE, run = "Catch reconstruction")
@@ -310,7 +316,7 @@ jb3_catchfill <- function(catch, se = 0.01, drift = !is.null(timeblock), timeblo
   obs <- I[, -1, drop = FALSE]; anymiss <- rowSums(!is.finite(as.matrix(obs)) | as.matrix(obs) <= 0) > 0
   tt <- fit$total
   out <- data.frame(year = yrs, obs = ifelse(anymiss, NA, rowSums(as.matrix(obs))), catch = ft$Total,
-                    se.log = ifelse(anymiss, tt$se.log, se), est = tt$est, lci = tt$lci, uci = tt$uci, filled = anymiss)
+                    se.log = if(sdf) tt$se.log else ifelse(anymiss, tt$se.log, se), est = tt$est, lci = tt$lci, uci = tt$uci, filled = anymiss)
   structure(out, fit = fit, class = c("jb3catchfill", "data.frame"))
 }
 

@@ -38,105 +38,100 @@ predictive checks). As everywhere in JABBA3, residual plots default to
 one-step-ahead (OSA) residuals; `type = "ordinary"` gives the log residuals
 used in JARA reports.
 
+**Log-scale standard errors.** All models use observation errors on the log
+scale. From a design-based SD of the untransformed index, use
+$CV = sd/mean$ and $\sigma = \sqrt{\log(CV^2 + 1)}$ (close to the CV for
+CV < 0.4); from a 95% interval, $\sigma = (\log(uci) - \log(lci))/(2 \times 1.96)$.
+
 ```{r jara-data}
 data(jara_examples)
 names(jara_examples)
 ```
 
-The Dentex landings are those printed in the 2025 BCC catch reconstruction; the
-survey indices are illustrative (simulated with the same structure as the
-monkfish surveys). The original files (catchDentex2025.csv, cpueMonk2025.csv,
-idxMonk2025.csv) can replace them directly.
+The examples are anonymised versions of real case studies (generic series
+names, multiplicative noise with a log-SD of 0.1 and random rescaling; years
+and missing values unchanged): deep-water rose shrimp (*Parapenaeus
+longirostris*) in GFCM GSAs 17-20 from the GFCM benchmark JARA analysis, and
+southern African monkfish (*Lophius vomerinus*) survey and CPUE indices from the
+2025 JARA monkfish analysis; the Dentex landings and the anglerfish CPUE are
+those printed in the corresponding reports.
 
-## Step 1: catch reconstruction (census with a time block)
+## A complete example: deep-water rose shrimp, GSAs 17-20
 
-Dentex landings from Namibia (NAM) and Angola (ANG). Angola did not report in
-several years between 1985 and 1994; the low landings from Namibia in
-2009-2011 and from Angola in 2012 are incomplete and treated as unobserved
-(NA). The series start in 1976, so the interpolation infers the decline up to
-1992; a time block at 1992 lets the trend after 1992 differ (recovery).
+One stock, three data-exploration steps, one assessment: catches by fleet
+(country and GSA) with incomplete reporting, relative survey indices by area
+with log-SEs, and absolute survey biomass by area.
 
-```{r jara-dentex-raw, fig.height = 3.5}
-den <- jara_examples$dentex
-head(den)
-L <- den[den$year >= 1976, ]
-dl <- rbind(data.frame(year = L$year, country = "NAM", landings = L$NAM),
-            data.frame(year = L$year, country = "ANG", landings = L$ANG))
-ggplot2::ggplot(dl, ggplot2::aes(year, landings, colour = country)) + ggplot2::geom_line() +
-  ggplot2::geom_point(na.rm = TRUE) + ggplot2::geom_vline(xintercept = 1992, linetype = 2) + theme_jabba3()
+```{r dps-data}
+dps <- jara_examples$dps
+names(dps)
+head(dps$catch, 3)
 ```
 
-`jb3_catchfill()` fits the census model to both series (known landings with an
-observation SD of 0.001, as JARA's `fixed.obsE = 0.001`):
+### Step 1: catch reconstruction (census with a time block)
 
-```{r jara-dentex-fit, fig.height = 4}
-cf <- jb3_catchfill(L, se = 0.001, timeblock = 1992)
-cfit <- attr(cf, "fit")
-cfit                                   # drift before and after the block
-jbplot_trend(cfit)                     # series fits and the total with 95% intervals
+Two fleets report only from 2012 (`fleet4`, `fleet5`). As in the benchmark
+analysis, start values are assumed for 1996 (`fleet4` 10 t; `fleet5` equal to
+`fleet2`) and given a larger SE (0.2) than the reported catches (0.05);
+`jb3_catchfill()` takes the SE as a data frame with the same layout as the
+catch. The census model interpolates each fleet between its start value and its
+first report; a time block after 2016 lets the trend change when catches peaked
+across the region:
+
+```{r dps-catch, fig.height = 5}
+cc <- dps$catch
+cc[1, "fleet5"] <- cc[1, "fleet2"]; cc[1, "fleet4"] <- 10
+sc <- cc; sc[, -1] <- 0.05; sc[1, c("fleet4", "fleet5")] <- 0.2
+cf <- jb3_catchfill(cc, se = sc, timeblock = 2016)
+jbplot_trend(attr(cf, "fit"))          # fleet fits and the total
 ```
 
-Missing years carry high uncertainty, which propagates into the total:
+The total catch with its year-specific log-SE: larger where the fleets with
+assumed start values are interpolated:
 
-```{r jara-dentex-total, fig.height = 3.5}
+```{r dps-catch-total, fig.height = 3.5}
 jbplot_catchfill(cf)
+knitr::kable(as.data.frame(cf)[c(1:3, 15:18, 24:26), c("year", "catch", "se.log", "lci", "uci")], digits = 3, row.names = FALSE)
 ```
 
-The reconstructed table: original series with the NAs replaced by predictions,
-and the total (cf. Table 1 of the Dentex report):
+The reconstructed table (original series with the missing values replaced by
+predictions, and the total):
 
-```{r jara-dentex-table}
-tab <- jb3_fill_table(cf, digits = 1)
-knitr::kable(tab[tab$year %in% c(1983:1995, 2007:2014), ], row.names = FALSE)
+```{r dps-catch-table}
+knitr::kable(head(jb3_fill_table(cf, digits = 1), 6), row.names = FALSE)
 ```
 
-## Step 2: joint survey index
+### Step 2: relative joint index
 
-Three surveys with different time spans and gaps (WC from 1985, SC from 1988,
-NAM from 1999). As in the monkfish analysis, the indices are first normalised by
-their means, and the joint index is fitted with equal and with model-estimated
-(inverse-variance) weighting:
+The four area indices with their log-SEs, with model-estimated additional
+variance by index (inverse-variance weighting):
 
-```{r jara-surveys-raw, fig.height = 3.5}
-srv <- jara_examples$surveys
-srv.n <- srv; for(v in names(srv)[-1]) srv.n[[v]] <- srv[[v]]/mean(srv[[v]], na.rm = TRUE)
-dsv <- stats::reshape(srv.n, direction = "long", varying = names(srv.n)[-1], v.names = "index",
-                      timevar = "survey", times = names(srv.n)[-1], idvar = "year")
-ggplot2::ggplot(dsv, ggplot2::aes(year, index, colour = survey)) + ggplot2::geom_line(na.rm = TRUE) +
-  ggplot2::geom_point(na.rm = TRUE) + theme_jabba3()
+```{r dps-joint}
+ji <- jb3_trend(dps$idx, dps$idx.se, variance.weighting = "model", run = "DPS joint index")
+ji
 ```
 
-```{r jara-surveys-fit}
-ji.eq  <- jb3_trend(srv.n, variance.weighting = "equal", run = "equal")
-ji.mod <- jb3_trend(srv.n, variance.weighting = "model", run = "model")
-rbind(equal = ji.eq$sdi, model = ji.mod$sdi)        # additional observation SD by survey
+Diagnostics: fits and runs tests, the joint residual plot for data conflicts,
+and posterior predictive checks with Bayesian p-values (near 0.5 under a
+well-specified model):
+
+```{r dps-joint-diag, fig.height = 4}
+jbplot_fits(ji)
+jbplot_runs(ji, type = "ordinary")
 ```
 
-Diagnostics of the model-weighted fit: fits and runs tests, the joint residual
-plot for data conflicts, and posterior predictive checks with Bayesian
-p-values (near 0.5 under a well-specified model):
-
-```{r jara-surveys-diag, fig.height = 3.5}
-jbplot_fits(ji.mod)
-jbplot_runs(ji.mod, type = "ordinary")
+```{r dps-joint-resid, fig.height = 4}
+jbplot_residuals(ji, type = "ordinary")
+p <- jbplot_ppc(ji); attr(p, "ppc")
 ```
 
-```{r jara-surveys-resid, fig.height = 4}
-jbplot_residuals(ji.mod, type = "ordinary")
-p <- jbplot_ppc(ji.mod); attr(p, "ppc")
-```
+The joint index: the precision-weighted mean of the q-scaled indices by year
+with its log-scale SE, and the state-space trend (red dashed):
 
-The joint index: the precision-weighted mean of the q-scaled surveys by year
-with its log-scale SE (NA in years without a survey, as in JARA; `fill = TRUE`
-fills them with the state), and the state-space trend (red dashed). The two
-weightings give nearly the same joint index here:
-
-```{r jara-surveys-joint, fig.height = 3.5}
-jbplot_jointindex(ji.mod)
-ji <- jb3_jointindex(ji.mod)
-ji.cmp <- data.frame(year = ji$year, equal = jb3_jointindex(ji.eq)$index, model = ji$index)
-round(cor(ji.cmp$equal, ji.cmp$model, use = "complete.obs"), 3)
-knitr::kable(head(ji, 10), digits = 3, row.names = FALSE)
+```{r dps-joint-index, fig.height = 3.5}
+jbplot_jointindex(ji)
+jdx <- jb3_jointindex(ji)
+knitr::kable(head(jdx, 8), digits = 3, row.names = FALSE)
 ```
 
 **Random walk (JARA) or independent year effects (Conn 2010).** Conn's model
@@ -144,52 +139,122 @@ estimates the log joint index as independent year effects,
 $\log U_{it} \sim N(n_t + c_i, \sigma_{p,i}^2 + \sigma_{s,it}^2)$ with
 $n_t \sim N(\bar n, 1)$, the same observation model as above with
 `variance.weighting = "model"`; JARA's default links the years by the random
-walk. Where the indices overlap, the two give practically the same joint index:
+walk. With overlapping indices they give practically the same joint index:
 
-```{r jara-conn, fig.height = 3.5}
-ji.conn <- jb3_trend(srv.n, state = "iid", run = "Conn (iid)")
-jc <- jb3_jointindex(ji.conn)
-ok <- is.finite(ji$index) & is.finite(jc$index)
-cmp <- data.frame(year = ji$year[ok], rw = ji$index[ok]/mean(ji$index[ok]), iid = jc$index[ok]/mean(jc$index[ok]))
-round(c(correlation = cor(log(cmp$rw), log(cmp$iid)), max.rel.diff = max(abs(cmp$rw/cmp$iid - 1))), 3)
+```{r dps-conn, fig.height = 3.5}
+jc <- jb3_jointindex(jb3_trend(dps$idx, dps$idx.se, state = "iid", run = "Conn (iid)"))
+ok <- is.finite(jdx$index) & is.finite(jc$index)
+cmp <- data.frame(year = jdx$year[ok], rw = jdx$index[ok]/mean(jdx$index[ok]), iid = jc$index[ok]/mean(jc$index[ok]))
+round(cor(log(cmp$rw), log(cmp$iid)), 3)
 ggplot2::ggplot(cmp, ggplot2::aes(year)) + ggplot2::geom_line(ggplot2::aes(y = rw, colour = "random walk (JARA)")) +
   ggplot2::geom_point(ggplot2::aes(y = iid, colour = "iid (Conn 2010)")) + ggplot2::labs(y = "Joint index", colour = NULL) +
   theme_jabba3()
 ```
 
 The independent-year-effects form needs overlapping indices to scale them
-against each other: for series that do not overlap in time (e.g. the early and
-late bigeye longline CPUE) only the random walk links them, through the
-continuity of the state.
+against each other; for series that do not overlap in time only the random
+walk links them, through the continuity of the state.
 
-## Step 3: into the JABBA3 assessment
+### Step 3: census of absolute survey biomass
 
-The reconstructed catch goes into `jb3_data()` with its year-specific
-log-scale SE, which the catch error of the model uses in place of the constant
-`sdc` (reconstructed years carry more catch error than fully reported years);
-the joint index goes in as the single index, its `log.se` as the SE:
+With absolute biomass by area (swept-area estimates), `type = "census"` models
+each area separately and sums the area states to a total biomass with
+uncertainty (as in Sherley et al. 2020), smoothing through missing years:
 
-```{r jara-into-jabba3}
-d <- jb3_data(cf, ji, stock = "illustrative")
+```{r dps-census, fig.height = 5}
+bi <- jb3_trend(dps$bio, dps$bio.se, type = "census", run = "DPS biomass")
+jbplot_trend(bi)
+```
+
+The total biomass and the relative joint index, both scaled to their means,
+tell a similar story:
+
+```{r dps-census-cmp, fig.height = 3.5}
+tb <- bi$total
+cmp2 <- rbind(data.frame(year = jdx$year, index = jdx$index/mean(jdx$index, na.rm = TRUE), lci = jdx$lci/mean(jdx$index, na.rm = TRUE),
+                         uci = jdx$uci/mean(jdx$index, na.rm = TRUE), series = "relative joint index"),
+              data.frame(year = tb$year, index = tb$est/mean(tb$est), lci = tb$lci/mean(tb$est), uci = tb$uci/mean(tb$est),
+                         series = "census total biomass"))
+round(cor(log(jdx$index), log(tb$est[match(jdx$year, tb$year)]), use = "complete.obs"), 2)
+ggplot2::ggplot(cmp2, ggplot2::aes(year, index, colour = series, fill = series)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), alpha = 0.15, colour = NA) + ggplot2::geom_line() +
+  ggplot2::labs(y = "Index (scaled to mean)", colour = NULL, fill = NULL) + theme_jabba3()
+```
+
+### Step 4: into the JABBA3 assessment
+
+The reconstructed catch goes into `jb3_data()` with its year-specific log-SE,
+which the catch error of the model uses in place of the constant `sdc`; the
+joint index goes in as the single index with its `log.se` (the census total
+could be used instead, or in addition, as an absolute biomass index):
+
+```{r dps-jabba3}
+d <- jb3_data(cf, jdx, stock = "DPS GSA 17-20 (anonymised)")
 round(range(d$catch.se), 3)
-fit <- jabba3(d, jb3_priors(d, r = c(0.4, 0.3)), jb3_model(shape = "schaefer"), run = "JARA -> JABBA3")
+fit <- jabba3(d, jb3_priors(d, r = c(0.8, 0.3)), jb3_model(shape = "schaefer"), run = "JARA -> JABBA3")
 fit
 ```
 
-```{r jara-into-jabba3-plot, fig.height = 9, fig.width = 10}
+```{r dps-jabba3-plot, fig.height = 9, fig.width = 10}
 plot(fit)
 ```
 
 The joint index is also available as an `FLIndexBiomass` with `index.var` =
-log.se (`jb3_jointindex(ji.mod, "FLIndexBiomass")`) for FLR workflows, and
-year-specific catch uncertainty can also be given directly with
-`jb3_data(..., catch.se =)` or a vector `sdc` in `jb3_model()`.
+log.se (`jb3_jointindex(ji, "FLIndexBiomass")`) for FLR workflows.
 
 ## Further examples
 
-**Two CPUE series (anglerfish).** The last 17 years of the Portuguese and
-Spanish anglerfish CPUE from the JARA joint-index report; the input SEs are very
-small (about 0.07), so an additional fixed observation error of 0.1 is added:
+### Monkfish: joint survey indices
+
+The South African West and South Coast surveys (`survey1`, `survey2`), from
+1988, normalised by their means. With equal weighting all surveys share one
+additional variance; with model weighting each survey gets its own:
+
+```{r monk-sa, fig.height = 3.5}
+mk <- jara_examples$monk
+sa <- mk[mk$year >= 1988, c("year", "survey1", "survey2")]
+for(v in c("survey1", "survey2")) sa[[v]] <- sa[[v]]/mean(sa[[v]], na.rm = TRUE)
+sa.eq  <- jb3_trend(sa, variance.weighting = "equal", run = "equal")
+sa.mod <- jb3_trend(sa, variance.weighting = "model", run = "model")
+rbind(equal = sa.eq$sdi, model = sa.mod$sdi)
+jbplot_jointindex(sa.mod)
+```
+
+The Namibian surveys and CPUE series (`survey3`, `survey4`, `cpue1`-`cpue5`) cover
+different periods, including CPUE series from old and new vessel configurations
+that barely overlap; the random walk links them into one joint index:
+
+```{r monk-nam, fig.height = 3.5}
+nam <- mk[, c("year", "survey3", "survey4", "cpue1", "cpue2", "cpue3", "cpue4", "cpue5")]
+nam <- nam[rowSums(is.finite(as.matrix(nam[, -1]))) > 0, ]
+for(v in names(nam)[-1]) nam[[v]] <- nam[[v]]/mean(nam[[v]], na.rm = TRUE)
+nam.fit <- jb3_trend(nam, variance.weighting = "model", run = "Namibia")
+nam.fit
+jbplot_trend(nam.fit)
+```
+
+### Dentex: catch reconstruction with a time block
+
+Dentex landings from Namibia (NAM) and Angola (ANG). Missing Angolan reports,
+and the incomplete low landings from Namibia in 2009-2011 and Angola in 2012
+(set to NA), are filled with the series-specific trends; the series start in
+1976 and a time block after 1992 separates the decline from the later
+recovery:
+
+```{r dentex, fig.height = 3.5}
+den <- jara_examples$dentex
+L <- den[den$year >= 1976, ]
+cf.den <- jb3_catchfill(L, se = 0.001, timeblock = 1992)
+jbplot_catchfill(cf.den)
+tab <- jb3_fill_table(cf.den, digits = 1)
+knitr::kable(tab[tab$year %in% c(1984:1994, 2008:2013), ], row.names = FALSE)
+```
+
+### Anglerfish: two CPUE series
+
+The last 17 years of the Portuguese and Spanish anglerfish CPUE from the JARA
+joint-index report; the input SEs are very small (about 0.07), so an additional
+fixed observation error of 0.1 is added:
 
 ```{r jara-ank, fig.height = 3.5}
 ank <- jara_examples$ank
@@ -197,21 +262,3 @@ for(v in c("POR", "ESP")) ank[[v]] <- ank[[v]]/mean(ank[[v]][ank$year > 2009], n
 ank.fit <- jb3_trend(ank, jara_examples$ank.se, fixed.obsE = 0.1, run = "ANK")
 jbplot_jointindex(ank.fit)
 ```
-
-**Census of survey areas.** With absolute abundance indices (swept-area
-biomass, acoustic surveys) from different areas, `type = "census"` sums the
-area states to a total biomass with uncertainty, an absolute index for the
-assessment:
-
-```{r jara-census, fig.height = 5}
-set.seed(3); yrs <- 1990:2020
-tru <- sapply(c(100, 50, 30), function(a) a*exp(cumsum(c(0, rnorm(30, -0.01, 0.1)))))
-obs <- tru*exp(matrix(rnorm(length(tru), 0, 0.2), ncol = 3)); obs[sample(length(obs), 20)] <- NA
-cen.fit <- jb3_trend(data.frame(year = yrs, A = obs[, 1], B = obs[, 2], C = obs[, 3]),
-                     data.frame(year = yrs, A = 0.2, B = 0.2, C = 0.2), type = "census", variance.weighting = "fixed")
-jbplot_trend(cen.fit)
-```
-
-**Log-scale standard errors.** From a design-based SD of the untransformed
-index, use $CV = sd/mean$ and $\sigma = \sqrt{\log(CV^2 + 1)}$ (close to the CV
-for CV < 0.4); from a 95% interval, $\sigma = (\log(uci) - \log(lci))/(2 \times 1.96)$.

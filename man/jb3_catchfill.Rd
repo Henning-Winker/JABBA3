@@ -17,7 +17,9 @@ jb3_catchfill(
 \arguments{
 \item{catch}{data.frame(year, catch[, more series]); NA for missing values (years can also be absent)}
 
-\item{se}{observation SD (log scale) for known catches (JARA: \code{fixed.obsE = 0.001})}
+\item{se}{observation SD (log scale) for known catches: a single value (JARA: \code{fixed.obsE = 0.001}) or a data.frame
+with the same layout as \code{catch} (year, then one column per series; as JARA's catch SE matrix), e.g. to give
+assumed start values a larger SE than reported catches; missing entries take 0.01}
 
 \item{drift}{random walk with drift (default TRUE with a time block, otherwise FALSE)}
 

@@ -119,16 +119,22 @@ print.jb3data <- function(x, ...){
 
 #' Example data for the data-exploration (JARA) models
 #'
-#' A list with
+#' Anonymised versions of real case studies: generic series names, multiplicative lognormal noise (log-SD 0.1) and random
+#' rescaling (absolute catches and biomass by one common factor, so that fleets and areas still add up); years and
+#' missing values unchanged.
 #' \describe{
+#'   \item{dps}{deep-water rose shrimp (\emph{Parapenaeus longirostris}), GFCM GSAs 17-20, from the GFCM benchmark JARA
+#'     analysis (Winker): a list with \code{catch} (fleet1-6, country by GSA; fleet4 and fleet5 report from 2012),
+#'     \code{idx} and \code{idx.se} (relative survey indices area1-4 and log-SEs), \code{bio} and \code{bio.se} (absolute
+#'     survey biomass area1-4, in thousands, and log-SEs).}
+#'   \item{monk}{southern African monkfish (\emph{Lophius vomerinus}) survey and CPUE indices from the 2025 JARA monkfish
+#'     analysis (Winker): survey1 and survey2 (South African West and South Coast surveys), survey3 and survey4 (Namibian
+#'     surveys), cpue1-cpue5 (Namibian CPUE series).}
 #'   \item{dentex}{Dentex (\emph{Dentex} spp.) landings (t) of Namibia (NAM) and Angola (ANG), 1972-2023, as printed in the
-#'     2025 BCC Demersal Working Group catch reconstruction (Winker, JARA): missing reports, and low reports treated as
-#'     unobserved (NAM 2009-2011, ANG 2012), are NA. The original file is catchDentex2025.csv.}
-#'   \item{surveys}{illustrative (synthetic) biomass indices from three surveys with different time spans and gaps (WC
-#'     from 1985, SC from 1988, NAMsurvey from 1999), simulated from a surplus production model driven by the
-#'     reconstructed Dentex catch; the real monkfish indices (cpueMonk2025.csv, idxMonk2025.csv) have the same layout.}
+#'     2025 BCC Demersal Working Group catch reconstruction: missing reports, and low reports treated as unobserved
+#'     (NAM 2009-2011, ANG 2012), are NA.}
 #'   \item{ank, ank.se}{the last 17 years (2007-2023) of the Portuguese (POR) and Spanish (ESP) anglerfish CPUE indices and
-#'     their log-scale SEs from the JARA joint-index report (2025); the full series start in 1989.}
+#'     their log-scale SEs from the JARA joint-index report (2025).}
 #' }
-#' @format list of data frames
+#' @format list
 "jara_examples"

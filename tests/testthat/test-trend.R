@@ -48,7 +48,7 @@ test_that("time block and multi-series catch reconstruction (Dentex)", {
   # close to the JARA (JAGS) reconstruction: ANG 1988 = 1923.4, NAM 2010 = 833.2
   expect_lt(abs(tab$ANG[tab$year == 1988]/1923.4 - 1), 0.1); expect_lt(abs(tab$NAM[tab$year == 2010]/833.2 - 1), 0.1)
   expect_equal(cf$catch, tab$Total)
-  tr <- jb3_trend(jara_examples$surveys, timeblock = 2005)
+  tr <- jb3_trend(jara_examples$monk[jara_examples$monk$year >= 1988, c("year", "survey1", "survey2")], timeblock = 2005)
   expect_equal(nrow(tr$r), 2)
 })
 
@@ -59,4 +59,18 @@ test_that("Conn (2010) independent year effects", {
   expect_equal(tb$settings$state, "iid"); expect_equal(tb$convergence$tier, "ok")
   b <- jb3_jointindex(tb); ok <- is.finite(a$index) & is.finite(b$index)
   expect_gt(cor(log(a$index[ok]), log(b$index[ok])), 0.98)
+})
+
+test_that("catchfill with per-value SE and the DPS example", {
+  data(jara_examples); x <- jara_examples$dps
+  expect_true(all(c("dps", "monk", "dentex", "ank") %in% names(jara_examples)))
+  cc <- x$catch; cc[1, "fleet5"] <- cc[1, "fleet2"]; cc[1, "fleet4"] <- 10
+  sc <- cc; sc[, -1] <- 0.05; sc[1, c("fleet4", "fleet5")] <- 0.2
+  cf <- jb3_catchfill(cc, se = sc, timeblock = 2016)
+  expect_s3_class(cf, "jb3catchfill"); expect_equal(nrow(cf), nrow(cc))
+  expect_gt(max(cf$se.log[cf$filled]), max(cf$se.log[!cf$filled]))
+  cf0 <- jb3_catchfill(cc, se = 0.05, timeblock = 2016)               # scalar still works
+  expect_true(all(is.finite(cf0$catch)))
+  bi <- jb3_trend(x$bio, x$bio.se, type = "census")
+  expect_equal(nrow(bi$total), nrow(x$bio))
 })
