@@ -319,28 +319,99 @@ jbplot_priorpost <- function(fit, pars = c("r", "K", "bkinit", "sdb", "m", "kdyn
     subtitle = paste0("grey: prior, blue: posterior (", if(!is.null(fit$draws)) fit$draws$type else "mode, lognormal approximation", ")")) else pl
 }
 
-#' Surplus production phase plot
+#' Surplus production phase and dynamics plots
 #'
-#' Production curve SP(B) = r/(m-1) B (1 - (B/K)^(m-1)) with Bmsy and MSY, the realised surplus production
-#' (B[t+1] - B[t] + C[t]) and the catch, after JABBA's \code{jbplot_spphase()}.
+#' \code{jbplot_spphase()}: the surplus production curve with the catch trajectory (yield against biomass) on the
+#' Kobe colours mapped to production space (as \code{JABBA::jbplot_spphase()}): green B > Bmsy and F < Fmsy (below the
+#' line C = Fmsy B), orange B > Bmsy and F > Fmsy, yellow B < Bmsy and F < Fmsy, red B < Bmsy and F > Fmsy. The hatched
+#' band below Bmsy marks catches between Fmsy B and the production curve, where F < Fmsy and the stock rebuilds.
+#' Blue band: MSY 95\% interval.
+#'
+#' \code{jbplot_spdyn()}: the realised annual surplus production SP_t = B_t+1 - B_t + C_t against B_t, with the
+#' expected production curve (as \code{JABBA::jbplot_spdyn()}); departures from the curve are the process deviations
+#' (and the lag) in production units.
 #' @param fit a \code{jabba3} fit
+#' @param rel relative axes: B/K and catch (or SP) / MSY
+#' @return a ggplot
 #' @export
-jbplot_production <- function(fit){
-  rp <- fit$refpts; K <- rp["K", "est"]; r <- fit$pars["r", "est"]; m <- fit$pars["m", "est"]
-  b <- seq(0, K, length.out = 300); sp <- r/(m - 1)*b*(1 - (b/K)^(m - 1))
-  B <- fit$ts$est[fit$ts$quantity == "B"]; SP <- fit$ts$est[fit$ts$quantity == "Surplus production"]
-  d <- data.frame(B = B, SP = SP, C = fit$data$catch[seq_along(B)], year = fit$years)
+jbplot_spphase <- function(fit, rel = FALSE){
+  z <- .spcurve(fit, rel); rp <- z$rp
+  xmax <- max(z$curve$b, z$trj$B, na.rm = TRUE)*1.02
+  ymax <- max(z$trj$C*1.05, rp$MSYu*1.05, rp$MSY*1.1, na.rm = TRUE); big <- 10*max(xmax, ymax)
+  H <- rp$MSY/rp$Bmsy                                        # Fmsy (in plot units): C = H B is F = Fmsy
+  zones <- rbind(
+    data.frame(zone = "red", x = c(0, rp$Bmsy, rp$Bmsy, 0), y = c(0, rp$MSY, big, big)),
+    data.frame(zone = "yellow", x = c(0, rp$Bmsy, rp$Bmsy), y = c(0, 0, rp$MSY)),
+    data.frame(zone = "green", x = c(rp$Bmsy, big, big, rp$Bmsy), y = c(0, 0, H*big, rp$MSY)),
+    data.frame(zone = "orange", x = c(rp$Bmsy, big, big, rp$Bmsy), y = c(rp$MSY, H*big, big, big)))
+  fills <- c(green = "#2ca25f", yellow = "#fee391", orange = "#fd8d3c", red = "#de2d26")
+  lo <- z$curve[z$curve$b <= rp$Bmsy, ]; lo$h <- H*lo$b
+  hatch <- lo[seq(1, nrow(lo), by = max(1, round(nrow(lo)/30))), ]
+  hatch$col <- rep(c("#de2d26", "#fee391"), length.out = nrow(hatch))
+  sel <- .selyears(z$trj)
   ggplot2::ggplot() +
-    ggplot2::annotate("rect", xmin = 0, xmax = rp["Bmsy", "est"], ymin = -Inf, ymax = Inf, fill = "#fee391", alpha = 0.5) +
-    ggplot2::annotate("rect", xmin = rp["Bmsy", "est"], xmax = Inf, ymin = -Inf, ymax = Inf, fill = "#2ca25f", alpha = 0.25) +
-    ggplot2::geom_line(data = data.frame(b = b, sp = sp), ggplot2::aes(.data$b, .data$sp), linewidth = 0.8) +
-    ggplot2::geom_path(data = d, ggplot2::aes(.data$B, .data$SP), colour = "grey40", na.rm = TRUE) +
-    ggplot2::geom_point(data = d, ggplot2::aes(.data$B, .data$SP, fill = .data$year), shape = 21, size = 2, na.rm = TRUE) +
-    ggplot2::geom_point(data = d, ggplot2::aes(.data$B, .data$C), shape = 4, colour = "red", size = 1.6) +
-    ggplot2::geom_vline(xintercept = rp["Bmsy", "est"], linetype = 2) + ggplot2::geom_hline(yintercept = rp["MSY", "est"], linetype = 2) +
-    ggplot2::scale_fill_gradient(low = "white", high = "black") +
-    ggplot2::labs(x = "Biomass", y = "Surplus production (points), catch (x)", subtitle = fit$run) + theme_jabba3() +
-    ggplot2::theme(legend.title = ggplot2::element_text(size = 8))
+    ggplot2::geom_polygon(data = zones, ggplot2::aes(.data$x, .data$y, group = .data$zone, fill = .data$zone), alpha = 0.85) +
+    ggplot2::scale_fill_manual(values = fills, guide = "none") +
+    ggplot2::geom_segment(data = hatch, ggplot2::aes(x = .data$b, xend = .data$b, y = .data$h, yend = .data$sp),
+                          colour = hatch$col, linetype = 3, linewidth = 0.5) +
+    ggplot2::annotate("rect", xmin = -Inf, xmax = Inf, ymin = rp$MSYl, ymax = rp$MSYu, fill = "blue", alpha = 0.15) +
+    ggplot2::geom_line(data = z$curve, ggplot2::aes(.data$b, .data$sp), colour = "blue", linewidth = 1) +
+    ggplot2::geom_hline(yintercept = rp$MSY, colour = "blue", linetype = 5) +
+    ggplot2::annotate("segment", x = rp$Bmsy, xend = rp$Bmsy, y = 0, yend = rp$MSY, colour = "blue", linetype = 2) +
+    ggplot2::geom_path(data = z$trj, ggplot2::aes(.data$B, .data$C), na.rm = TRUE) +
+    ggplot2::geom_point(data = z$trj, ggplot2::aes(.data$B, .data$C), size = 1.2, na.rm = TRUE) +
+    ggplot2::geom_point(data = sel, ggplot2::aes(.data$B, .data$C, shape = .data$lab), fill = "white", size = 3.2) +
+    ggplot2::scale_shape_manual(values = c(22, 21, 24), name = NULL) +
+    ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax), expand = FALSE) +
+    ggplot2::labs(x = if(rel) "B/K" else "Biomass", y = if(rel) "Catch/MSY" else "Yield", subtitle = fit$run) +
+    theme_jabba3() + ggplot2::theme(legend.position = "bottom")
+}
+
+#' @rdname jbplot_spphase
+#' @export
+jbplot_spdyn <- function(fit, rel = FALSE){
+  z <- .spcurve(fit, rel); rp <- z$rp; sel <- .selyears(z$trj, "SP")
+  ggplot2::ggplot() +
+    ggplot2::geom_hline(yintercept = 0, linetype = 2) +
+    ggplot2::geom_hline(yintercept = rp$MSY, linetype = 3, colour = "grey40") +
+    ggplot2::geom_vline(xintercept = rp$Bmsy, linetype = 3, colour = "grey40") +
+    ggplot2::geom_line(data = z$curve, ggplot2::aes(.data$b, .data$sp, linetype = "Expected"), colour = "blue", linewidth = 1) +
+    ggplot2::geom_path(data = z$trj, ggplot2::aes(.data$B, .data$SP), na.rm = TRUE) +
+    ggplot2::geom_point(data = z$trj, ggplot2::aes(.data$B, .data$SP), size = 1.2, na.rm = TRUE) +
+    ggplot2::geom_point(data = sel, ggplot2::aes(.data$B, .data$SP, shape = .data$lab), fill = "white", size = 3.2) +
+    ggplot2::scale_shape_manual(values = c(22, 21, 24), name = NULL) +
+    ggplot2::scale_linetype_manual(values = 1, name = NULL) +
+    ggplot2::scale_x_continuous(expand = ggplot2::expansion(c(0, 0.03)), limits = c(0, NA)) +
+    ggplot2::labs(x = if(rel) "B/K" else "Biomass", y = if(rel) "SP/MSY" else "Surplus production",
+                  subtitle = paste(fit$run, "- realised SP(t) = B(t+1) - B(t) + C(t)")) +
+    theme_jabba3() + ggplot2::theme(legend.position = "bottom")
+}
+
+#' @rdname jbplot_spphase
+#' @param type "phase" (\code{jbplot_spphase}) or "dyn" (\code{jbplot_spdyn})
+#' @export
+jbplot_production <- function(fit, type = c("phase", "dyn"), rel = FALSE){
+  type <- match.arg(type)
+  if(type == "phase") jbplot_spphase(fit, rel) else jbplot_spdyn(fit, rel)
+}
+
+.spcurve <- function(fit, rel = FALSE){
+  rp <- fit$refpts; K <- rp["K", "est"]; MSY <- rp["MSY", "est"]; Bmsy <- rp["Bmsy", "est"]
+  r <- fit$pars["r", "est"]; m <- fit$pars["m", "est"]
+  g <- function(q) fit$ts$est[fit$ts$quantity == q]
+  B <- g("B"); b <- seq(0, max(K, B, na.rm = TRUE), length.out = 400)
+  sp <- r/(m - 1)*b*(1 - (b/K)^(m - 1))
+  trj <- data.frame(year = fit$years, B = B, C = g("Catch"), SP = g("Surplus production"))
+  sx <- if(rel) K else 1; sy <- if(rel) MSY else 1
+  trj$B <- trj$B/sx; trj$C <- trj$C/sy; trj$SP <- trj$SP/sy
+  list(curve = data.frame(b = b/sx, sp = sp/sy), trj = trj,
+       rp = list(Bmsy = Bmsy/sx, MSY = MSY/sy, MSYl = rp["MSY", "lci"]/sy, MSYu = rp["MSY", "uci"]/sy))
+}
+
+.selyears <- function(trj, y = "C"){
+  ok <- which(is.finite(trj[[y]])); N <- length(ok)
+  s <- trj[ok[c(1, round(stats::quantile(seq_len(N), 0.7)), N)], ]
+  s$lab <- factor(s$year, levels = s$year); s
 }
 
 #' Data overview
@@ -470,7 +541,7 @@ jbplot_all <- function(fit, dir = ".", retro = NULL, hc = NULL, proj = NULL, wid
   pl <- list(data = jbplot_data(fit), advice = jbplot_advice(fit), trajectories = jbplot_trj(fit), fits = jbplot_fits(fit),
              residuals_osa = jbplot_residuals(fit, "osa"), residuals = jbplot_residuals(fit, "ordinary"), runs = jbplot_runs(fit),
              spict_diags = jbplot_spdiags(fit), kobe = jbplot_kobe(fit), priorpost = jbplot_priorpost(fit),
-             production = jbplot_production(fit), procdev = jbplot_procdev(fit))
+             spphase = jbplot_spphase(fit), spdyn = jbplot_spdyn(fit), procdev = jbplot_procdev(fit))
   if(!is.null(fit$steps)) pl$steps <- jbplot_steps(fit)
   if(!is.null(fit$nuts$stanfit)){ pl$nuts_trace <- jbplot_trace(fit); pl$nuts_rank <- jbplot_rank(fit); pl$nuts_pairs <- jbplot_pairs(fit)
     pl$nuts_rhat <- jbplot_rhat(fit); pl$nuts_energy <- jbplot_energy(fit) }

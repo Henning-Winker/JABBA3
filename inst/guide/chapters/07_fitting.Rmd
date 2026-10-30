@@ -72,7 +72,8 @@ posterior predictive interval including observation error.
 ## Production function and process deviations
 
 ```{r fit-prod, fig.height = 4.5}
-jbplot_production(fit)
+jbplot_spphase(fit)
+jbplot_spdyn(fit)
 ```
 
 ```{r fit-procdev, fig.height = 3.5}

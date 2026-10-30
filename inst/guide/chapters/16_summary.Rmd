@@ -32,7 +32,7 @@
 | Projections | `jb3_project()` |
 | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
 | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |
-| Graphics | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_fits()`, `jbplot_residuals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_priorpost()`, `jbplot_production()`, `jbplot_procdev()`, `jbplot_data()`, `jbplot_catch()`, `jbplot_retro()`, `jbplot_hcxval()`, `jbplot_projection()`, `jbplot_steps()`, `jbplot_all()` |
+| Graphics | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_fits()`, `jbplot_residuals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_priorpost()`, `jbplot_spphase()`, `jbplot_spdyn()`, `jbplot_procdev()`, `jbplot_data()`, `jbplot_catch()`, `jbplot_retro()`, `jbplot_hcxval()`, `jbplot_projection()`, `jbplot_steps()`, `jbplot_all()` |
 | Graphics helpers | `theme_jabba3()`, `scale_x_year()`, `jb3cols()` |
 | Information | `jabba3_info()` |
 
