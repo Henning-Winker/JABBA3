@@ -49,6 +49,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
     sdb.ig = priors$sdb.type == "igamma", q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
     sdi.pr = priors$sdi,
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,
+    rw = isTRUE(model$rw), rw.scale = model$rw.scale %||% 1,
     rho.fix = model$rho, est.rho = priors$rho[3] == 1, rho.pr = priors$rho,
     dyn = model$sdb.form == "dyn", est.k = model$sdb.form == "dyn" && priors$kdyn[3] == 1, xlim = model$xlim,
     biascor = isTRUE(model$biascor), spict = model$obs.error == "spict",
@@ -144,7 +145,13 @@ jb3_nll <- function(par, dat){
   mu <- Pmean; if(biascor) mu[-1] <- Pmean[-1] - 0.5*v[-1]
   if(est.rho){ prho <- 1/(1 + exp(-trho)); rho <- 0.99*prho
     nll <- nll - dnorm(rho, rho.pr[1], rho.pr[2], TRUE) - log(0.99*prho*(1 - prho)) } else rho <- rho.fix
-  if(est.rho || rho.fix > 0){
+  if(rw){
+    # random walk in the process deviations: d_t ~ N(d_{t-1}, (rw.scale sdb_t)^2), first transition N(0, v_2)
+    d <- logP - mu
+    nll <- nll - dnorm(logP[1], mu[1], sqrt(v[1]), TRUE)
+    if(N > 1) nll <- nll - dnorm(d[2], 0, sqrt(v[2]), TRUE)
+    if(N > 2) nll <- nll - sum(dnorm(d[3:N], d[2:(N - 1)], rw.scale*sqrt(v[3:N]) + 1e-8, TRUE))
+  } else if(est.rho || rho.fix > 0){
     # AR(1) process deviations with marginal SD sdb_t: d_t ~ N(rho d_{t-1}, v_t (1 - rho^2)), first transition N(0, v_2)
     d <- logP - mu
     nll <- nll - dnorm(logP[1], mu[1], sqrt(v[1]), TRUE)

@@ -125,7 +125,7 @@ jb3_project <- function(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 10
       C <- if(sc$type[s] == "Catch") rep(sc$value[s], nd) else pmin(sc$value[s]*Hmsy, 0.99)*Pp*K*rem(Pp)
       pm <- log(pmax(Pp + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C/(K*rem(Pp)), 0.001))
       v <- sdf(Pp/BmsyK)^2
-      D <- stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2)))
+      D <- if(isTRUE(d$rw)) stats::rnorm(nd, D, d$rw.scale*sqrt(v)) else stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2)))
       P[, tt] <- exp(pm - (if(d$biascor) 0.5*v else 0) + D)
       Cm[, t] <- C; Hm[, t] <- C/(Pp*K*rem(Pp))/Hmsy
     }

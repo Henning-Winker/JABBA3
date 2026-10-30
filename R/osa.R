@@ -35,7 +35,7 @@ jb3_osa <- function(fit, np = 5000, seed = 1){
       pm <- log(pmax(P + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C[t]/(K*rem(P)), 0.001))
       v <- if(t + 1 < d$stI) rep(1e-4, np) else sdf(P/BmsyK)^2
       mu1 <- pm - if(d$biascor) 0.5*v else 0
-      D <- if(t == 1 || rho == 0) stats::rnorm(np, 0, sqrt(v)) else stats::rnorm(np, rho*D, sqrt(v*(1 - rho^2)))
+      D <- if(isTRUE(d$rw) && t > 1) stats::rnorm(np, D, d$rw.scale*sqrt(v)) else if(t == 1 || rho == 0) stats::rnorm(np, 0, sqrt(v)) else stats::rnorm(np, rho*D, sqrt(v*(1 - rho^2)))
       LP[, t + 1] <- mu1 + D
     }
   }
