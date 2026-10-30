@@ -4,14 +4,14 @@
 \alias{jb3_project}
 \title{Projections}
 \usage{
-jb3_project(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 1000)
+jb3_project(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000)
 }
 \arguments{
 \item{fit}{a \code{jabba3} fit}
 
-\item{catch}{vector of constant catches (one scenario each); default 0.6-1.2 x the last catch}
+\item{fmsy}{vector of F/Fmsy multipliers (one scenario each); default \code{c(0, 0.5, 0.75, 1, 1.25)}}
 
-\item{fmsy}{alternatively, vector of F/Fmsy multipliers}
+\item{catch}{alternatively, vector of constant catches}
 
 \item{nyears}{number of projection years}
 
@@ -21,6 +21,8 @@ jb3_project(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 1000)
 list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles) and \code{iters}
 }
 \description{
-Stochastic projections under constant catch or constant F/Fmsy scenarios, from posterior draws (NUTS) or
+Stochastic projections under constant F/Fmsy (default) or constant catch scenarios, from posterior draws (NUTS) or
 pseudo-posterior draws at the mode (generated if the fit has none), with process error and the production lag.
+F-based scenarios apply F = fmsy x Fmsy draw by draw, so they stay defined when the stock is depleted; constant
+catches are capped at 95\% of the exploitable biomass (the realised F then saturates instead of exploding).
 }

@@ -35,6 +35,13 @@ d.flr <- jb3_data(x$catch, x$indices, stock = "bet")
 all.equal(d.flr$I, d$I, check.attributes = FALSE)
 ```
 
+All functions that take the data work the same way with FLR input; `jbplot_data()`
+also takes the FLR objects directly:
+
+```{r data-flr-plot, fig.height = 4}
+jbplot_data(x$catch, x$indices, stock = "bet")
+```
+
 Several catch columns give `FLQuants` (one per fleet) unless `fleets = FALSE`.
 `jbcatch2flq()` and `jbidx2FLIndices()` convert the catch and the indices
 separately.

@@ -100,19 +100,21 @@ jb3_hindcast <- function(fit, n = 5, MAE.base.adj = 0.1){
 
 #' Projections
 #'
-#' Stochastic projections under constant catch or constant F/Fmsy scenarios, from posterior draws (NUTS) or
+#' Stochastic projections under constant F/Fmsy (default) or constant catch scenarios, from posterior draws (NUTS) or
 #' pseudo-posterior draws at the mode (generated if the fit has none), with process error and the production lag.
+#' F-based scenarios apply F = fmsy x Fmsy draw by draw, so they stay defined when the stock is depleted; constant
+#' catches are capped at 95\% of the exploitable biomass (the realised F then saturates instead of exploding).
 #' @param fit a \code{jabba3} fit
-#' @param catch vector of constant catches (one scenario each); default 0.6-1.2 x the last catch
-#' @param fmsy alternatively, vector of F/Fmsy multipliers
+#' @param fmsy vector of F/Fmsy multipliers (one scenario each); default \code{c(0, 0.5, 0.75, 1, 1.25)}
+#' @param catch alternatively, vector of constant catches
 #' @param nyears number of projection years
 #' @param ndraws draws when the fit has none
 #' @return list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles) and \code{iters}
 #' @export
-jb3_project <- function(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 1000){
+jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000){
   dr <- fit$draws %||% jb3_draws(fit, ndraws)
   d <- fit$setup$dat; mu <- fit$mucatch; N <- d$N; yrs <- fit$years; nd <- nrow(dr$B)
-  if(is.null(catch) && is.null(fmsy)) catch <- round(utils::tail(fit$data$catch, 1)*seq(0.6, 1.2, 0.2))
+  if(is.null(catch) && is.null(fmsy)) fmsy <- c(0, 0.5, 0.75, 1, 1.25)
   sc <- if(!is.null(fmsy)) data.frame(type = "F/Fmsy", value = fmsy) else data.frame(type = "Catch", value = catch)
   pp <- dr$pars; K <- pp$K; r <- pp$r; m <- pp$m; BmsyK <- pp$Bmsy/pp$K; Hmsy <- pp$Fmsy; sdb <- pp$sdb; kd <- pp$kdyn
   P0 <- dr$`B/K`; rho <- fit$report$rho; Dl <- dr$`Process deviation`[, N]
@@ -122,7 +124,7 @@ jb3_project <- function(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 10
     P <- cbind(P0, matrix(NA, nd, nyears)); Cm <- Hm <- matrix(NA, nd, nyears); D <- Dl
     for(t in seq_len(nyears)){
       tt <- N + t; Pp <- P[, tt - 1]; Pl <- P[, max(1, tt - 1 - d$lag0)]
-      C <- if(sc$type[s] == "Catch") rep(sc$value[s], nd) else pmin(sc$value[s]*Hmsy, 0.99)*Pp*K*rem(Pp)
+      C <- if(sc$type[s] == "Catch") pmin(rep(sc$value[s], nd), 0.95*Pp*K*rem(Pp)) else pmin(sc$value[s]*Hmsy, 0.95)*Pp*K*rem(Pp)
       pm <- log(pmax(Pp + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C/(K*rem(Pp)), 0.001))
       v <- sdf(Pp/BmsyK)^2
       D <- if(isTRUE(d$rw)) stats::rnorm(nd, D, d$rw.scale*sqrt(v)) else stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2)))
@@ -130,13 +132,17 @@ jb3_project <- function(fit, catch = NULL, fmsy = NULL, nyears = 10, ndraws = 10
       Cm[, t] <- C; Hm[, t] <- C/(Pp*K*rem(Pp))/Hmsy
     }
     py <- max(yrs) + seq_len(nyears)
-    list(`B/Bmsy` = P[, N + seq_len(nyears)]/BmsyK, B = P[, N + seq_len(nyears)]*K, Catch = Cm, `F/Fmsy` = Hm, years = py)
+    list(`B/Bmsy` = P[, N + seq_len(nyears)]/BmsyK, B = P[, N + seq_len(nyears)]*K, Catch = Cm, `F/Fmsy` = Hm,
+         F = Hm*Hmsy, years = py)
   })
   lab <- paste(sc$type, "=", signif(sc$value, 3))
-  ts <- do.call(rbind, lapply(seq_along(out), function(s) do.call(rbind, lapply(c("B/Bmsy", "B", "Catch", "F/Fmsy"), function(q){
+  ts <- do.call(rbind, lapply(seq_along(out), function(s) do.call(rbind, lapply(c("B/Bmsy", "B", "Catch", "F/Fmsy", "F"), function(q){
     qs <- apply(out[[s]][[q]], 2, stats::quantile, c(0.025, 0.5, 0.975), na.rm = TRUE)
     data.frame(scenario = lab[s], year = out[[s]]$years, quantity = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ],
-               p.above = if(q == "B/Bmsy") colMeans(out[[s]][[q]] >= 1) else NA)
+               p.above = if(q == "B/Bmsy") colMeans(out[[s]][[q]] >= 1) else if(q == "F/Fmsy") colMeans(out[[s]][[q]] > 1 + 1e-8) else NA)
   }))))
-  structure(list(ts = ts, iters = out, scenarios = sc, run = fit$run, fit.ts = fit$ts), class = "jb3proj")
+  sc$label <- lab
+  structure(list(ts = ts, iters = out, scenarios = sc, run = fit$run, fit.ts = fit$ts,
+                 refpts = fit$refpts, status = list(`B/Bmsy` = dr$`B/Bmsy`[, N], `F/Fmsy` = dr$`F/Fmsy`[, N], year = max(yrs))),
+            class = "jb3proj")
 }

@@ -84,3 +84,15 @@ jbplot_procdev(fit)
 |---|---|---|
 | process deviations | long runs of the same sign | persistence: AR(1) with `rho = 0.75` and the lag |
 | production plot | catch persistently above the production curve while biomass increases | the production function is wrong for the data: lag, shape, index trends |
+
+## Tables
+
+`jb3_partable()` lists parameters, reference points and terminal status with 95%
+intervals; with a list of fits and `format = "wide"` it compares runs side by side.
+`jb3_tstable()` gives the time series of estimated quantities by year.
+
+```{r tab-pars}
+knitr::kable(jb3_partable(fit), digits = 4)
+knitr::kable(jb3_partable(list(Fox = fit, Lag.AR1 = rec), format = "wide"))
+knitr::kable(tail(jb3_tstable(fit, c("Catch", "B/Bmsy", "F/Fmsy")), 5), digits = 3)
+```
