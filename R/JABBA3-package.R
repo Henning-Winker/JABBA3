@@ -3,6 +3,8 @@
 #' Bayesian state-space surplus production models in 'RTMB', with NUTS (tmbstan) for full posteriors and
 #' 'FLR'-based inputs and outputs. See \code{DESIGN.md} in the package source for the planned architecture.
 #' @keywords internal
+#' @importFrom ggplot2 .data
+#' @importFrom stats median quantile
 "_PACKAGE"
 
 #' Engines and status of this JABBA3 installation

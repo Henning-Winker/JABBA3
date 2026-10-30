@@ -179,3 +179,22 @@ One routine, run on every fit (fast parts) with the refit-based parts on request
 2. FLR interface: FLQuant/FLIndices inputs, FLQuants/FLPar outputs, `mse` estimator wrapper.
 3. Graphics and diagnostics from JAGG; OSA residuals; hindcast/retro.
 4. Validation suite (ICCAT, case-study OMs); vignettes; pkgdown site.
+
+## Prototype status (30 Oct 2026)
+
+Implemented on branch `prototype`. The core reproduces the JABBA 2 RTMB engine to within 1e-4 on log B/Bmsy (see README validation table). Tests are in `tests/testthat`.
+
+Decisions taken while building (to confirm):
+- **Catch error on by default**, `sdc = 0.1`, as JABBA 2 (`add.catch.CV = TRUE`, `catch.cv = 0.1`). This is "JABBA stays JABBA"; switch it off for catch-known simulation runs.
+- **K and bkinit priors** are JABBA 2's CV-based defaults expressed as log.sd: K 8 x max catch with log.sd 0.833 (CV 1); bkinit 0.9 with log.sd 0.246 (CV 0.25).
+- **Dynamic sdb (Tier 2)** is written as sdb_t = sdb x clamp(B/Bmsy, 0.2, 3)^-k, with no additive constant (JABBA 2 used sigma.proc = 0.001 plus the floor). k is bounded to (-0.5, 2) through a logit.
+- **Fits whose Hessian is not positive definite** keep their point estimates, but their intervals are set to NA with a warning. The convergence tier is "fail".
+- **Fit object**: S3 list `jabba3` with ts (long data frame: year, quantity, est, lci, uci), pars, refpts, index (fits, ordinary and OSA residuals), convergence, report, draws, and the RTMB internals. Workflow fits carry `$steps`.
+
+Known gaps and next steps:
+- NUTS uses the centred states; ESS is low (about 100 from 2 x 500 draws on bigeye). Non-centred parametrisation is next.
+- Selex handles one removal curve, with an index-to-curve map. Multi-fleet catch shares (JABBA 2 `ebsb.catch`, `ebsb.ref`) are still to port.
+- Not yet ported: auxiliary data (effort, F, Z), catch-only mode, Plim hockey-stick, beta prior for bkinit, process-error ramps.
+- Tier 2 intervals are too narrow (95% CI coverage 0.71 against 0.78 for current practice, BioProcDyn section 14), because the level is fixed. Option: estimate the level with a tight prior centred on the tuned value.
+- The `mse` estimator wrapper, ggplotFL methods for the fit, and a pkgdown site are still to do.
+- R CMD check: the remaining NOTE is the RTMB `getAll()` globals; add `utils::globalVariables()`.
