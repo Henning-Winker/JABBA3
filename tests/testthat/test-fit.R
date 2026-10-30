@@ -37,3 +37,16 @@ test_that("AR(1) process error and fast mode run", {
   g <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
   expect_equal(g$convergence$tier, "ok")
 })
+
+test_that("JABBA data frames convert to FLR and give the same fit", {
+  skip_if_not_installed("FLCore")
+  x <- jbdat2flr(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se)
+  expect_s4_class(x$catch, "FLQuant"); expect_s4_class(x$indices, "FLIndices")
+  expect_equal(names(x$indices), c("JR2_early", "JR2_late"))
+  d2 <- jb3_data(x$catch, x$indices, stock = "bet")
+  expect_equal(d2$I, d$I, ignore_attr = TRUE); expect_equal(d2$SE, d$SE, ignore_attr = TRUE); expect_equal(d2$catch, d$catch)
+  back <- flr2jbdat(x$catch, x$indices)
+  expect_equal(back$cpue[, -1], iccat$bet$cpue[, -1], ignore_attr = TRUE)
+  xf <- jbdat2flr(data.frame(year = 2000:2009, a = 1:10, b = 11:20), data.frame(year = 2000:2009, i = 1:10))
+  expect_s4_class(xf$catch, "FLQuants"); expect_length(xf$catch, 2)
+})
