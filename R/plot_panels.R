@@ -2,14 +2,17 @@
 
 #' JABBA3 summary plot with selectable panels
 #'
-#' A grid of panels (3 x 3 by default, as \code{plot()} for a SPiCT fit) built from the individual JABBA3 plots, for a
+#' A grid of panels (3 x 3 by default, as \code{plot()} for a SPiCT fit: B, F, Catch / B/Bmsy, F/Fmsy, Kobe /
+#' process deviations, surplus production dynamics, OSA residuals) built from the individual JABBA3 plots, for a
 #' single fit or a named list of fits (runs coloured). Panels are chosen by name, in order, as in
 #' \code{FLRef::ploteq(panels = )}:
 #' \describe{
 #'   \item{"B", "F", "Catch", "B/Bmsy", "F/Fmsy", "B/K", "Process deviation"}{trajectories with intervals
 #'     (Bthr/Blim on B/Bmsy)}
 #'   \item{"kobe"}{Kobe phase plot (single fit: with the terminal-year uncertainty; several fits: one trajectory per run)}
-#'   \item{"production"}{surplus production curves with Bmsy/MSY and the catch path (single fit)}
+#'   \item{"spdyn"}{realised surplus production against biomass with the production curve (\code{jbplot_spdyn()});
+#'     several fits: the production curves}
+#'   \item{"production"}{production curves with Bmsy/MSY and the catch (yield) path}
 #'   \item{"fits"}{index fits}
 #'   \item{"residuals"}{OSA residuals (first run)}
 #'   \item{"procdev"}{process deviations}
@@ -37,11 +40,11 @@
 jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL, nested = FALSE, obs = TRUE, bthr = 0.5,
                        blim = 0.3, base_size = 9){
   type <- match.arg(type)
-  all <- c("B", "F", "Catch", "B/Bmsy", "F/Fmsy", "kobe", "production", "fits", "residuals")
+  all <- c("B", "F", "Catch", "B/Bmsy", "F/Fmsy", "kobe", "procdev", "spdyn", "residuals")
   if(is.null(panels)) panels <- if(type == "full") all else c("B/Bmsy", "F/Fmsy", "Catch", "kobe")
   if(is.null(ncol)) ncol <- if(length(panels) <= 4) 2 else 3
   if(is.numeric(panels)) panels <- all[panels]
-  ok <- c(all, "B/K", "Process deviation", "procdev", "priorpost")
+  ok <- c(all, "B/K", "Process deviation", "production", "fits", "priorpost")
   bad <- setdiff(panels, ok); if(length(bad)) stop("unknown panels: ", paste(bad, collapse = ", "), "; use any of ", paste(ok, collapse = ", "), call. = FALSE)
   fl <- .fitlist(x); multi <- length(fl) > 1; f1 <- fl[[1]]
   th <- theme_jabba3(base_size) + ggplot2::theme(legend.position = if(multi) "bottom" else "none")
@@ -67,8 +70,10 @@ jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL
     switch(pn,
       kobe = ttl(if(multi) .kobe_runs(fl) + ggplot2::guides(colour = "none") else jbplot_kobe(f1) + ggplot2::guides(fill = "none"), "Kobe"),
       production = ttl(.prod_runs(fl) + ggplot2::guides(colour = if(multi) "none" else "legend"), "Surplus production"),
+      spdyn = ttl(if(multi) .prod_runs(fl) + ggplot2::guides(colour = "none") else
+        jbplot_spdyn(f1) + ggplot2::guides(shape = "none", linetype = "none"), "Surplus production dynamics"),
       fits = jbplot_fits(if(multi) fl else f1) + ggplot2::labs(x = NULL) + th,
-      residuals = jbplot_residuals(f1) + ggplot2::labs(x = NULL, subtitle = NULL) + th,
+      residuals = ttl(jbplot_residuals(f1) + ggplot2::labs(x = NULL), "OSA residuals"),
       procdev = jbplot_procdev(if(multi) fl else f1) + ggplot2::labs(x = NULL) + th,
       priorpost = ttl(.pp_r(f1), "r: prior and posterior"))
   }
