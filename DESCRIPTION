@@ -20,13 +20,20 @@ Depends:
 Imports:
     RTMB,
     Matrix,
-    stats
+    ggplot2,
+    methods,
+    stats,
+    utils,
+    grDevices
 Suggests:
     tmbstan,
+    rstan,
+    patchwork,
     FLCore,
-    ggplot2,
     ggplotFL,
     FLRef,
     testthat (>= 3.0.0)
 URL: https://github.com/Henning-Winker/JABBA3
 BugReports: https://github.com/Henning-Winker/JABBA3/issues
+LazyData: true
+RoxygenNote: 7.3.1
