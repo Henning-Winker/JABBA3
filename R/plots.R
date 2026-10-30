@@ -221,8 +221,10 @@ jbplot_procdev <- function(x, steps = FALSE){
 #' @param fit a \code{jabba3} fit
 #' @param npoints number of points in the cloud
 #' @param year year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}
+#' @param contours probability levels of the highest-density contours of the terminal-year uncertainty (needs MASS;
+#'   \code{NULL} to omit)
 #' @export
-jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
+jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95)){
   y <- year %||% max(fit$years); N <- match(y, fit$years)
   if(is.na(N)) stop("year not in the assessment years", call. = FALSE)
   bb <- fit$ts$est[fit$ts$quantity == "B/Bmsy"]; ff <- fit$ts$est[fit$ts$quantity == "F/Fmsy"]
@@ -232,7 +234,7 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
                  ifelse(pt$stock >= 1 & pt$harvest > 1, "orange", "red")))
   pct <- round(100*prop.table(table(factor(zone, c("green", "yellow", "orange", "red")))), 1)
   if(nrow(pt) > npoints) pt <- pt[sample(nrow(pt), npoints), ]
-  xmax <- max(2, trj$stock, stats::quantile(pt$stock, 0.99))*1.05; ymax <- max(2, trj$harvest, stats::quantile(pt$harvest, 0.99), na.rm = TRUE)*1.05
+  xmax <- max(2, trj$stock, stats::quantile(pt$stock, 0.995))*1.05; ymax <- max(2, trj$harvest, stats::quantile(pt$harvest, 0.995), na.rm = TRUE)*1.05
   qd <- data.frame(xmin = c(1, 0, 1, 0), xmax = c(Inf, 1, Inf, 1), ymin = c(0, 0, 1, 1), ymax = c(1, 1, Inf, Inf),
                    zone = c("green", "yellow", "orange", "red"))
   qd$lab <- sprintf("%.1f%%", pct[qd$zone])
@@ -241,7 +243,8 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
   ggplot2::ggplot() +
     ggplot2::geom_rect(data = qd, ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = .data$ymin, ymax = .data$ymax, fill = .data$zone), alpha = 0.85) +
     ggplot2::scale_fill_manual(values = fills, breaks = qd$zone, labels = qd$lab, name = paste("Uncertainty", y)) +
-    ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey30", alpha = 0.15, size = 0.6) +
+    ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8) +
+    (if(length(contours)) .kobe_contours(pt, contours)) +
     ggplot2::geom_path(data = trj, ggplot2::aes(.data$stock, .data$harvest), linewidth = 0.6) +
     ggplot2::geom_point(data = trj, ggplot2::aes(.data$stock, .data$harvest), shape = 21, fill = "white", size = 1.4) +
     ggplot2::geom_point(data = ends, ggplot2::aes(.data$stock, .data$harvest), shape = c(22, 24), fill = "white", size = 3) +
@@ -251,6 +254,18 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
     ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax), expand = FALSE) +
     ggplot2::labs(x = expression(B/B[MSY]), y = expression(F/F[MSY]), subtitle = fit$run) +
     theme_jabba3() + ggplot2::theme(legend.title = ggplot2::element_text(size = 8), legend.position = "right")
+}
+
+# highest-density contours of the terminal-year (stock, harvest) cloud (as JABBA's Kobe plot)
+.kobe_contours <- function(pt, probs){
+  if(!requireNamespace("MASS", quietly = TRUE) || nrow(pt) < 50) return(NULL)
+  k <- MASS::kde2d(pt$stock, pt$harvest, n = 100, lims = c(range(pt$stock)*c(0.8, 1.2), range(pt$harvest)*c(0.8, 1.2)))
+  z <- sort(k$z, decreasing = TRUE); cz <- cumsum(z)/sum(z)
+  lev <- sapply(probs, function(p) z[which(cz >= p)[1]])
+  g <- expand.grid(stock = k$x, harvest = k$y); g$z <- as.vector(k$z)
+  lab <- data.frame(lev = lev, p = probs)
+  ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z), breaks = sort(lev),
+                        colour = "black", linewidth = 0.4, linetype = 1)
 }
 
 #' Fits to the abundance indices

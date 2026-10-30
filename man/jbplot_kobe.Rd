@@ -4,7 +4,7 @@
 \alias{jbplot_kobe}
 \title{Kobe plot}
 \usage{
-jbplot_kobe(fit, npoints = 2000, year = NULL)
+jbplot_kobe(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95))
 }
 \arguments{
 \item{fit}{a \code{jabba3} fit}
@@ -12,6 +12,9 @@ jbplot_kobe(fit, npoints = 2000, year = NULL)
 \item{npoints}{number of points in the cloud}
 
 \item{year}{year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}}
+
+\item{contours}{probability levels of the highest-density contours of the terminal-year uncertainty (needs MASS;
+\code{NULL} to omit)}
 }
 \description{
 B/Bmsy against F/Fmsy: trajectory and the joint uncertainty in the last year, from the draws (NUTS or MVN) or, without
