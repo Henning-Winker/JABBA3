@@ -221,10 +221,13 @@ jbplot_procdev <- function(x, steps = FALSE){
 #' @param fit a \code{jabba3} fit
 #' @param npoints number of points in the cloud
 #' @param year year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}
-#' @param contours probability levels of the highest-density contours of the terminal-year uncertainty (needs MASS;
+#' @param style "points" (draws as points with contour lines) or "contours" (filled 50/80/95\% highest-density regions,
+#'   as \code{jbplot_biplot()})
+#' @param contours probability levels of the highest-density contour lines of the terminal-year uncertainty (needs MASS;
 #'   \code{NULL} to omit)
 #' @export
-jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95)){
+jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95), style = c("points", "contours")){
+  style <- match.arg(style)
   y <- year %||% max(fit$years); N <- match(y, fit$years)
   if(is.na(N)) stop("year not in the assessment years", call. = FALSE)
   bb <- fit$ts$est[fit$ts$quantity == "B/Bmsy"]; ff <- fit$ts$est[fit$ts$quantity == "F/Fmsy"]
@@ -243,8 +246,9 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   ggplot2::ggplot() +
     ggplot2::geom_rect(data = qd, ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = .data$ymin, ymax = .data$ymax, fill = .data$zone), alpha = 0.85) +
     ggplot2::scale_fill_manual(values = fills, breaks = qd$zone, labels = qd$lab, name = paste("Uncertainty", y)) +
-    ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8) +
-    (if(length(contours)) .kobe_contours(pt, contours)) +
+    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8)) +
+    (if(style == "points" && length(contours)) .kobe_contours(pt, contours)) +
+    (if(style == "contours") .kobe_filled(pt, c(xmax, ymax))) +
     ggplot2::geom_path(data = trj, ggplot2::aes(.data$stock, .data$harvest), linewidth = 0.6) +
     ggplot2::geom_point(data = trj, ggplot2::aes(.data$stock, .data$harvest), shape = 21, fill = "white", size = 1.4) +
     ggplot2::geom_point(data = ends, ggplot2::aes(.data$stock, .data$harvest), shape = c(22, 24), fill = "white", size = 3) +
@@ -266,6 +270,18 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   lab <- data.frame(lev = lev, p = probs)
   ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z), breaks = sort(lev),
                         colour = "black", linewidth = 0.4, linetype = 1)
+}
+
+# filled 50/80/95% highest-density regions (as jbplot_biplot)
+.kobe_filled <- function(pt, lim){
+  k <- .kde2(pt$stock, pt$harvest, lims = c(0, lim[1], 0, lim[2])); lv <- .hpd_levels(k$z, c(0.5, 0.8, 0.95))
+  cfill <- c("0.95" = "cornsilk4", "0.8" = "grey", "0.5" = "cornsilk2")
+  cl <- do.call(rbind, lapply(seq_along(lv), function(i){ L <- grDevices::contourLines(k$x, k$y, k$z, levels = lv[i])
+    if(!length(L)) return(NULL)
+    do.call(rbind, lapply(seq_along(L), function(j) data.frame(level = names(cfill)[4 - i], grp = paste(i, j), x = L[[j]]$x, y = L[[j]]$y))) }))
+  if(is.null(cl)) return(NULL)
+  lapply(names(cfill), function(l) if(any(cl$level == l)) ggplot2::geom_polygon(data = cl[cl$level == l, ],
+    ggplot2::aes(.data$x, .data$y, group = .data$grp), fill = cfill[[l]], colour = NA, alpha = 0.85))
 }
 
 #' Fits to the abundance indices
