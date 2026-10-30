@@ -152,7 +152,7 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
     refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
                        name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
                        value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
-    lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim)]
+    lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim) & !names(lim) %in% names(extra)]  # extra overrides
     if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", "B"), each = length(lim)), name = rep(names(lim), 2),
                                                    value = c(lim, lim*rp["Bmsy", "est"])))
     if(length(extra)){ nm <- names(extra)

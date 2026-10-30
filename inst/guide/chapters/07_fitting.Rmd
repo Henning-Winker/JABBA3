@@ -37,12 +37,14 @@ jbplot_trj(fit)
 
 `jbplot_trj()` and `jbplot_advice()` share the JAGG options: `nested = TRUE`
 for 90/60% bands (the default in `jbplot_advice()`), `extra` for further
-reference points such as $B_{lim}$, `drop.last` to drop the last year of F and
-catch, `proj` to append projections (dashed) and `probs` for other bands. A
-list of fits is coloured by run.
+reference points (e.g. $B_{pa}$; an `extra` $B_{lim}$ or $B_{thr}$ replaces the
+default), `drop.last` to drop the last year of F and catch, `proj` to append
+projections and `probs` for other bands. $B_{thr} = 0.5 B_{MSY}$ and
+$B_{lim} = 0.3 B_{MSY}$ (SPiCT benchmark defaults) are drawn by default
+(`bthr`, `blim`; `NULL` to omit). A list of fits is coloured by run.
 
 ```{r fit-advice-extra, fig.height = 7, fig.width = 7}
-jbplot_advice(fit, extra = c(Blim = 0.5, Bpa = 0.8), drop.last = TRUE)
+jbplot_advice(fit, extra = c(Bpa = 0.8), drop.last = TRUE)
 ```
 
 `jbplot_kobe(fit, year = )` shows the uncertainty in any year (gold diamond),
