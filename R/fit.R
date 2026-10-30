@@ -16,6 +16,8 @@
 #'   \code{\link{jb3_workflow}()})
 #' @param amat age at 50\% maturity (production lag for the Tier 1 / Tier 2 workflows)
 #' @param run name of the run (scenario)
+#' @param se compute standard errors (sdreport). \code{FALSE} gives point estimates only, about twice as fast, for
+#'   simulation testing; the convergence verdict then rests on the gradient (no Hessian check)
 #' @param peels,index.peels internal: retrospective (all data) and hindcast (index only) peels
 #' @param nstart maximum number of optimisation starts
 #' @param silent suppress RTMB tracing
@@ -28,16 +30,16 @@
 #' @export
 jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine = c("rtmb", "nuts"), ndraws = 0,
                    nuts = list(), osa = TRUE, workflow = c("none", "tier1", "tier2", "selex", "selex_tier1", "selex_tier2"),
-                   amat = NULL, run = NULL, peels = 0, index.peels = 0, nstart = 4, silent = TRUE){
+                   amat = NULL, run = NULL, se = TRUE, peels = 0, index.peels = 0, nstart = 4, silent = TRUE){
   .need("RTMB", "JABBA3 needs RTMB")
   engine <- match.arg(engine); workflow <- match.arg(workflow)
   if(!inherits(data, "jb3data")) stop("data must be a jb3_data() object", call. = FALSE)
   if(workflow != "none") return(jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
-                                             ndraws = ndraws, nuts = nuts, osa = osa))
+                                             ndraws = ndraws, nuts = nuts, osa = osa, se = se))
   ptm <- proc.time()
   setup <- jb3_setup(data, priors, model, peels = peels, index.peels = index.peels)
   opt <- jb3_optimise(setup, nstart = nstart, silent = silent)
-  fit <- jb3_output(opt, setup, sdreport = TRUE)
+  fit <- jb3_output(opt, setup, sdreport = se || engine == "nuts" || ndraws > 0)
   class(fit) <- c("jabba3", "list")
   fit$run <- run %||% data$stock
   fit$priors <- priors; fit$model <- model; fit$engine <- engine; fit$peels <- peels; fit$index.peels <- index.peels
@@ -58,6 +60,7 @@ jb3_optimise <- function(setup, nstart = 4, silent = TRUE){
   newton <- function(obj, opt, steps = 3){
     for(j in seq_len(steps)){
       g <- tryCatch(as.numeric(obj$gr(opt$par)), error = function(e) NA)
+      if(all(is.finite(g)) && max(abs(g)) < 1e-6) break          # already converged: skip the Hessian
       h <- tryCatch(stats::optimHess(opt$par, obj$fn, obj$gr), error = function(e) NULL)
       if(is.null(h) || any(!is.finite(g))) break
       st <- tryCatch(solve(h, g), error = function(e) NULL); if(is.null(st)) break
@@ -119,10 +122,15 @@ jb3_convergence <- function(fit){
 
 .conv_tier <- function(obj, opt, sdr){
   g <- tryCatch(as.numeric(obj$gr(opt$par)), error = function(e) rep(NA, length(opt$par)))
-  h <- tryCatch(stats::optimHess(opt$par, obj$fn, obj$gr), error = function(e) NULL)
-  dec <- if(is.null(h) || any(!is.finite(g))) NA else tryCatch(0.5*sum(g*solve(h, g)), error = function(e) NA)
-  pd <- if(!is.null(sdr)) isTRUE(sdr$pdHess) else FALSE
-  se.ok <- !is.null(sdr) && all(is.finite(suppressWarnings(sqrt(diag(sdr$cov.fixed)))))
+  if(is.null(sdr)){   # point-estimate mode: verdict from the optimiser and the gradient only
+    tier <- if(opt$convergence == 0 && all(is.finite(g)) && max(abs(g)) < 1e-3) "ok" else if(all(is.finite(g)) && max(abs(g)) < 0.1) "warning" else "fail"
+    return(list(code = opt$convergence, message = opt$message, maxgrad = max(abs(g)), pdHess = NA, se.ok = NA,
+                decrement = NA, tier = tier, nll = opt$objective))
+  }
+  # Newton decrement from the sdreport covariance (inverse Hessian of the marginal), no extra Hessian evaluation
+  dec <- if(any(!is.finite(g))) NA else tryCatch(0.5*sum(g*(sdr$cov.fixed %*% g)), error = function(e) NA)
+  pd <- isTRUE(sdr$pdHess)
+  se.ok <- all(is.finite(suppressWarnings(sqrt(diag(sdr$cov.fixed)))))
   tier <- if(!pd || !is.finite(dec) || dec > 0.1) "fail" else if(dec >= 1e-3) "warning" else "ok"
   list(code = opt$convergence, message = opt$message, maxgrad = max(abs(g)), pdHess = pd, se.ok = se.ok,
        decrement = dec, tier = tier, nll = opt$objective)
@@ -181,7 +189,7 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   refpts <- rbind(p1("Bmsy", g("logBmsy"), rep$BmsyK*rep$K, mu), p1("Fmsy", g("logFmsy"), rep$Hmsy), p1("MSY", g("logMSY"), rep$MSY, mu),
                   p1("K", g("logK"), rep$K, mu), p1("BmsyK", NULL, rep$BmsyK))
   rownames(pars) <- pars$par; rownames(refpts) <- refpts$par
-  if(!isTRUE(conv$pdHess)){   # no valid curvature: intervals are not meaningful
+  if(!is.null(sdr) && !isTRUE(conv$pdHess)){   # no valid curvature: intervals are not meaningful
     ts[, c("lci", "uci", "se.log")] <- NA; pars[, c("lci", "uci", "se.log")] <- NA; refpts[, c("lci", "uci", "se.log")] <- NA
     warning("Hessian not positive definite: intervals set to NA (convergence: ", conv$tier, ")", call. = FALSE)
   }
