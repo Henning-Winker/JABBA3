@@ -7,30 +7,36 @@
 \usage{
 jabbaplot3(
   x,
+  type = c("full", "simple"),
   panels = NULL,
-  ncol = 3,
+  ncol = NULL,
   nested = FALSE,
+  obs = TRUE,
   bthr = 0.5,
   blim = 0.3,
   base_size = 9
 )
 
-\method{plot}{jabba3}(x, y, ...)
+\method{plot}{jabba3}(x, type = c("full", "simple"), ...)
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a named list of fits or a workflow fit}
 
-\item{panels}{panel names (default the 3 x 3 SPiCT-like set) or their positions in the default}
+\item{type}{"full" (3 x 3, as SPiCT \code{plot()}) or "simple" (2 x 2: B/Bmsy, F/Fmsy, Catch, Kobe, as SPiCT
+\code{plot2()}); ignored when \code{panels} is given}
+
+\item{panels}{panel names or their positions in the full set}
 
 \item{ncol}{number of columns}
 
 \item{nested}{nested 90/60\% bands on the trajectories (single fit)}
 
+\item{obs}{single fit: add the observed indices scaled to biomass (I/q) and to B/Bmsy (I/(q Bmsy)) on the "B" and
+"B/Bmsy" panels, coloured by index (as SPiCT)}
+
 \item{bthr, blim}{as in \code{\link{jbplot_trj}()}}
 
 \item{base_size}{font size}
-
-\item{y}{unused}
 
 \item{...}{passed to \code{jabbaplot3()}}
 }
