@@ -94,7 +94,8 @@ jb3_flpar <- function(fit){
 #' @examples
 #' \dontrun{
 #' stk <- jb3_FLStockR(fit, ndraws = 500)
-#' FLRef::plotAdvice(stk)
+#' FLRef::plotAdvice(stk, type = "spm")    # biomass, F, catch (three panels)
+#' FLRef::plotAdvice(jb3_FLStockR(fit, rel = TRUE, ndraws = 500), type = "spm")
 #' }
 #' @export
 jb3_FLStockR <- function(fit, bthr = 0.5, blim = 0.3, rel = FALSE, draws = !is.null(fit$draws), ndraws = 0){

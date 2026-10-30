@@ -29,8 +29,14 @@ $F_{MSY}$, $B_{MSY}$, MSY, $B_{thr}$ and $B_{lim}$ (by default 0.5 and 0.3
 $B_{MSY}$, the SPiCT benchmark defaults) and $B_0$; `rel = TRUE` gives
 $B/B_{MSY}$ and $F/F_{MSY}$.
 
-```{r flr-stockr, fig.height = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
+```{r flr-stockr, fig.height = 4, fig.width = 9, eval = requireNamespace("FLRef", quietly = TRUE)}
 stk <- jb3_FLStockR(fit, ndraws = 500)
 stk@refpts
-FLRef::plotAdvice(stk)
+FLRef::plotAdvice(stk, type = "spm")        # biomass, F, catch
+```
+
+Relative to the MSY reference points (B/B~MSY~, F/F~MSY~, catch):
+
+```{r flr-stockr-rel, fig.height = 4, fig.width = 9, eval = requireNamespace("FLRef", quietly = TRUE)}
+FLRef::plotAdvice(jb3_FLStockR(fit, rel = TRUE, ndraws = 500), type = "spm")
 ```

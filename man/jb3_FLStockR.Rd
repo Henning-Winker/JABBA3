@@ -37,6 +37,7 @@ MVN draws, or the point estimates. The \code{refpts} slot holds Fmsy, Bmsy, MSY,
 \examples{
 \dontrun{
 stk <- jb3_FLStockR(fit, ndraws = 500)
-FLRef::plotAdvice(stk)
+FLRef::plotAdvice(stk, type = "spm")    # biomass, F, catch (three panels)
+FLRef::plotAdvice(jb3_FLStockR(fit, rel = TRUE, ndraws = 500), type = "spm")
 }
 }
