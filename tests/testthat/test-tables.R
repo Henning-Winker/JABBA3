@@ -34,3 +34,8 @@ test_that("jabbaplot3 panels", {
   expect_s3_class(jabbaplot3(list(a = f, b = f), panels = c("B/Bmsy", "kobe", "production", "procdev"), ncol = 2), "patchwork")
   expect_error(jabbaplot3(f, panels = "nope"), "unknown panels")
 })
+
+test_that("rho guidance", {
+  expect_equal(jb3_rho_gt(8), round(exp(-2.2/8), 2))
+  expect_equal(nrow(jb3_rho_table()), 4)
+})
