@@ -34,7 +34,9 @@ jabba3(
 \item{ndraws}{number of pseudo-posterior draws from the joint precision at the mode (rtmb; 0 = none). Draws feed the
 Kobe cloud and projections; intervals come from the delta method otherwise.}
 
-\item{nuts}{list of tmbstan settings: chains, iter, warmup, seed, cores, control}
+\item{nuts}{list of tmbstan settings: chains (3), iter (4000), warmup (iter/2), seed, cores, thin, control
+(adapt_delta 0.95, max_treedepth 12). NUTS is meant for final runs: convergence is checked after sampling and a warning
+is issued if R-hat > 1.01, bulk/tail ESS < 100 per chain, divergences occur or E-BFMI < 0.3 (table in \code{fit$nuts$diags})}
 
 \item{osa}{compute one-step-ahead residuals (particle filter at the mode)}
 

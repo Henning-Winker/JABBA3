@@ -42,7 +42,7 @@ jb3_draws <- function(fit, ndraws = 1000, seed = 1){
 # NUTS with tmbstan on the same objective (all random effects sampled)
 jb3_nuts <- function(fit, nuts = list()){
   .need("tmbstan", "engine = 'nuts' needs tmbstan")
-  st <- utils::modifyList(list(chains = 3, iter = 2000, seed = 1, cores = 1, thin = 1,
+  st <- utils::modifyList(list(chains = 3, iter = 4000, seed = 1, cores = 1, thin = 1,
                                control = list(adapt_delta = 0.95, max_treedepth = 12)), nuts)
   if(is.null(st$warmup)) st$warmup <- floor(st$iter/2)               # as rstan: half of iter
   if(st$warmup >= st$iter) stop("nuts: warmup must be smaller than iter", call. = FALSE)
@@ -55,6 +55,18 @@ jb3_nuts <- function(fit, nuts = list()){
   sm <- rstan::summary(sf)$summary
   fit$nuts <- list(stanfit = sf, rhat.max = max(sm[, "Rhat"], na.rm = TRUE), ess.min = min(sm[, "n_eff"], na.rm = TRUE),
                    divergent = sum(rstan::get_divergent_iterations(sf)), settings = st)
+  # convergence check for final runs: rank-normalised R-hat, bulk/tail ESS per chain, divergences
+  dg <- tryCatch(jb3_nuts_diags(fit, states = TRUE), error = function(e) NULL)
+  if(!is.null(dg)){
+    fit$nuts$diags <- dg
+    msg <- c(if(max(dg$pars$Rhat, na.rm = TRUE) > 1.01) sprintf("R-hat up to %.3f (> 1.01)", max(dg$pars$Rhat, na.rm = TRUE)),
+             if(min(dg$pars$ess_bulk, na.rm = TRUE) < 100*st$chains) sprintf("bulk ESS down to %.0f (< 100 per chain)", min(dg$pars$ess_bulk, na.rm = TRUE)),
+             if(min(dg$pars$ess_tail, na.rm = TRUE) < 100*st$chains) sprintf("tail ESS down to %.0f (< 100 per chain)", min(dg$pars$ess_tail, na.rm = TRUE)),
+             if(sum(dg$sampler$divergent) > 0) sprintf("%d divergent transitions", sum(dg$sampler$divergent)),
+             if(any(dg$sampler$EBFMI < 0.3)) "E-BFMI < 0.3")
+    if(length(msg)) warning("NUTS not converged: ", paste(msg, collapse = "; "),
+                            ". Run longer (nuts = list(iter = ...)) and check jbplot_nutsdiags().", call. = FALSE)
+  }
   # posterior medians and quantiles replace the mode summaries
   fit$ts <- .ts_from_draws(fit, fit$draws)
   pp <- fit$draws$pars

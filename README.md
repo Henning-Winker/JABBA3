@@ -60,7 +60,7 @@ rec <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, rho = 0.75))
 fq <- jabba3(d, pr, jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
 
 # full posterior with NUTS
-fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000, cores = 3))
+fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(cores = 3))   # 3 x 4000 iterations, convergence checked
 jb3_nuts_diags(fn)$sampler; jbplot_nutsdiags(fn); jbplot_nuts(fn, "pairs", pars = c("logK", "logr", "logq"))
 
 # retrospective, hindcast, projections, FLR
