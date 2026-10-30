@@ -472,12 +472,14 @@ jbplot_all <- function(fit, dir = ".", retro = NULL, hc = NULL, proj = NULL, wid
              spict_diags = jbplot_spdiags(fit), kobe = jbplot_kobe(fit), priorpost = jbplot_priorpost(fit),
              production = jbplot_production(fit), procdev = jbplot_procdev(fit))
   if(!is.null(fit$steps)) pl$steps <- jbplot_steps(fit)
+  if(!is.null(fit$nuts$stanfit)){ pl$nuts_trace <- jbplot_trace(fit); pl$nuts_rank <- jbplot_rank(fit); pl$nuts_pairs <- jbplot_pairs(fit)
+    pl$nuts_rhat <- jbplot_rhat(fit); pl$nuts_energy <- jbplot_energy(fit) }
   if(!is.null(retro)) pl$retro <- jbplot_retro(retro)
   if(!is.null(hc)) pl$hindcast <- jbplot_hcxval(hc)
   if(!is.null(proj)) pl$projection <- jbplot_projection(proj)
   fn <- file.path(dir, paste0(fit$run, "_", names(pl), ".png"))
   for(i in seq_along(pl)){
-    h <- if(names(pl)[i] == "spict_diags") 2.6*length(unique(fit$index$index)) else height
+    h <- if(names(pl)[i] == "spict_diags") 2.6*length(unique(fit$index$index)) else if(names(pl)[i] %in% c("nuts_pairs", "nuts_rhat")) width else height
     ggplot2::ggsave(fn[i], pl[[i]], width = width, height = h, dpi = dpi)
   }
   invisible(fn)

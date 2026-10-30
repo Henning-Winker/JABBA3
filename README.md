@@ -55,7 +55,8 @@ rec <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, rho = 0.75))
 fq <- jabba3(d, pr, jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
 
 # full posterior with NUTS
-fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000))
+fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000, cores = 3))
+jb3_nuts_diags(fn)$sampler; jbplot_nutsdiags(fn); jbplot_nuts(fn, "pairs", pars = c("logK", "logr", "logq"))
 
 # retrospective, hindcast, projections, FLR
 rt <- jb3_retro(fit, 5); hc <- jb3_hindcast(fit, 5)
@@ -74,6 +75,7 @@ flq <- jb3_flqs(fit)
 | Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan |
 | Convergence | FLicc-style: nlminb, Newton polishing, guarded restarts, Newton decrement verdict; `jb3_convergence()` |
 | Workflows | `workflow = "tier1" / "tier2" / "selex" / "selex_tier1" / "selex_tier2"`; `jb3_tier1()`, `jb3_tier2()` |
+| NUTS diagnostics | `jb3_nuts_diags()` (rank-normalised R-hat, bulk/tail ESS, divergences, tree depth, E-BFMI); `jbplot_nuts()`: trace, rank, dens, acf, pairs (divergences in red), rhat (all parameters incl. states), energy; `jbplot_nutsdiags()` one-page summary |
 | Diagnostics | OSA residuals (particle filter), `jb3_diags()` (JABBA set + SPiCT set), `jb3_retro()` (Mohn's rho), `jb3_hindcast()` (MASE) |
 | Projections | `jb3_project()`: constant catch or F/Fmsy, with process error and lag |
 | Outputs | `jb3_flqs()` (FLQuants, iterations = draws), `jb3_flpar()` |
@@ -89,6 +91,7 @@ flq <- jb3_flqs(fit)
 | ![](man/figures/production.png) | ![](man/figures/retro.png) |
 | ![](man/figures/hindcast.png) | ![](man/figures/projection.png) |
 | ![](man/figures/tier2_steps.png) | ![](man/figures/selex_tier2.png) |
+| ![](man/figures/nuts_diags.png) | |
 
 ## Validation against JABBA 2 (RTMB engine, same priors)
 

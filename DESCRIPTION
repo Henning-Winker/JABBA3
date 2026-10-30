@@ -24,7 +24,8 @@ Imports:
     methods,
     stats,
     utils,
-    grDevices
+    grDevices,
+    graphics
 Suggests:
     tmbstan,
     rstan,
