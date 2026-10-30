@@ -4,12 +4,21 @@
 \alias{jbplot_runs}
 \title{Runs test}
 \usage{
-jbplot_runs(fit, type = c("osa", "ordinary"))
+jbplot_runs(
+  fit,
+  type = c("osa", "ordinary"),
+  mixing = c("less", "two.sided", "greater")
+)
 }
 \arguments{
 \item{fit}{a \code{jabba3} fit}
 
 \item{type}{"osa" (default) or "ordinary"}
+
+\item{mixing}{alternative of the runs test: "less" (default, too few runs), "two.sided" or "greater"}
+}
+\value{
+a ggplot; the runs test table is in attribute "runs" (as JAGG's \code{jagg_runstest()})
 }
 \description{
 Residuals as segments from zero, three-sigma limits (green: runs test passed, p >= 0.05; red: failed), outliers in red,

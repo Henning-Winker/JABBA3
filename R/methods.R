@@ -77,3 +77,46 @@ jb3_flpar <- function(fit){
                   B.Bmsy = utils::tail(fit$ts$est[fit$ts$quantity == "B/Bmsy"], 1),
                   F.Fmsy = utils::tail(fit$ts$est[fit$ts$quantity == "F/Fmsy"], 1)))
 }
+
+#' Convert a JABBA3 fit to an FLStockR
+#'
+#' Biomass-dynamic FLStockR (one "age"), as \code{FLRef::jabba2FLStockR()}: \code{stock} and \code{ssb()} are the biomass,
+#' \code{catch} the (estimated) catch and \code{harvest} the harvest rate F = C/B; iterations are the posterior (NUTS) or
+#' MVN draws, or the point estimates. The \code{refpts} slot holds Fmsy, Bmsy, MSY, Bthr, Blim, B0 (= K) and, with
+#' \code{rel = TRUE}, everything is relative to Bmsy and Fmsy (Fmsy = Bmsy = 1). Use with \code{FLRef::plotAdvice()},
+#' \code{ggplotFL} and \code{mse}.
+#' @param fit a \code{jabba3} fit
+#' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, SPiCT benchmark defaults)
+#' @param rel relative units (B/Bmsy, F/Fmsy)
+#' @param draws use the fit's draws as iterations (default if present); \code{ndraws} > 0 generates MVN draws otherwise
+#' @param ndraws number of MVN draws to generate when the fit has none (0: point estimates)
+#' @return FLStockR
+#' @examples
+#' \dontrun{
+#' stk <- jb3_FLStockR(fit, ndraws = 500)
+#' FLRef::plotAdvice(stk)
+#' }
+#' @export
+jb3_FLStockR <- function(fit, bthr = 0.5, blim = 0.3, rel = FALSE, draws = !is.null(fit$draws), ndraws = 0){
+  .need("FLCore", "jb3_FLStockR() needs FLCore")
+  dr <- if(draws) fit$draws else if(ndraws > 0) jb3_draws(fit, ndraws) else NULL
+  yrs <- fit$years; ny <- length(yrs)
+  get <- function(q) if(!is.null(dr)) t(dr[[q]]) else matrix(fit$ts$est[fit$ts$quantity == q], ncol = 1)
+  B <- get(if(rel) "B/Bmsy" else "B"); H <- get(if(rel) "F/Fmsy" else "F"); C <- get("Catch")
+  ni <- ncol(B)
+  flq <- function(x, v = NULL) FLCore::FLQuant(if(is.null(v)) array(x, dim = c(1, ny, 1, 1, 1, ni)) else v,
+                                              dimnames = list(age = "1", year = yrs, iter = seq_len(ni)))
+  one <- function(v) FLCore::FLQuant(v, dimnames = list(age = "1", year = yrs))
+  stk <- FLCore::FLStock(stock.n = flq(B), catch.n = flq(C), landings.n = flq(C), discards.n = one(0),
+                         stock.wt = one(1), catch.wt = one(1), landings.wt = one(1), discards.wt = one(1),
+                         mat = one(1), m = one(1e-4), harvest = flq(H), m.spwn = one(0), harvest.spwn = one(0), name = fit$stock %||% "stock")
+  FLCore::units(FLCore::harvest(stk)) <- "hr"
+  FLCore::catch(stk) <- FLCore::computeCatch(stk); FLCore::landings(stk) <- FLCore::computeLandings(stk)
+  FLCore::discards(stk) <- FLCore::computeDiscards(stk); FLCore::stock(stk) <- FLCore::computeStock(stk)
+  stk <- FLCore::FLStockR(stk)
+  rp <- fit$refpts
+  bm <- if(rel) 1 else rp["Bmsy", "est"]; fm <- if(rel) 1 else rp["Fmsy", "est"]
+  stk@refpts <- FLCore::FLPar(Fmsy = fm, Bmsy = bm, MSY = rp["MSY", "est"], Bthr = bthr*bm, Blim = blim*bm,
+                              B0 = if(rel) rp["K", "est"]/rp["Bmsy", "est"] else rp["K", "est"])
+  stk
+}

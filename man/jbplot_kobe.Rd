@@ -4,12 +4,14 @@
 \alias{jbplot_kobe}
 \title{Kobe plot}
 \usage{
-jbplot_kobe(fit, npoints = 2000)
+jbplot_kobe(fit, npoints = 2000, year = NULL)
 }
 \arguments{
 \item{fit}{a \code{jabba3} fit}
 
 \item{npoints}{number of points in the cloud}
+
+\item{year}{year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}}
 }
 \description{
 B/Bmsy against F/Fmsy: trajectory and the joint uncertainty in the last year, from the draws (NUTS or MVN) or, without

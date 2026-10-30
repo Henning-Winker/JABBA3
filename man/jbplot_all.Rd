@@ -28,6 +28,8 @@ jbplot_all(
 invisibly, the file names
 }
 \description{
-Writes the plots of a fit to PNG files (data, advice, trajectories, fits, residuals, runs test, SPiCT diagnostics,
-Kobe, prior-posterior, production, process error; retrospective, hindcast and projections when given).
+Writes the plots of a fit to PNG files (data, indices, advice, trajectories, fits, residuals, standardised residuals,
+runs test, SPiCT diagnostics, Kobe, biplot, prior-posterior, production phase and dynamics, process error; catch error,
+status priors, PPC (with draws), Selex status, workflow steps and NUTS diagnostics when they apply; retrospective,
+hindcast, projections and catch risk when given).
 }

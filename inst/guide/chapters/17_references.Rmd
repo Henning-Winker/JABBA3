@@ -1,0 +1,45 @@
+# References
+
+Carvalho, F., Winker, H., Courtney, D., Kapur, M., Kell, L., Cardinale, M.,
+Schirripa, M., Kitakado, T., Yemane, D., Piner, K.R., Maunder, M.N., Taylor, I.,
+Wetzel, C.R., Doering, K., Johnson, K.F. and Methot, R.D. (2021). A cookbook for
+using model diagnostics in integrated stock assessments. *Fisheries Research*
+240: 105959.
+
+Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale, M.
+and Fu, D. (2021). Validation of stock assessment methods: is it me or my model
+talking? *ICES Journal of Marine Science* 78(6): 2244-2255.
+
+Kell, L.T., Mosqueira, I., Grosjean, P., Fromentin, J.-M., Garcia, D., Hillary,
+R., Jardim, E., Mardle, S., Pastoors, M.A., Poos, J.J., Scott, F. and Scott,
+R.D. (2007). FLR: an open-source framework for the evaluation and development of
+management strategies. *ICES Journal of Marine Science* 64(4): 640-646.
+
+Kristensen, K., Nielsen, A., Berg, C.W., Skaug, H. and Bell, B.M. (2016). TMB:
+automatic differentiation and Laplace approximation. *Journal of Statistical
+Software* 70(5): 1-21.
+
+Monnahan, C.C. and Kristensen, K. (2018). No-U-turn sampling for fast Bayesian
+inference in ADMB and TMB: introducing the adnuts and tmbstan R packages. *PLoS
+ONE* 13(5): e0197954.
+
+Pedersen, M.W. and Berg, C.W. (2017). A stochastic surplus production model in
+continuous time. *Fish and Fisheries* 18(2): 226-243.
+
+Thorson, J.T. (2020). Predicting recruitment density dependence and intrinsic
+growth rate for all fishes worldwide using a data-integrated life-history model.
+*Fish and Fisheries* 21(2): 237-251.
+
+Thygesen, U.H., Albertsen, C.M., Berg, C.W., Kristensen, K. and Nielsen, A.
+(2017). Validation of ecological state space models using the Laplace
+approximation. *Environmental and Ecological Statistics* 24(2): 317-339.
+
+Vehtari, A., Gelman, A., Simpson, D., Carpenter, B. and Bürkner, P.-C. (2021).
+Rank-normalization, folding, and localization: an improved $\hat{R}$ for
+assessing convergence of MCMC. *Bayesian Analysis* 16(2): 667-718.
+
+Winker, H., Carvalho, F. and Kapur, M. (2018). JABBA: Just Another Bayesian
+Biomass Assessment. *Fisheries Research* 204: 275-288.
+
+Winker, H. et al. (2026). Process error in surplus production models:
+scale, persistence and inflation (BioProcDyn). In preparation.

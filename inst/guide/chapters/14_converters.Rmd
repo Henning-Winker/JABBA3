@@ -1,0 +1,63 @@
+# Converting from JABBA 2 and SPiCT
+
+## JABBA 2: `jbinput2jabba3()`
+
+`jbinput2jabba3()` takes the object returned by `JABBA::build_jabba()` and
+returns `list(data, priors, model)` for `jabba3()`. It carries over the priors
+(r, K, psi to `bkinit`, shape, catchability, status priors), the production
+lag, catch error, catchability and variance groups, `proc.dev.all`, the
+BioProcDyn process-error options and the Selex curves, and reports each
+difference:
+
+- JABBA 2's inverse-gamma prior on the process variance is replaced by the
+  FishLife prior (`keep.igamma = TRUE` keeps it);
+- q gets a flat prior on log q (`q.uniform = TRUE` reproduces the JAGS uniform
+  prior on q);
+- auxiliary data are not yet supported and are dropped.
+
+```{r conv-jabba, eval = requireNamespace("JABBA", quietly = TRUE)}
+jb <- JABBA::build_jabba(catch = bet$catch, cpue = bet$cpue, se = bet$se, model.type = "Fox",
+                         r.prior = c(0.2, 0.5), psi.prior = c(0.9, 0.25), verbose = FALSE)
+options(scipen = 0)          # build_jabba() sets options(scipen = 999)
+x  <- jbinput2jabba3(jb)
+f2 <- jabba3(x$data, x$priors, x$model, osa = FALSE)
+signif(f2$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
+```
+
+> With the same process-error prior, the conversion reproduces the JABBA 2 RTMB
+> fit of bigeye exactly (K = 1,174,749; $B/B_{MSY}$ = 0.797 in 2017).
+
+## SPiCT: `spictinp2jabba3()`
+
+`spictinp2jabba3()` takes a SPiCT input list (`inp`, as passed to
+`spict::fit.spict()`). JABBA3 is an annual model: catches are summed by
+calendar year and several index observations in a year are averaged
+(geometric mean). SPiCT's observation-error form is used
+(`obs.error = "spict"`), with `stdevfacI` as relative weights. The priors
+`logr`, `logK`, `logbkfrac`, `logsdb`, `logn` and `logsdi` carry over with
+their on/off switches, and a fixed `n` (phase -1) fixes the shape. The `alpha`
+and `beta` priors (ratios of observation to process SDs) and the F process
+have no JABBA3 equivalent and are reported as dropped.
+
+A SPiCT-style input list built from the bigeye data:
+
+```{r conv-spict}
+ok1 <- is.finite(bet$cpue[, 2]); ok2 <- is.finite(bet$cpue[, 3])
+inp <- list(obsC = bet$catch[, 2], timeC = bet$catch[, 1],
+            obsI = list(bet$cpue[ok1, 2], bet$cpue[ok2, 3]),
+            timeI = list(bet$cpue[ok1, 1] + 0.5, bet$cpue[ok2, 1] + 0.5),
+            priors = list(logr = c(log(0.2), 0.5, 1), logn = c(log(2), 2, 0), logbkfrac = c(log(0.8), 0.5, 1)),
+            ini = list(logn = log(2)), phases = list(logn = -1))
+xs <- spictinp2jabba3(inp, stock = "bet")
+fs <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
+signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
+```
+
+With the spict package installed, its example data convert the same way:
+
+```{r conv-spict-pol, eval = requireNamespace("spict", quietly = TRUE)}
+data(pol, package = "spict")
+xp <- spictinp2jabba3(pol$albacore, stock = "albacore")
+fp <- jabba3(xp$data, xp$priors, xp$model)
+fp
+```

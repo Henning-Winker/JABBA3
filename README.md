@@ -41,6 +41,7 @@ pr  <- jb3_priors(d, r = c(0.2, 0.5))                           # JABBA 2 defaul
 fit <- jabba3(d, pr, jb3_model(shape = "fox"), ndraws = 1000)   # ~1 s, OSA residuals included
 fit; summary(fit)
 
+plot(fit)                    # one-page summary (3 x 3, as SPiCT plot()); plot(fit, "simple") for 2 x 2
 jbplot_advice(fit); jbplot_kobe(fit); jbplot_fits(fit)
 jbplot_runs(fit); jbplot_spdiags(fit); jbplot_priorpost(fit)
 
@@ -55,11 +56,14 @@ rec <- jabba3(d, pr, jb3_model(shape = "fox", lag = 3, rho = 0.75))
 fq <- jabba3(d, pr, jb3_model(shape = "fox"), se = FALSE, osa = FALSE)
 
 # full posterior with NUTS
-fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000))
+fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(chains = 3, iter = 2000, cores = 3))
+jb3_nuts_diags(fn)$sampler; jbplot_nutsdiags(fn); jbplot_nuts(fn, "pairs", pars = c("logK", "logr", "logq"))
 
 # retrospective, hindcast, projections, FLR
 rt <- jb3_retro(fit, 5); hc <- jb3_hindcast(fit, 5)
-pj <- jb3_project(fit, catch = c(60000, 70000, 80000))
+pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25)); jb3_projtable(pj); jb3_kobematrix(pj)
+jb3_partable(fit); jb3_tstable(fit)
+stk <- jb3_FLStockR(fit, ndraws = 500)               # FLStockR with refpts (Bthr = 0.5, Blim = 0.3 Bmsy)
 jbplot_all(fit, "plots", retro = rt, hc = hc, proj = pj)
 flq <- jb3_flqs(fit)
 ```
@@ -74,12 +78,17 @@ flq <- jb3_flqs(fit)
 | Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan |
 | Convergence | FLicc-style: nlminb, Newton polishing, guarded restarts, Newton decrement verdict; `jb3_convergence()` |
 | Workflows | `workflow = "tier1" / "tier2" / "selex" / "selex_tier1" / "selex_tier2"`; `jb3_tier1()`, `jb3_tier2()` |
+| NUTS diagnostics | `jb3_nuts_diags()` (rank-normalised R-hat, bulk/tail ESS, divergences, tree depth, E-BFMI); `jbplot_nuts()`: trace, rank, dens, acf, pairs (divergences in red), rhat (all parameters incl. states), energy; `jbplot_nutsdiags()` one-page summary |
 | Diagnostics | OSA residuals (particle filter), `jb3_diags()` (JABBA set + SPiCT set), `jb3_retro()` (Mohn's rho), `jb3_hindcast()` (MASE) |
 | Projections | `jb3_project()`: constant catch or F/Fmsy, with process error and lag |
 | Outputs | `jb3_flqs()` (FLQuants, iterations = draws), `jb3_flpar()` |
-| Graphics | `jbplot_advice`, `_trj`, `_kobe`, `_fits`, `_residuals`, `_runs`, `_spdiags`, `_priorpost`, `_production`, `_procdev`, `_data`, `_catch`, `_retro`, `_hcxval`, `_projection`, `_steps`, `_all` |
+| Graphics | all JAGG and JABBA plots in ggplot2: `jbplot_advice` (nested 90/60% bands, extra refpts, projections), `_trj`, `_kobe` (any year), `_biplot`, `_fits`, `_residuals`, `_stdresiduals`, `_runs`, `_spdiags`, `_ppc`, `_priorpost`, `_bprior`, `_spphase`, `_spdyn`, `_procdev`, `_data`, `_indices`, `_catch`, `_catcherror`, `_ebsb_status`, `_retro`, `_hcxval`, `_projection`, `_crisk`, `_steps`, `_ensemble`, `_summary`, `_all` |
 
 ## Gallery (Atlantic bigeye tuna, Fox model)
+
+`plot(fit)`:
+
+![](man/figures/plot_fit.png)
 
 | | |
 |---|---|
@@ -89,6 +98,7 @@ flq <- jb3_flqs(fit)
 | ![](man/figures/production.png) | ![](man/figures/retro.png) |
 | ![](man/figures/hindcast.png) | ![](man/figures/projection.png) |
 | ![](man/figures/tier2_steps.png) | ![](man/figures/selex_tier2.png) |
+| ![](man/figures/nuts_diags.png) | |
 
 ## Validation against JABBA 2 (RTMB engine, same priors)
 

@@ -1,0 +1,88 @@
+---
+title: "JABBA3 user guide"
+subtitle: "Bayesian state-space surplus production models in RTMB, with FLR inputs and outputs"
+author: "Henning Winker"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    math_method: mathml
+    highlight: tango
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.align = "center",
+                      fig.width = 7, fig.height = 4.5, message = FALSE, warning = FALSE)
+```
+
+```{css, echo = FALSE}
+/* notes in block quotes: same size as the text, muted */
+blockquote {
+  font-size: 0.9em;
+  color: #555;
+  background: none;
+  margin: 0.5em 0;
+  padding: 0.3em 0.9em;
+  border-left: 3px solid #ddd;
+}
+blockquote p { margin-bottom: 0.4em; }
+```
+
+<!-- The chapters are in chapters/; edit them there. -->
+
+```{r child = "chapters/01_introduction.Rmd"}
+```
+
+```{r child = "chapters/02_installation.Rmd"}
+```
+
+```{r child = "chapters/03_quick_start.Rmd"}
+```
+
+```{r child = "chapters/04_data.Rmd"}
+```
+
+```{r child = "chapters/05_priors.Rmd"}
+```
+
+```{r child = "chapters/06_model.Rmd"}
+```
+
+```{r child = "chapters/07_fitting.Rmd"}
+```
+
+```{r child = "chapters/08_convergence.Rmd"}
+```
+
+```{r child = "chapters/09_diagnostics.Rmd"}
+```
+
+```{r child = "chapters/10_nuts.Rmd"}
+```
+
+```{r child = "chapters/11_workflows.Rmd"}
+```
+
+```{r child = "chapters/12_projections.Rmd"}
+```
+
+```{r child = "chapters/12b_comparing_runs.Rmd"}
+```
+
+```{r child = "chapters/13_flr.Rmd"}
+```
+
+```{r child = "chapters/14_converters.Rmd"}
+```
+
+```{r child = "chapters/15_model_equations.Rmd"}
+```
+
+```{r child = "chapters/16_summary.Rmd"}
+```
+
+```{r child = "chapters/17_references.Rmd"}
+```

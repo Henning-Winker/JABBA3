@@ -1,0 +1,53 @@
+# Projections
+
+`jb3_project()` projects the stock under constant $F/F_{MSY}$ scenarios (`fmsy`,
+the default: 0, 0.5, 0.75, 1 and 1.25 $F_{MSY}$) or constant catch (`catch`),
+from the NUTS draws or from MVN draws at the mode (generated if the fit has
+none), with process error (and its AR(1) persistence and the lag). F-based
+scenarios apply $F = f \times F_{MSY}$ draw by draw, so they remain defined
+when a draw is depleted; constant catches are capped at 95% of the biomass.
+
+```{r proj}
+pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25), nyears = 10)
+pj$scenarios
+```
+
+Process error in the projection years follows the fitted model. With the
+default `procerr = "ar1"`, each draw continues its AR(1) process from its last
+estimated deviation, $d_{t+1} = \rho d_t + \varepsilon_t$ with
+$\varepsilon_t \sim N(0, \sigma^2(1-\rho^2))$, so the persistence carries into
+the forecast and the marginal SD stays $\sigma$ (with $\rho = 0$ this is the iid
+sampling of JABBA's `fw_jabba()`). `procerr = "mean"` uses only the conditional
+mean $\rho^h d_T$ and `"none"` deterministic production. Projection tables
+report the risk $P(B < B_{lim})$ with $B_{lim} = 0.3 B_{MSY}$ by default.
+
+```{r proj-plot, fig.height = 6}
+jbplot_projection(pj)
+```
+
+## Projection tables
+
+`jb3_projtable()` gives a catch options table in the style of an ICES advice
+sheet: $F/F_{MSY}$, $F$ and the catch in the first projection year, the median
+$B/B_{MSY}$ in selected years with the change relative to the terminal year,
+and the probabilities of $B \ge B_{MSY}$, $F \le F_{MSY}$ and of the Kobe
+green quadrant.
+
+```{r proj-tab}
+knitr::kable(jb3_projtable(pj, years = c(2018, 2022, 2027)))
+```
+
+`jb3_kobematrix()` is the Kobe II strategy matrix (ICCAT): the probability of
+being in the green quadrant by scenario and year (`what = "B"` or `"F"` for
+one reference point only).
+
+```{r proj-k2sm}
+knitr::kable(jb3_kobematrix(pj))
+```
+
+Constant catch scenarios remain available, e.g. for TAC options:
+
+```{r proj-c, fig.height = 6}
+pc <- jb3_project(rec, catch = c(60000, 70000, 80000), nyears = 10)
+knitr::kable(jb3_projtable(pc)[, 1:9])
+```

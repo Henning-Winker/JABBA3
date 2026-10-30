@@ -1,0 +1,36 @@
+# FLR outputs
+
+`jb3_flqs()` returns the time series as `FLQuants` (`stock` = B/Bmsy, `harvest`
+= F/Fmsy, `biomass`, `F` and `catch`), with the draws as iterations when the
+fit has draws; `jb3_flpar()` returns parameters, reference points and current
+status as an `FLPar`.
+
+```{r flr}
+fq <- jb3_flqs(fit)
+names(fq)
+dim(fq$stock)
+jb3_flpar(fit)
+```
+
+These plot with ggplotFL and can be used in FLR workflows (e.g. as the output
+of an estimator in `mse`):
+
+```{r flr-plot, fig.height = 5, eval = requireNamespace("ggplotFL", quietly = TRUE)}
+library(ggplotFL)
+plot(fq[c("stock", "harvest", "catch")]) + ggplot2::geom_hline(yintercept = 1, linetype = 2)
+```
+
+## FLStockR
+
+`jb3_FLStockR()` converts the fit to a biomass-dynamic `FLStockR`, as
+`FLRef::jabba2FLStockR()`: biomass in `stock` (and `ssb()`), catch, and the
+harvest rate in `harvest`, with the draws as iterations. The `refpts` slot holds
+$F_{MSY}$, $B_{MSY}$, MSY, $B_{thr}$ and $B_{lim}$ (by default 0.5 and 0.3
+$B_{MSY}$, the SPiCT benchmark defaults) and $B_0$; `rel = TRUE` gives
+$B/B_{MSY}$ and $F/F_{MSY}$.
+
+```{r flr-stockr, fig.height = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
+stk <- jb3_FLStockR(fit, ndraws = 500)
+stk@refpts
+FLRef::plotAdvice(stk)
+```

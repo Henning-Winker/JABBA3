@@ -4,10 +4,14 @@
 \alias{jbplot_data}
 \title{Data overview}
 \usage{
-jbplot_data(data)
+jbplot_data(data, indices = NULL, ...)
 }
 \arguments{
-\item{data}{a \code{jb3data} object or a fit}
+\item{data}{a \code{jb3data} object, a fit, or catch (FLQuant, FLQuants or data frame) with \code{indices}}
+
+\item{indices}{FLIndices or index data frame when \code{data} is catch}
+
+\item{...}{passed to \code{jb3_data()} (e.g. \code{se}, \code{stock})}
 }
 \description{
 Data overview

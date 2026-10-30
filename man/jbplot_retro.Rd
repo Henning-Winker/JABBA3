@@ -4,12 +4,17 @@
 \alias{jbplot_retro}
 \title{Retrospective plot with Mohn's rho}
 \usage{
-jbplot_retro(retro, type = c("B/Bmsy", "F/Fmsy", "B", "F"))
+jbplot_retro(retro, type = c("B/Bmsy", "F/Fmsy", "B", "F"), ncol = NULL)
 }
 \arguments{
 \item{retro}{output of \code{\link{jb3_retro}()}}
 
 \item{type}{quantities}
+
+\item{ncol}{facet columns}
+}
+\value{
+a ggplot; Mohn's rho in attribute "rho"
 }
 \description{
 Retrospective plot with Mohn's rho

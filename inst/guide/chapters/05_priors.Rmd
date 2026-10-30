@@ -1,0 +1,96 @@
+# Priors
+
+All priors are in one list from `jb3_priors()`. Each prior is
+`c(median, log.sd, on)`: lognormal with the given median and log-scale SD, and
+an on/off switch (`on = 0` gives a flat prior on the log scale). The defaults
+follow JABBA 2 (`build_jabba()`), except for the process error.
+
+```{r priors}
+pr <- jb3_priors(d, r = c(0.2, 0.5))
+pr
+```
+
+| Prior | Default | Note |
+|---|---|---|
+| `r` | `c(0.2, 0.5, 1)` | intrinsic growth rate; on by default |
+| `K` | 8 x max catch, log.sd 0.833 (CV 1) | as JABBA 2; `c(NA, 0.833, 0)` for flat on log K |
+| `bkinit` (alias `psi`) | `c(0.9, 0.246, 1)` | initial depletion $B_1/K$ |
+| `sdb` | `"fishlife"` | process error SD at $B_{MSY}$, see below |
+| `q` | flat on log q | matrix with one row `c(median, log.sd, on)` per catchability group |
+| `m` | off | shape fixed from `BmsyK`; `c(median, log.sd, 1)` estimates it |
+| `rho` | off (`c(0.7, 0.15, 0)`) | normal prior on the AR(1) coefficient, when estimated |
+| `kdyn` | `max(0, 0.064 - 0.155 log r)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only) |
+| `sdi` | off | index SD prior, used with `obs.error = "spict"` |
+| `status` | `NULL` | data.frame(year, type, median, log.sd); type `"BK"`, `"BBmsy"` or `"FFmsy"` |
+
+## Process error: the FishLife prior
+
+`sdb = "fishlife"` (default) replaces JABBA 2's diffuse inverse-gamma prior on
+the process variance by a lognormal prior with a life-history centre,
+
+$$
+\sigma_{MSY} \sim LN\left(\log(0.80\,\sigma_R\,r^{0.45}),\ 0.3\right),
+$$
+
+with $r$ the median of the r prior and $\sigma_R$ the recruitment variability
+(`sigR = 0.5` when unknown). The relation comes from age-structured
+simulations of FishLife species (Thorson 2020) with selectivity at maturity
+(BioProcDyn). The inverse-gamma prior is still available (`sdb = "igamma"`)
+but its mode is at zero, so it is not recommended for posterior-mode fits; a
+fixed-scale prior is given as `sdb = c(median, log.sd, 1)`.
+
+```{r priors-sdb}
+jb3_priors(d, r = c(0.2, 0.5), sigR = 0.8)$sdb
+jb3_priors(d, r = c(0.2, 0.5), sdb = c(0.1, 0.3, 1))$sdb
+```
+
+## r and the shape
+
+The r prior refers to the JABBA parameterisation of the Pella-Tomlinson
+model, in which $F_{MSY} = r/m$ (section *Model equations*). An r prior
+derived for the Schaefer model ($m = 2$, $F_{MSY} = r/2$) therefore has to be
+converted when the shape changes: for the same $F_{MSY}$, the r for shape $m$
+is $r_m = m\,F_{MSY}$. The JABBA package has the helper
+`JABBA::r_from_fmsy_bmsyk(Fmsy, BmsyK)`:
+
+```{r priors-r}
+if(requireNamespace("JABBA", quietly = TRUE))
+  JABBA::r_from_fmsy_bmsyk(Fmsy = 0.1, BmsyK = c(0.5, 0.4, 0.37))
+```
+
+> A Schaefer r of 0.2 ($F_{MSY} = 0.1$) corresponds to r = 0.12 for
+> $B_{MSY}/K = 0.4$ and r = 0.1 for the Fox model. Leaving the r prior
+> unchanged while changing the shape changes the implied $F_{MSY}$.
+
+## Status priors
+
+A prior on depletion, $B/B_{MSY}$ or $F/F_{MSY}$ in any year (e.g. from expert
+knowledge or a CMSY-type analysis) is added as a data frame:
+
+```{r priors-status}
+pr.st <- jb3_priors(d, r = c(0.2, 0.5),
+                    status = data.frame(year = 2010, type = "BBmsy", median = 1, log.sd = 0.3))
+pr.st$status
+```
+
+After fitting, `jbplot_bprior()` compares each status prior with the posterior
+of that quantity in that year, with the posterior-to-prior mean and variance
+ratios (PPMR, PPVR) as in JABBA:
+
+```{r priors-bprior, fig.height = 3.5}
+fit.st <- jabba3(d, pr.st, jb3_model(shape = "fox"), osa = FALSE)
+jbplot_bprior(fit.st)
+```
+
+## Check 2: prior and posterior
+
+After fitting, `jbplot_priorpost()` compares each prior with the posterior.
+
+```{r priors-pp, fig.height = 5}
+jbplot_priorpost(fit)
+```
+
+| What | Red flag | Action |
+|---|---|---|
+| posterior equal to the prior | the data carry no information on that parameter | report it; sensitivity runs over the prior |
+| posterior at the edge of the prior | prior-data conflict | revisit the prior; check the data and the model |

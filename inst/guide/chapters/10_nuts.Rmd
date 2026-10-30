@@ -1,0 +1,79 @@
+# NUTS diagnostics
+
+A NUTS fit has to be checked for convergence of the chains before its
+posterior is used. `jb3_nuts_diags()` gives the rank-normalised split
+$\hat{R}$, bulk and tail effective sample sizes (ESS; Vehtari et al. 2021) for
+every sampled parameter, including the states, and the sampler diagnostics by
+chain: divergent transitions, hits of the maximum tree depth, mean acceptance,
+step size and the energy Bayesian fraction of missing information (E-BFMI).
+
+```{r nuts-diags}
+nd <- jb3_nuts_diags(fn)
+nd$sampler
+head(nd$pars, 8)
+nd$ok
+```
+
+`ok` is `TRUE` when $\hat{R} < 1.01$, bulk and tail ESS > 100 per chain, there
+are no divergent transitions and E-BFMI > 0.3 in all chains.
+
+The plots are on the sampled scale (mostly logs): `logK`, `logr`, `logq[i]`,
+`lbk` (log initial depletion), `logsdb`, `logsdi[i]`, and the states `logP[t]`
+and catch deviations `cdev[t]`. By default only the fixed effects are plotted;
+`pars` selects parameters (`"logq"` matches all `logq[i]`).
+
+```{r nuts-summary, fig.width = 11, fig.height = 9}
+jbplot_nutsdiags(fn)
+```
+
+`jbplot_nuts(fit, type)` gives the single plots:
+
+| `type` | Shows | Healthy |
+|---|---|---|
+| `"trace"` | traces by chain; divergent transitions as red rug ticks | chains overlap, no trends |
+| `"rank"` | rank histograms by chain | flat and overlapping |
+| `"dens"` | densities by chain | the same in all chains |
+| `"acf"` | autocorrelation by chain | drops to zero within a few lags |
+| `"pairs"` | pairwise scatter with divergent transitions in red | no funnels or ridges; divergences not clustered |
+| `"rhat"` | $\hat{R}$ and ESS for all parameters, states included | $\hat{R} < 1.01$, ESS > 100 per chain |
+| `"energy"` | marginal energy against energy transitions | similar widths (E-BFMI > 0.3) |
+
+```{r nuts-pairs, fig.height = 6.5, fig.width = 7}
+jbplot_nuts(fn, "pairs", pars = c("logK", "logr", "logq", "logsdb"))
+```
+
+```{r nuts-trace, fig.height = 3}
+jbplot_nuts(fn, "trace", pars = c("logK", "logr"), inc_warmup = TRUE)
+```
+
+Each type is also its own function: `jbplot_trace()`, `jbplot_rank()`,
+`jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()` and
+`jbplot_energy()`.
+
+```{r nuts-single, fig.height = 3}
+jbplot_rank(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_mcmcdens(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_mcmcacf(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_trace(fn, pars = c("logK", "logr", "logsdb"))
+jbplot_energy(fn)
+```
+
+```{r nuts-rhat, fig.height = 6}
+jbplot_rhat(fn)
+```
+
+```{r nuts-pairs2, fig.height = 4.5, fig.width = 5}
+jbplot_pairs(fn, pars = c("logK", "logr"))
+```
+
+| What | Red flag | Action |
+|---|---|---|
+| $\hat{R}$, ESS | $\hat{R} > 1.01$ or ESS < 100 per chain | more iterations (`iter`); check the pairs plot |
+| divergent transitions | any | `control = list(adapt_delta = 0.99)`; look where they cluster in the pairs plot |
+| tree depth | many hits of `max_treedepth` | strong correlations (K and r, K and q): tighter priors |
+| E-BFMI | < 0.3 | poor exploration of the tails, often the process error SD and the states |
+| K-r-q ridge | strong negative correlation of log K with log r and log q | expected with little contrast; informative r prior |
+
+> In the short run above the states (`logP`) have low ESS: with process error
+> SDs around 0.1 the states and `logsdb` form a funnel. Run longer for final
+> results.

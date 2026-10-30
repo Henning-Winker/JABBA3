@@ -1,0 +1,43 @@
+# Model equations
+
+**Process equation.** Biomass relative to K, $P_t = B_t/K$, with process error
+acting after the catch (Winker et al. 2018) and a production lag $L$:
+
+$$
+\log P_t = \log\left[P_{t-1} + \frac{r}{m-1} P_{t-1-L}\left(1 - P_{t-1-L}^{\,m-1}\right) - \frac{C_{t-1}}{K}\right] + d_t ,
+$$
+
+where $m$ is the Pella-Tomlinson shape ($m = 2$ Schaefer, $m \to 1$ Fox) and
+$P_1$ = `bkinit`. Years before the start use the initial depletion for the
+lagged term.
+
+**Process deviations.** Stationary AR(1), with $\sigma_t$ the marginal SD:
+
+$$
+d_1 \sim N(0, \sigma_1^2), \qquad d_t \sim N\left(\rho\, d_{t-1},\ \sigma_t^2 (1-\rho^2)\right),
+$$
+
+$\rho = 0$ giving the independent process error of JABBA 2 and SPiCT. Either
+$\sigma_t = \sigma_{MSY}$ (constant) or $\sigma_t = \sigma_{MSY} x_t^{-k}$ with
+$x_t = B_t/B_{MSY}$ bounded to `xlim` (dynamic).
+
+**Reference points.**
+
+$$
+\frac{B_{MSY}}{K} = m^{-1/(m-1)}, \qquad F_{MSY} = \frac{r}{m}, \qquad MSY = F_{MSY} B_{MSY}.
+$$
+
+**Observations.** Index $i$ in year $t$:
+
+$$
+\log I_{i,t} = \log q_i + \log(K P_t) + \varepsilon_{i,t}, \qquad
+\varepsilon_{i,t} \sim N\left(0,\ se_{i,t}^2 + sdi_i^2\right)
+$$
+
+(`obs.error = "additive"`), or $\varepsilon_{i,t} \sim N(0, (sdi_i\,w_{i,t})^2)$
+(`obs.error = "spict"`). Catch: $\log C^{obs}_t \sim N(\log C_t, sdc^2)$ when
+`catch.error = TRUE`.
+
+**Estimation.** The states $\log P_t$ and catch deviations are random effects,
+integrated by the Laplace approximation (`engine = "rtmb"`) or sampled with
+the fixed effects (`engine = "nuts"`).

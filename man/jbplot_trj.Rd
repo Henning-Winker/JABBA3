@@ -2,7 +2,7 @@
 % Please edit documentation in R/plots.R
 \name{jbplot_trj}
 \alias{jbplot_trj}
-\title{Trajectories with 95\% intervals}
+\title{Trajectories with credible intervals}
 \usage{
 jbplot_trj(
   x,
@@ -11,26 +11,50 @@ jbplot_trj(
   refpts = TRUE,
   extra = NULL,
   ncol = NULL,
-  colour = "dodgerblue"
+  colour = "dodgerblue",
+  nested = FALSE,
+  probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
+  drop.last = FALSE,
+  proj = NULL,
+  label.size = 2.5,
+  bthr = 0.5,
+  blim = 0.3
 )
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
 
-\item{type}{quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K", "Catch", "Process deviation", "Process SD",
-"Surplus production", "EB"}
+\item{type}{quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
+"Process SD", "Surplus production", "EB"}
 
 \item{steps}{for a workflow fit, plot all steps}
 
 \item{refpts}{draw reference points}
 
-\item{extra}{named vector of extra reference points (names starting with B go to biomass panels, F to F panels)}
+\item{extra}{named vector of extra reference points (names starting with B go to the biomass panel, F to the F panel,
+on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/Bmsy)}
 
 \item{ncol}{facet columns}
 
 \item{colour}{ribbon colour for a single run}
+
+\item{nested}{nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval}
+
+\item{probs}{five probabilities for \code{nested}: outer and inner bands and the median}
+
+\item{drop.last}{drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})}
+
+\item{proj}{optional output of \code{\link{jb3_project}()}, drawn dashed after the last year}
+
+\item{label.size}{size of the reference point labels}
+
+\item{bthr, blim}{biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
+defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit}
 }
 \description{
 One facet per quantity, the estimate (mode, or posterior median with NUTS) with its 95\% interval, reference points as
 labelled lines (FLRef::plotAdvice style). Several fits (a list, or the steps of a workflow fit) are coloured by run.
+With \code{nested = TRUE} the plot follows JAGG's \code{jagg_advice()}: a 90\% (alpha 0.2) and a 60\% band (alpha 0.4)
+around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
+Projections from \code{\link{jb3_project}()} are appended as dashed lines (one per scenario).
 }

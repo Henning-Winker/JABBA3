@@ -1,0 +1,19 @@
+# Installation
+
+JABBA3 depends on `RTMB` and `ggplot2`. NUTS needs `tmbstan` (and `rstan`); FLR
+inputs and outputs need `FLCore` (and `ggplotFL` for plotting); `patchwork` is
+used for multi-panel diagnostics. The converters from JABBA 2 need the `JABBA`
+package.
+
+```{r install, eval = FALSE}
+install.packages(c("RTMB", "ggplot2", "Matrix", "tmbstan", "rstan", "patchwork"))
+install.packages(c("FLCore", "ggplotFL"),
+                 repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
+remotes::install_github("Henning-Winker/JABBA3@converters")
+```
+
+```{r load}
+library(JABBA3)
+packageVersion("JABBA3")
+jabba3_info()
+```

@@ -42,8 +42,10 @@ jb3_draws <- function(fit, ndraws = 1000, seed = 1){
 # NUTS with tmbstan on the same objective (all random effects sampled)
 jb3_nuts <- function(fit, nuts = list()){
   .need("tmbstan", "engine = 'nuts' needs tmbstan")
-  st <- utils::modifyList(list(chains = 3, iter = 2000, warmup = 1000, seed = 1, cores = 1, thin = 1,
+  st <- utils::modifyList(list(chains = 3, iter = 2000, seed = 1, cores = 1, thin = 1,
                                control = list(adapt_delta = 0.95, max_treedepth = 12)), nuts)
+  if(is.null(st$warmup)) st$warmup <- floor(st$iter/2)               # as rstan: half of iter
+  if(st$warmup >= st$iter) stop("nuts: warmup must be smaller than iter", call. = FALSE)
   obj <- fit$obj
   init <- lapply(seq_len(st$chains), function(i) obj$env$last.par.best)
   sf <- tmbstan::tmbstan(obj, chains = st$chains, iter = st$iter, warmup = st$warmup, seed = st$seed, cores = st$cores,

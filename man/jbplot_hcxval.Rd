@@ -4,12 +4,19 @@
 \alias{jbplot_hcxval}
 \title{Hindcast cross-validation plot with MASE}
 \usage{
-jbplot_hcxval(hc, nyears = 5)
+jbplot_hcxval(hc, nyears = 5, adj = FALSE, ncol = NULL)
 }
 \arguments{
 \item{hc}{output of \code{\link{jb3_hindcast}()}}
 
 \item{nyears}{years before the hindcast horizon to show}
+
+\item{adj}{also show MASE.adj in the facet labels}
+
+\item{ncol}{facet columns}
+}
+\value{
+a ggplot; the MASE table in attribute "mase"
 }
 \description{
 Hindcast cross-validation plot with MASE
