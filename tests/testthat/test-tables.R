@@ -24,3 +24,13 @@ test_that("FLStockR and procerr options", {
   expect_equal(unname(c(s@refpts["Blim"]/s@refpts["Bmsy"])), 0.3)
   for(pe in c("ar1", "mean", "none")) expect_s3_class(jb3_project(f, fmsy = 1, nyears = 3, ndraws = 50, procerr = pe), "jb3proj")
 })
+
+test_that("jabbaplot3 panels", {
+  skip_if_not_installed("patchwork")
+  data(iccat); bet <- iccat$bet
+  d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+  f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"))
+  expect_s3_class(plot(f), "patchwork")
+  expect_s3_class(jabbaplot3(list(a = f, b = f), panels = c("B/Bmsy", "kobe", "production", "procdev"), ncol = 2), "patchwork")
+  expect_error(jabbaplot3(f, panels = "nope"), "unknown panels")
+})
