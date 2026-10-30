@@ -15,11 +15,7 @@ and making the jump to hyperspace.
 - **No JAGS required.** Classic JABBA inputs (catch, cpue and se data frames) convert with a helper, so old scripts
   survive the trip.
 
-JABBA 2.x (the JAGS version) stays available and maintained as the reference.
-
-> **Status: prototype (30 Oct 2026).** The estimation core, workflows, diagnostics and graphics run and reproduce the
-> JABBA 2 RTMB engine (BioProcDyn patches 0013-0019) to within 1e-4 on log B/Bmsy. Interfaces will still change;
-> the architecture and open decisions are in [`DESIGN.md`](DESIGN.md).
+JABBA (the JAGS version) stays available and maintained as the reference.
 
 ## Installation
 
@@ -37,7 +33,7 @@ data(iccat)
 bet <- iccat$bet
 
 d   <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")   # or FLQuant catch + FLIndices
-pr  <- jb3_priors(d, r = c(0.2, 0.5))                           # JABBA 2 defaults, FishLife sdb prior
+pr  <- jb3_priors(d, r = c(0.2, 0.5))                           # JABBA JAGS defaults, FishLife sdb prior
 fit <- jabba3(d, pr, jb3_model(shape = "fox"), ndraws = 1000)   # ~1 s, OSA residuals included
 fit; summary(fit)
 
@@ -72,7 +68,7 @@ flq <- jb3_flqs(fit)
 
 | Area | Functions |
 |---|---|
-| Data | `jb3_data()` (FLQuant/FLIndices or data frames), `jb3_data_jabba()` (JABBA 2 inputs) |
+| Data | `jb3_data()` (FLQuant/FLIndices or data frames), `jb3_data_jabba()` (JABBA inputs) |
 | Priors | `jb3_priors()`: one list, each `c(median, log.sd, on)`; r on, K, bkinit (alias psi), sdb (FishLife default), q (flat log q unless given), m, kdyn, sdi, status priors |
 | Model | `jb3_model()`: Schaefer/Fox/Pella, production lag, AR(1) process deviations (`rho`, stationary with sdb as marginal SD; or estimated via `priors$rho`), random walk option, constant or dynamic sdb, bias correction, additive (JABBA) or SPiCT index error, catch error, Selex EB/SB curves |
 | Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan |
@@ -100,7 +96,7 @@ flq <- jb3_flqs(fit)
 | ![](man/figures/tier2_steps.png) | ![](man/figures/selex_tier2.png) |
 | ![](man/figures/nuts_diags.png) | |
 
-## Validation against JABBA 2 (RTMB engine, same priors)
+## Validation against JABBA (RTMB engine, same priors)
 
 | Case (bigeye unless noted) | K | r | B/Bmsy 2017 | max abs diff, log B/Bmsy |
 |---|---|---|---|---|
@@ -109,7 +105,7 @@ flq <- jb3_flqs(fit)
 | dynamic sdb 0.1 x (B/Bmsy)^-0.3, lag 3 | 1343508 / 1343513 | 0.1867 / 0.1867 | 0.7362 / 0.7361 | 5e-5 |
 | Selex + lag 7 (Icelandic cod OM, iteration 1) | 1754481 / 1754201 | 0.2971 / 0.2972 | 1.3043 / 1.3042 | 9e-4 |
 
-JAGS (JABBA 2.3, posterior median) against JABBA3 mode for the Fox case: K 1160830 / 1153334, r 0.197 / 0.196, B/Bmsy 0.773 / 0.792
+JAGS (JABBA, posterior median) against JABBA3 mode for the Fox case: K 1160830 / 1153334, r 0.197 / 0.196, B/Bmsy 0.773 / 0.792
 (the remaining difference is mostly the uniform prior on q in JAGS against flat log q in JABBA3).
 
 ## Lineage
