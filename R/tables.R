@@ -85,6 +85,7 @@ jb3_tstable <- function(fit, quantities = c("Catch", "B", "F", "B/Bmsy", "F/Fmsy
 #' @param proj output of \code{\link{jb3_project}()}
 #' @param years projection years to report (calendar years); default the first, fifth and last projection year
 #' @param digits rounding
+#' @param blim limit as a fraction of Bmsy for the risk P(B < Blim) (default 0.3, SPiCT benchmark default; NULL to omit)
 #' @return data.frame
 #' @examples
 #' \dontrun{
@@ -93,7 +94,7 @@ jb3_tstable <- function(fit, quantities = c("Catch", "B", "F", "B/Bmsy", "F/Fmsy
 #' jb3_kobematrix(pj)
 #' }
 #' @export
-jb3_projtable <- function(proj, years = NULL, digits = 3){
+jb3_projtable <- function(proj, years = NULL, digits = 3, blim = 0.3){
   py <- proj$iters[[1]]$years
   if(is.null(years)) years <- unique(py[c(1, min(5, length(py)), length(py))])
   bb0 <- stats::median(proj$status$`B/Bmsy`)
@@ -105,6 +106,7 @@ jb3_projtable <- function(proj, years = NULL, digits = 3){
       r[[paste0("B/Bmsy ", y)]] <- stats::median(b)
       r[[paste0("dB% ", y)]] <- 100*(stats::median(b)/bb0 - 1)
       r[[paste0("P(B>=Bmsy) ", y)]] <- mean(b >= 1)
+      if(!is.null(blim)) r[[paste0("P(B<Blim) ", y)]] <- mean(b < blim)
       r[[paste0("P(F<=Fmsy) ", y)]] <- mean(h <= 1 + 1e-8)
       r[[paste0("P(green) ", y)]] <- mean(b >= 1 & h <= 1 + 1e-8) }
     r }))

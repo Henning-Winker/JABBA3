@@ -109,9 +109,17 @@ jb3_hindcast <- function(fit, n = 5, MAE.base.adj = 0.1){
 #' @param catch alternatively, vector of constant catches
 #' @param nyears number of projection years
 #' @param ndraws draws when the fit has none
+#' @param procerr process error in the projection years, consistent with the fitted model:
+#'   \code{"ar1"} (default) continues each draw's AR(1) process from its last estimated deviation,
+#'   d_t+1 = rho d_t + e, e ~ N(0, sdb^2 (1 - rho^2)), so persistence carries into the forecast and the marginal SD stays sdb
+#'   (with rho = 0 this is iid sampling as in JABBA's fw_jabba());
+#'   \code{"mean"} uses the conditional mean only, d_t+h = rho^h d_T (no new innovations; uncertainty from the parameters
+#'   and states only);
+#'   \code{"none"} sets the deviations to zero (deterministic production; the bias correction is dropped too)
 #' @return list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles) and \code{iters}
 #' @export
-jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000){
+jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000, procerr = c("ar1", "mean", "none")){
+  procerr <- match.arg(procerr)
   dr <- fit$draws %||% jb3_draws(fit, ndraws)
   d <- fit$setup$dat; mu <- fit$mucatch; N <- d$N; yrs <- fit$years; nd <- nrow(dr$B)
   if(is.null(catch) && is.null(fmsy)) fmsy <- c(0, 0.5, 0.75, 1, 1.25)
@@ -127,7 +135,11 @@ jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 10
       C <- if(sc$type[s] == "Catch") pmin(rep(sc$value[s], nd), 0.95*Pp*K*rem(Pp)) else pmin(sc$value[s]*Hmsy, 0.95)*Pp*K*rem(Pp)
       pm <- log(pmax(Pp + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C/(K*rem(Pp)), 0.001))
       v <- sdf(Pp/BmsyK)^2
-      D <- if(isTRUE(d$rw)) stats::rnorm(nd, D, d$rw.scale*sqrt(v)) else stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2)))
+      D <- switch(procerr,
+        ar1 = if(isTRUE(d$rw)) stats::rnorm(nd, D, d$rw.scale*sqrt(v)) else stats::rnorm(nd, rho*D, sqrt(v*(1 - rho^2))),
+        mean = if(isTRUE(d$rw)) D else rho*D,
+        none = rep(0, nd))
+      if(procerr != "ar1") v <- 0*v
       P[, tt] <- exp(pm - (if(d$biascor) 0.5*v else 0) + D)
       Cm[, t] <- C; Hm[, t] <- C/(Pp*K*rem(Pp))/Hmsy
     }

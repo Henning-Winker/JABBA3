@@ -62,6 +62,7 @@ jb3_nuts_diags(fn)$sampler; jbplot_nutsdiags(fn); jbplot_nuts(fn, "pairs", pars 
 rt <- jb3_retro(fit, 5); hc <- jb3_hindcast(fit, 5)
 pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25)); jb3_projtable(pj); jb3_kobematrix(pj)
 jb3_partable(fit); jb3_tstable(fit)
+stk <- jb3_FLStockR(fit, ndraws = 500)               # FLStockR with refpts (Bthr = 0.5, Blim = 0.3 Bmsy)
 jbplot_all(fit, "plots", retro = rt, hc = hc, proj = pj)
 flq <- jb3_flqs(fit)
 ```

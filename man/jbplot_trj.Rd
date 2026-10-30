@@ -16,7 +16,9 @@ jbplot_trj(
   probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
   drop.last = FALSE,
   proj = NULL,
-  label.size = 2.5
+  label.size = 2.5,
+  bthr = 0.5,
+  blim = 0.3
 )
 }
 \arguments{
@@ -45,6 +47,9 @@ on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/
 \item{proj}{optional output of \code{\link{jb3_project}()}, drawn dashed after the last year}
 
 \item{label.size}{size of the reference point labels}
+
+\item{bthr, blim}{biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
+defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit}
 }
 \description{
 One facet per quantity, the estimate (mode, or posterior median with NUTS) with its 95\% interval, reference points as

@@ -12,6 +12,15 @@ pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25), nyears = 10)
 pj$scenarios
 ```
 
+Process error in the projection years follows the fitted model. With the
+default `procerr = "ar1"`, each draw continues its AR(1) process from its last
+estimated deviation, $d_{t+1} = \rho d_t + \varepsilon_t$ with
+$\varepsilon_t \sim N(0, \sigma^2(1-\rho^2))$, so the persistence carries into
+the forecast and the marginal SD stays $\sigma$ (with $\rho = 0$ this is the iid
+sampling of JABBA's `fw_jabba()`). `procerr = "mean"` uses only the conditional
+mean $\rho^h d_T$ and `"none"` deterministic production. Projection tables
+report the risk $P(B < B_{lim})$ with $B_{lim} = 0.3 B_{MSY}$ by default.
+
 ```{r proj-plot, fig.height = 6}
 jbplot_projection(pj)
 ```

@@ -30,6 +30,7 @@
 | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
 | NUTS diagnostics | `jb3_nuts_diags()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
 | Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch) |
+| FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
 | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_nuts_diags()` |
 | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
 | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |

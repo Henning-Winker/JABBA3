@@ -4,7 +4,14 @@
 \alias{jb3_project}
 \title{Projections}
 \usage{
-jb3_project(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000)
+jb3_project(
+  fit,
+  fmsy = NULL,
+  catch = NULL,
+  nyears = 10,
+  ndraws = 1000,
+  procerr = c("ar1", "mean", "none")
+)
 }
 \arguments{
 \item{fit}{a \code{jabba3} fit}
@@ -16,6 +23,14 @@ jb3_project(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000)
 \item{nyears}{number of projection years}
 
 \item{ndraws}{draws when the fit has none}
+
+\item{procerr}{process error in the projection years, consistent with the fitted model:
+\code{"ar1"} (default) continues each draw's AR(1) process from its last estimated deviation,
+d_t+1 = rho d_t + e, e ~ N(0, sdb^2 (1 - rho^2)), so persistence carries into the forecast and the marginal SD stays sdb
+(with rho = 0 this is iid sampling as in JABBA's fw_jabba());
+\code{"mean"} uses the conditional mean only, d_t+h = rho^h d_T (no new innovations; uncertainty from the parameters
+and states only);
+\code{"none"} sets the deviations to zero (deterministic production; the bias correction is dropped too)}
 }
 \value{
 list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles) and \code{iters}

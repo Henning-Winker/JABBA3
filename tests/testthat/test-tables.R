@@ -13,3 +13,14 @@ test_that("tables and F-based projections", {
   pc <- jb3_project(f, catch = 1e7, nyears = 3, ndraws = 100)            # catch capped: F stays finite
   expect_true(all(is.finite(pc$iters[[1]]$`F/Fmsy`)))
 })
+
+test_that("FLStockR and procerr options", {
+  skip_if_not_installed("FLCore")
+  data(iccat); bet <- iccat$bet
+  d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+  f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox", rho = 0.75), osa = FALSE)
+  s <- jb3_FLStockR(f, ndraws = 50)
+  expect_s4_class(s, "FLStockR"); expect_equal(dim(s@stock)[6], 50)
+  expect_equal(unname(c(s@refpts["Blim"]/s@refpts["Bmsy"])), 0.3)
+  for(pe in c("ar1", "mean", "none")) expect_s3_class(jb3_project(f, fmsy = 1, nyears = 3, ndraws = 50, procerr = pe), "jb3proj")
+})

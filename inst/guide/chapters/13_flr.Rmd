@@ -19,3 +19,18 @@ of an estimator in `mse`):
 library(ggplotFL)
 plot(fq[c("stock", "harvest", "catch")]) + ggplot2::geom_hline(yintercept = 1, linetype = 2)
 ```
+
+## FLStockR
+
+`jb3_FLStockR()` converts the fit to a biomass-dynamic `FLStockR`, as
+`FLRef::jabba2FLStockR()`: biomass in `stock` (and `ssb()`), catch, and the
+harvest rate in `harvest`, with the draws as iterations. The `refpts` slot holds
+$F_{MSY}$, $B_{MSY}$, MSY, $B_{thr}$ and $B_{lim}$ (by default 0.5 and 0.3
+$B_{MSY}$, the SPiCT benchmark defaults) and $B_0$; `rel = TRUE` gives
+$B/B_{MSY}$ and $F/F_{MSY}$.
+
+```{r flr-stockr, fig.height = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
+stk <- jb3_FLStockR(fit, ndraws = 500)
+stk@refpts
+FLRef::plotAdvice(stk)
+```

@@ -43,7 +43,7 @@ jb3cols <- function(n, alpha = 1){
   data.frame(stock = exp(s$value[ib] + z[, 1]), harvest = exp(s$value[ih] + z[, 2]))
 }
 
-.ref_colour <- function(x) ifelse(x %in% c("Blim", "Flim"), "red", ifelse(x %in% c("Bpa", "Fpa"), "darkorange",
+.ref_colour <- function(x) ifelse(x %in% c("Blim", "Flim"), "red", ifelse(x %in% c("Bpa", "Fpa", "Bthr"), "darkorange",
                                   ifelse(x %in% c("B0", "K", "Btrigger"), "blue", "darkgreen")))
 
 .geom_refpts <- function(refs, years, size = 2.5){
@@ -92,10 +92,12 @@ jb3cols <- function(n, alpha = 1){
 #' @param drop.last drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})
 #' @param proj optional output of \code{\link{jb3_project}()}, drawn dashed after the last year
 #' @param label.size size of the reference point labels
+#' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
+#'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit
 #' @export
 jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"), steps = FALSE, refpts = TRUE, extra = NULL,
                        ncol = NULL, colour = "dodgerblue", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
-                       drop.last = FALSE, proj = NULL, label.size = 2.5){
+                       drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
   d <- do.call(rbind, lapply(names(fl), function(n){
@@ -150,6 +152,9 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
     refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
                        name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
                        value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
+    lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim)]
+    if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", "B"), each = length(lim)), name = rep(names(lim), 2),
+                                                   value = c(lim, lim*rp["Bmsy", "est"])))
     if(length(extra)){ nm <- names(extra)
       bq <- if("B/Bmsy" %in% type || !"B" %in% type) "B/Bmsy" else "B"; fq <- if("F/Fmsy" %in% type || !"F" %in% type) "F/Fmsy" else "F"
       refs <- rbind(refs, data.frame(quantity = ifelse(substr(nm, 1, 1) == "F", fq, bq), name = nm, value = unname(extra))) }
