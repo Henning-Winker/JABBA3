@@ -69,7 +69,8 @@ d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$r
 \item{catch.error}{estimate catch with lognormal error (random effects with SD \code{sdc}); on by default, as JABBA
 (\code{add.catch.CV = TRUE})}
 
-\item{sdc}{catch observation SD (log scale) when \code{catch.error = TRUE}}
+\item{sdc}{catch observation SD (log scale) when \code{catch.error = TRUE}: a constant or a vector along the years
+(year-specific catch uncertainty; see also \code{jb3_data(catch.se =)}, which takes precedence where given)}
 
 \item{ebsb}{Selex: EB/SB ratio curve c(u1, u2, u3, P1, P2), a named list of curves (one per selectivity) or the output
 of \code{\link{jb3_selex}()}; the state

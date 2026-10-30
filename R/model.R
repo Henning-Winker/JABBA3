@@ -21,7 +21,8 @@
 #' @param sets.q,sets.var catchability and observation-variance groups (one entry per index; default one each)
 #' @param catch.error estimate catch with lognormal error (random effects with SD \code{sdc}); on by default, as JABBA
 #'   (\code{add.catch.CV = TRUE})
-#' @param sdc catch observation SD (log scale) when \code{catch.error = TRUE}
+#' @param sdc catch observation SD (log scale) when \code{catch.error = TRUE}: a constant or a vector along the years
+#'   (year-specific catch uncertainty; see also \code{jb3_data(catch.se =)}, which takes precedence where given)
 #' @param ebsb Selex: EB/SB ratio curve c(u1, u2, u3, P1, P2), a named list of curves (one per selectivity) or the output
 #'   of \code{\link{jb3_selex}()}; the state
 #'   is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)
@@ -64,7 +65,7 @@ print.jb3model <- function(x, ...){
       "\n  production lag:", x$lag, "\n  process error:", if(x$sdb.form == "const") "constant sdb" else "dynamic sdb x (B/Bmsy)^-k",
       if(!is.null(x$sdb.fixed)) sprintf("(level fixed at %.3f)", x$sdb.fixed) else "", if(x$biascor) "+ bias correction" else "", if(x$rho > 0) sprintf("+ AR(1) rho = %.2f", x$rho) else "",
       if(x$start == "index") "\n  deterministic before the first index year" else "",
-      "\n  index error:", x$obs.error, if(x$catch.error) sprintf("\n  catch error: sdc = %.2f", x$sdc) else "",
+      "\n  index error:", x$obs.error, if(x$catch.error) sprintf("\n  catch error: sdc = %s", if(length(x$sdc) > 1) paste(range(signif(x$sdc, 2)), collapse = "-") else sprintf("%.2f", x$sdc)) else "",
       if(!is.null(x$ebsb)) paste0("\n  Selex: ", length(x$ebsb), " EB/SB curve(s), removals ", if(x$ebsb.removal) "on EB" else "on SB") else "", "\n")
   invisible(x)
 }

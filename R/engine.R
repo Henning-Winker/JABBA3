@@ -7,6 +7,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
     keep <- seq_len(N - peels)
     data$years <- data$years[keep]; data$catch <- data$catch[keep]
     data$I <- data$I[keep, , drop = FALSE]; data$SE <- data$SE[keep, , drop = FALSE]; N <- length(keep)
+    if(!is.null(data$catch.se)) data$catch.se <- data$catch.se[keep]
   }
   I <- data$I
   if(index.peels > 0) I[(N - index.peels + 1):N, ] <- NA   # hindcast: drop index values only
@@ -53,7 +54,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
     rho.fix = model$rho, est.rho = priors$rho[3] == 1, rho.pr = priors$rho,
     dyn = model$sdb.form == "dyn", est.k = model$sdb.form == "dyn" && priors$kdyn[3] == 1, xlim = model$xlim,
     biascor = isTRUE(model$biascor), spict = model$obs.error == "spict",
-    catch.err = isTRUE(model$catch.error), sdc = model$sdc, q.uniform = isTRUE(model$q.uniform),
+    catch.err = isTRUE(model$catch.error), sdc = .sdc_vec(model$sdc, data$catch.se, N), q.uniform = isTRUE(model$q.uniform),
     eb.on = eb.on, ebm = ebm, ebci = as.integer(ei), ebcc = as.integer(ec), eb.rem = eb.on && isTRUE(model$ebsb.removal),
     nst = if(is.null(st)) 0L else nrow(st), st.t = if(is.null(st)) 1L else match(st$year, data$years),
     st.type = if(is.null(st)) "BK" else as.character(st$type), st.pr = if(is.null(st)) matrix(1, 1, 2) else cbind(st$median, st$log.sd),
@@ -192,4 +193,11 @@ jb3_nll <- function(par, dat){
   RTMB::REPORT(H); RTMB::REPORT(HHmsy); RTMB::REPORT(estC); RTMB::REPORT(Pmean); RTMB::REPORT(procdev); RTMB::REPORT(sdt)
   RTMB::REPORT(v); RTMB::REPORT(rem); RTMB::REPORT(rem.msy); RTMB::REPORT(Imean); RTMB::REPORT(sdI)
   nll
+}
+
+# year-specific catch SD (log scale): data$catch.se (from jb3_data(catch.se =), NA = model sdc) or a vector sdc in the model
+.sdc_vec <- function(sdc, cse, N){
+  v <- if(length(sdc) == N) sdc else rep(sdc[1], N)
+  if(!is.null(cse)){ cse <- rep(cse, length.out = N); v[is.finite(cse) & cse > 0] <- cse[is.finite(cse) & cse > 0] }
+  pmax(v, 1e-4)
 }

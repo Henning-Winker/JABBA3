@@ -6,6 +6,8 @@ Wetzel, C.R., Doering, K., Johnson, K.F. and Methot, R.D. (2021). A cookbook for
 using model diagnostics in integrated stock assessments. *Fisheries Research*
 240: 105959.
 
+Conn, P.B. (2010). Hierarchical analysis of multiple noisy abundance indices. *Canadian Journal of Fisheries and Aquatic Sciences*, 67, 108-120. doi:10.1139/F09-175
+
 Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale, M.
 and Fu, D. (2021). Validation of stock assessment methods: is it me or my model
 talking? *ICES Journal of Marine Science* 78(6): 2244-2255.

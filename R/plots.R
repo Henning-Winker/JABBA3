@@ -61,6 +61,7 @@ jb3cols <- function(n, alpha = 1){
 # a fit, a workflow fit (steps = TRUE), or a list of fits -> named list of fits
 .fitlist <- function(x, steps = FALSE){
   if(inherits(x, "jb3ensemble") && steps) return(c(x$fits, list(Ensemble = x)))
+  if(inherits(x, "jb3trend")) return(stats::setNames(list(x), x$run))
   if(inherits(x, "jabba3")){
     if(steps && !is.null(x$steps)) return(x$steps)
     return(stats::setNames(list(x), x$run))

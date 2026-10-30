@@ -9,6 +9,9 @@
 #' @param catch \code{FLQuant}, \code{FLQuants}, or data.frame(year, catch[, more fleets])
 #' @param indices \code{FLIndices}, \code{FLIndexBiomass}, or data.frame(year, index1, index2, ...)
 #' @param se optional data.frame(year, se1, se2, ...) of log-scale standard errors (data.frame input only)
+#' @param catch.se optional year-specific log-scale SE of the catch: a vector along the catch years or data.frame(year, se)
+#'   (e.g. from \code{\link{jb3_catchfill}()}); used by the catch error (\code{jb3_model(catch.error = TRUE)}) in place
+#'   of the constant \code{sdc}; NA = \code{sdc}
 #' @param stock stock name
 #' @return object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
 #'   (years x indices), \code{stock}
@@ -17,7 +20,11 @@
 #' d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")
 #' d
 #' @export
-jb3_data <- function(catch, indices, se = NULL, stock = "stock"){
+jb3_data <- function(catch, indices, se = NULL, stock = "stock", catch.se = NULL){
+  if(inherits(catch, "jb3catchfill")){ if(is.null(catch.se)) catch.se <- data.frame(year = catch$year, se = catch$se.log)
+    catch <- data.frame(year = catch$year, catch = catch$catch) }
+  if(inherits(indices, "jb3jointindex") && is.null(se)){ se <- data.frame(year = indices$year, joint = indices$log.se)
+    indices <- data.frame(year = indices$year, joint = indices$index) }
   cy <- .catch_df(catch)
   ix <- .index_df(indices, se)
   years <- seq(min(cy$year), max(cy$year))
@@ -34,8 +41,12 @@ jb3_data <- function(catch, indices, se = NULL, stock = "stock"){
   keep <- colSums(!is.na(I)) > 0
   if(!any(keep)) stop("no index observations within the catch years", call. = FALSE)
   if(any(!keep)) warning("indices without observations dropped: ", paste(colnames(I)[!keep], collapse = ", "), call. = FALSE)
+  cse <- NULL
+  if(!is.null(catch.se)){
+    cse <- if(is.data.frame(catch.se)) as.numeric(catch.se[[2]])[match(years, as.numeric(catch.se[[1]]))] else rep(as.numeric(catch.se), length.out = length(years))
+  }
   structure(list(stock = stock, years = years, catch = C, I = I[, keep, drop = FALSE], SE = SE[, keep, drop = FALSE],
-                 catch.fleets = cy$fleets), class = "jb3data")
+                 catch.fleets = cy$fleets, catch.se = cse), class = "jb3data")
 }
 
 #' Convert classic JABBA inputs
@@ -105,3 +116,19 @@ print.jb3data <- function(x, ...){
 #' marlin (bum), as in the JABBA package.
 #' @format list of stocks, each a list with catch, cpue, se (data frames) and info
 "iccat"
+
+#' Example data for the data-exploration (JARA) models
+#'
+#' A list with
+#' \describe{
+#'   \item{dentex}{Dentex (\emph{Dentex} spp.) landings (t) of Namibia (NAM) and Angola (ANG), 1972-2023, as printed in the
+#'     2025 BCC Demersal Working Group catch reconstruction (Winker, JARA): missing reports, and low reports treated as
+#'     unobserved (NAM 2009-2011, ANG 2012), are NA. The original file is catchDentex2025.csv.}
+#'   \item{surveys}{illustrative (synthetic) biomass indices from three surveys with different time spans and gaps (WC
+#'     from 1985, SC from 1988, NAMsurvey from 1999), simulated from a surplus production model driven by the
+#'     reconstructed Dentex catch; the real monkfish indices (cpueMonk2025.csv, idxMonk2025.csv) have the same layout.}
+#'   \item{ank, ank.se}{the last 17 years (2007-2023) of the Portuguese (POR) and Spanish (ESP) anglerfish CPUE indices and
+#'     their log-scale SEs from the JARA joint-index report (2025); the full series start in 1989.}
+#' }
+#' @format list of data frames
+"jara_examples"

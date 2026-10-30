@@ -45,6 +45,9 @@ blockquote p { margin-bottom: 0.4em; }
 ```{r child = "chapters/04_data.Rmd"}
 ```
 
+```{r child = "chapters/04b_data_exploration.Rmd"}
+```
+
 ```{r child = "chapters/05_priors.Rmd"}
 ```
 

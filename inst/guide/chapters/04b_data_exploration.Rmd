@@ -1,0 +1,217 @@
+# Data exploration: joint indices, census and catch reconstruction (JARA)
+
+JABBA3 includes the data-exploration models of JARA, refitted in RTMB: a
+state-space random walk with drift on log abundance (or log catch), observed
+through one or several series. JARA and JABBA build the assessment story
+together:
+
+1. **catch reconstruction**: fill missing years in landings by country or fleet
+   with the series-specific trends (census model) and sum them to a total catch
+   with uncertainty;
+2. **joint index**: combine several noisy surveys or CPUE series with different
+   time spans into one relative abundance index, following the hierarchical
+   analysis of multiple noisy abundance indices of Conn (2010) that is widely
+   used in SEDAR assessments; JARA's relative joint index reproduces Conn's
+   approach, and JABBA3 offers both forms (random walk, `state = "rw"`, and
+   Conn's independent year effects, `state = "iid"`);
+3. **assessment**: feed both into `jabba3()`, the joint index as the single
+   index with its log-scale SE, the filled catch with a year-specific catch SE.
+
+The model, for series $i$ in year $t$:
+
+$$x_t = x_{t-1} + r_{b(t)} + \eta_t,\quad \eta_t \sim N(0, \sigma_p^2);\qquad
+\log I_{i,t} = \log q_i + x_t + \varepsilon_{i,t},\quad
+\varepsilon_{i,t} \sim N(0, se_{i,t}^2 + \sigma_{fix}^2 + \sigma_i^2)$$
+
+- `type = "relative"`: one common state, $q_1 = 1$, the other $q_i$ estimated
+  (joint index);
+- `type = "census"`: one state per series with $q = 1$ (absolute catch or
+  abundance by country, fleet or area), summed to a total;
+- `timeblock`: the drift $r_{b(t)}$ differs before and after the block year,
+  so missing values are interpolated with the block-specific trend;
+- `variance.weighting`: `"model"` estimates the additional SD $\sigma_i$ by
+  series, `"equal"` one common value, `"fixed"` none; `fixed.obsE` is
+  $\sigma_{fix}$.
+
+The fits use the JABBA3 diagnostics (fits, runs test, residuals, posterior
+predictive checks). As everywhere in JABBA3, residual plots default to
+one-step-ahead (OSA) residuals; `type = "ordinary"` gives the log residuals
+used in JARA reports.
+
+```{r jara-data}
+data(jara_examples)
+names(jara_examples)
+```
+
+The Dentex landings are those printed in the 2025 BCC catch reconstruction; the
+survey indices are illustrative (simulated with the same structure as the
+monkfish surveys). The original files (catchDentex2025.csv, cpueMonk2025.csv,
+idxMonk2025.csv) can replace them directly.
+
+## Step 1: catch reconstruction (census with a time block)
+
+Dentex landings from Namibia (NAM) and Angola (ANG). Angola did not report in
+several years between 1985 and 1994; the low landings from Namibia in
+2009-2011 and from Angola in 2012 are incomplete and treated as unobserved
+(NA). The series start in 1976, so the interpolation infers the decline up to
+1992; a time block at 1992 lets the trend after 1992 differ (recovery).
+
+```{r jara-dentex-raw, fig.height = 3.5}
+den <- jara_examples$dentex
+head(den)
+L <- den[den$year >= 1976, ]
+dl <- rbind(data.frame(year = L$year, country = "NAM", landings = L$NAM),
+            data.frame(year = L$year, country = "ANG", landings = L$ANG))
+ggplot2::ggplot(dl, ggplot2::aes(year, landings, colour = country)) + ggplot2::geom_line() +
+  ggplot2::geom_point(na.rm = TRUE) + ggplot2::geom_vline(xintercept = 1992, linetype = 2) + theme_jabba3()
+```
+
+`jb3_catchfill()` fits the census model to both series (known landings with an
+observation SD of 0.001, as JARA's `fixed.obsE = 0.001`):
+
+```{r jara-dentex-fit, fig.height = 4}
+cf <- jb3_catchfill(L, se = 0.001, timeblock = 1992)
+cfit <- attr(cf, "fit")
+cfit                                   # drift before and after the block
+jbplot_trend(cfit)                     # series fits and the total with 95% intervals
+```
+
+Missing years carry high uncertainty, which propagates into the total:
+
+```{r jara-dentex-total, fig.height = 3.5}
+jbplot_catchfill(cf)
+```
+
+The reconstructed table: original series with the NAs replaced by predictions,
+and the total (cf. Table 1 of the Dentex report):
+
+```{r jara-dentex-table}
+tab <- jb3_fill_table(cf, digits = 1)
+knitr::kable(tab[tab$year %in% c(1983:1995, 2007:2014), ], row.names = FALSE)
+```
+
+## Step 2: joint survey index
+
+Three surveys with different time spans and gaps (WC from 1985, SC from 1988,
+NAM from 1999). As in the monkfish analysis, the indices are first normalised by
+their means, and the joint index is fitted with equal and with model-estimated
+(inverse-variance) weighting:
+
+```{r jara-surveys-raw, fig.height = 3.5}
+srv <- jara_examples$surveys
+srv.n <- srv; for(v in names(srv)[-1]) srv.n[[v]] <- srv[[v]]/mean(srv[[v]], na.rm = TRUE)
+dsv <- stats::reshape(srv.n, direction = "long", varying = names(srv.n)[-1], v.names = "index",
+                      timevar = "survey", times = names(srv.n)[-1], idvar = "year")
+ggplot2::ggplot(dsv, ggplot2::aes(year, index, colour = survey)) + ggplot2::geom_line(na.rm = TRUE) +
+  ggplot2::geom_point(na.rm = TRUE) + theme_jabba3()
+```
+
+```{r jara-surveys-fit}
+ji.eq  <- jb3_trend(srv.n, variance.weighting = "equal", run = "equal")
+ji.mod <- jb3_trend(srv.n, variance.weighting = "model", run = "model")
+rbind(equal = ji.eq$sdi, model = ji.mod$sdi)        # additional observation SD by survey
+```
+
+Diagnostics of the model-weighted fit: fits and runs tests, the joint residual
+plot for data conflicts, and posterior predictive checks with Bayesian
+p-values (near 0.5 under a well-specified model):
+
+```{r jara-surveys-diag, fig.height = 3.5}
+jbplot_fits(ji.mod)
+jbplot_runs(ji.mod, type = "ordinary")
+```
+
+```{r jara-surveys-resid, fig.height = 4}
+jbplot_residuals(ji.mod, type = "ordinary")
+p <- jbplot_ppc(ji.mod); attr(p, "ppc")
+```
+
+The joint index: the precision-weighted mean of the q-scaled surveys by year
+with its log-scale SE (NA in years without a survey, as in JARA; `fill = TRUE`
+fills them with the state), and the state-space trend (red dashed). The two
+weightings give nearly the same joint index here:
+
+```{r jara-surveys-joint, fig.height = 3.5}
+jbplot_jointindex(ji.mod)
+ji <- jb3_jointindex(ji.mod)
+ji.cmp <- data.frame(year = ji$year, equal = jb3_jointindex(ji.eq)$index, model = ji$index)
+round(cor(ji.cmp$equal, ji.cmp$model, use = "complete.obs"), 3)
+knitr::kable(head(ji, 10), digits = 3, row.names = FALSE)
+```
+
+**Random walk (JARA) or independent year effects (Conn 2010).** Conn's model
+estimates the log joint index as independent year effects,
+$\log U_{it} \sim N(n_t + c_i, \sigma_{p,i}^2 + \sigma_{s,it}^2)$ with
+$n_t \sim N(\bar n, 1)$, the same observation model as above with
+`variance.weighting = "model"`; JARA's default links the years by the random
+walk. Where the indices overlap, the two give practically the same joint index:
+
+```{r jara-conn, fig.height = 3.5}
+ji.conn <- jb3_trend(srv.n, state = "iid", run = "Conn (iid)")
+jc <- jb3_jointindex(ji.conn)
+ok <- is.finite(ji$index) & is.finite(jc$index)
+cmp <- data.frame(year = ji$year[ok], rw = ji$index[ok]/mean(ji$index[ok]), iid = jc$index[ok]/mean(jc$index[ok]))
+round(c(correlation = cor(log(cmp$rw), log(cmp$iid)), max.rel.diff = max(abs(cmp$rw/cmp$iid - 1))), 3)
+ggplot2::ggplot(cmp, ggplot2::aes(year)) + ggplot2::geom_line(ggplot2::aes(y = rw, colour = "random walk (JARA)")) +
+  ggplot2::geom_point(ggplot2::aes(y = iid, colour = "iid (Conn 2010)")) + ggplot2::labs(y = "Joint index", colour = NULL) +
+  theme_jabba3()
+```
+
+The independent-year-effects form needs overlapping indices to scale them
+against each other: for series that do not overlap in time (e.g. the early and
+late bigeye longline CPUE) only the random walk links them, through the
+continuity of the state.
+
+## Step 3: into the JABBA3 assessment
+
+The reconstructed catch goes into `jb3_data()` with its year-specific
+log-scale SE, which the catch error of the model uses in place of the constant
+`sdc` (reconstructed years carry more catch error than fully reported years);
+the joint index goes in as the single index, its `log.se` as the SE:
+
+```{r jara-into-jabba3}
+d <- jb3_data(cf, ji, stock = "illustrative")
+round(range(d$catch.se), 3)
+fit <- jabba3(d, jb3_priors(d, r = c(0.4, 0.3)), jb3_model(shape = "schaefer"), run = "JARA -> JABBA3")
+fit
+```
+
+```{r jara-into-jabba3-plot, fig.height = 9, fig.width = 10}
+plot(fit)
+```
+
+The joint index is also available as an `FLIndexBiomass` with `index.var` =
+log.se (`jb3_jointindex(ji.mod, "FLIndexBiomass")`) for FLR workflows, and
+year-specific catch uncertainty can also be given directly with
+`jb3_data(..., catch.se =)` or a vector `sdc` in `jb3_model()`.
+
+## Further examples
+
+**Two CPUE series (anglerfish).** The last 17 years of the Portuguese and
+Spanish anglerfish CPUE from the JARA joint-index report; the input SEs are very
+small (about 0.07), so an additional fixed observation error of 0.1 is added:
+
+```{r jara-ank, fig.height = 3.5}
+ank <- jara_examples$ank
+for(v in c("POR", "ESP")) ank[[v]] <- ank[[v]]/mean(ank[[v]][ank$year > 2009], na.rm = TRUE)
+ank.fit <- jb3_trend(ank, jara_examples$ank.se, fixed.obsE = 0.1, run = "ANK")
+jbplot_jointindex(ank.fit)
+```
+
+**Census of survey areas.** With absolute abundance indices (swept-area
+biomass, acoustic surveys) from different areas, `type = "census"` sums the
+area states to a total biomass with uncertainty, an absolute index for the
+assessment:
+
+```{r jara-census, fig.height = 5}
+set.seed(3); yrs <- 1990:2020
+tru <- sapply(c(100, 50, 30), function(a) a*exp(cumsum(c(0, rnorm(30, -0.01, 0.1)))))
+obs <- tru*exp(matrix(rnorm(length(tru), 0, 0.2), ncol = 3)); obs[sample(length(obs), 20)] <- NA
+cen.fit <- jb3_trend(data.frame(year = yrs, A = obs[, 1], B = obs[, 2], C = obs[, 3]),
+                     data.frame(year = yrs, A = 0.2, B = 0.2, C = 0.2), type = "census", variance.weighting = "fixed")
+jbplot_trend(cen.fit)
+```
+
+**Log-scale standard errors.** From a design-based SD of the untransformed
+index, use $CV = sd/mean$ and $\sigma = \sqrt{\log(CV^2 + 1)}$ (close to the CV
+for CV < 0.4); from a 95% interval, $\sigma = (\log(uci) - \log(lci))/(2 \times 1.96)$.

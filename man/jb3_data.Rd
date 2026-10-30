@@ -4,7 +4,7 @@
 \alias{jb3_data}
 \title{Assessment data for JABBA3}
 \usage{
-jb3_data(catch, indices, se = NULL, stock = "stock")
+jb3_data(catch, indices, se = NULL, stock = "stock", catch.se = NULL)
 }
 \arguments{
 \item{catch}{\code{FLQuant}, \code{FLQuants}, or data.frame(year, catch[, more fleets])}
@@ -14,6 +14,10 @@ jb3_data(catch, indices, se = NULL, stock = "stock")
 \item{se}{optional data.frame(year, se1, se2, ...) of log-scale standard errors (data.frame input only)}
 
 \item{stock}{stock name}
+
+\item{catch.se}{optional year-specific log-scale SE of the catch: a vector along the catch years or data.frame(year, se)
+(e.g. from \code{\link{jb3_catchfill}()}); used by the catch error (\code{jb3_model(catch.error = TRUE)}) in place
+of the constant \code{sdc}; NA = \code{sdc}}
 }
 \value{
 object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
