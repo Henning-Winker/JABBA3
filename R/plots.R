@@ -555,10 +555,11 @@ jbplot_retro <- function(retro, type = c("B/Bmsy", "F/Fmsy", "B", "F"), ncol = N
 #' @param adj also show MASE.adj in the facet labels
 #' @param ncol facet columns
 #' @return a ggplot; the MASE table in attribute "mase"
+#' @param indices optional subset of indices to show (e.g. the dominant ones)
 #' @export
-jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL){
+jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL, indices = NULL){
   d <- hc$pred; ty <- hc$terminal; np <- hc$n; ms <- hc$mase
-  keep <- ms$index[ms$n.eval > 0]; d <- d[d$index %in% keep & d$year >= ty - np - nyears, ]; ms <- ms[ms$index %in% keep, ]
+  keep <- ms$index[ms$n.eval > 0]; if(!is.null(indices)) keep <- intersect(keep, indices); d <- d[d$index %in% keep & d$year >= ty - np - nyears, ]; ms <- ms[ms$index %in% keep, ]
   peels <- 0:np; plab <- ifelse(peels == 0, "Reference", as.character(ty - peels))
   cols <- stats::setNames(c("black", jb3cols(max(np, 1))[seq_len(np)]), plab)
   ln <- d[is.finite(d$hat) & d$year <= ty - d$peel + ifelse(d$peel > 0, 1, 0), ]; ln$run <- factor(plab[match(ln$peel, peels)], levels = plab)

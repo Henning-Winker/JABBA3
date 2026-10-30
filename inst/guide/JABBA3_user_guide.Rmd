@@ -72,6 +72,9 @@ blockquote p { margin-bottom: 0.4em; }
 ```{r child = "chapters/12b_comparing_runs.Rmd"}
 ```
 
+```{r child = "chapters/12c_case_bum.Rmd"}
+```
+
 ```{r child = "chapters/13_flr.Rmd"}
 ```
 

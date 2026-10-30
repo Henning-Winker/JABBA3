@@ -4,7 +4,7 @@
 \alias{jbplot_hcxval}
 \title{Hindcast cross-validation plot with MASE}
 \usage{
-jbplot_hcxval(hc, nyears = 5, adj = FALSE, ncol = NULL)
+jbplot_hcxval(hc, nyears = 5, adj = FALSE, ncol = NULL, indices = NULL)
 }
 \arguments{
 \item{hc}{output of \code{\link{jb3_hindcast}()}}
@@ -14,6 +14,8 @@ jbplot_hcxval(hc, nyears = 5, adj = FALSE, ncol = NULL)
 \item{adj}{also show MASE.adj in the facet labels}
 
 \item{ncol}{facet columns}
+
+\item{indices}{optional subset of indices to show (e.g. the dominant ones)}
 }
 \value{
 a ggplot; the MASE table in attribute "mase"

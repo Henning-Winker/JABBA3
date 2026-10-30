@@ -39,3 +39,8 @@ test_that("rho guidance", {
   expect_equal(jb3_rho_gt(8), round(exp(-2.2/8), 2))
   expect_equal(nrow(jb3_rho_table()), 4)
 })
+
+test_that("Pella shape with Bmsy/K below 1/e", {
+  m <- jb3_model(BmsyK = 0.36)$m
+  expect_lt(m, 1); expect_equal(m^(-1/(m - 1)), 0.36, tolerance = 1e-6)
+})

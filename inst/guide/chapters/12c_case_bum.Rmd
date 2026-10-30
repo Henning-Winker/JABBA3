@@ -1,0 +1,131 @@
+# Case study: Atlantic blue marlin and the rebuilding protocol
+
+The 2018 ICCAT assessment of Atlantic blue marlin (*Makaira nigricans*) used JABBA
+and Stock Synthesis (SS3), and the two differed markedly in how fast the stock was
+projected to rebuild. This chapter reproduces the 2018 JABBA base case, applies
+the BioProcDyn protocol step by step (life-history process error prior,
+production lag, persistent AR(1) process error) and compares status, diagnostics
+and forecasts.
+
+## The 2018 base case
+
+The 2018 base case was a Pella-Tomlinson model with $B_{MSY}/K = 0.36$, an r
+prior of 0.098 (CV 0.18), an uninformative K prior, initial depletion near
+unfished, ten CPUE indices with an additional observation error of 0.25, and the
+process error fixed at $\sigma = 0.07$. The JABBA 2 input converts directly
+(this chunk needs the JABBA package):
+
+```{r bum-build, eval = requireNamespace("JABBA", quietly = TRUE)}
+bum <- iccat$bum
+jb.bum <- JABBA::build_jabba(catch = bum$catch, cpue = bum$cpue, se = bum$se,
+  assessment = "BUM", scenario = "2018 base", model.type = "Pella", BmsyK = 0.36,
+  K.prior = c(50000, 2), r.prior = c(0.098, 0.18), psi.prior = c(1, 0.25),
+  fixed.obsE = 0.25, proc.dev.all = FALSE, sigma.proc = 0.07, verbose = FALSE)
+options(scipen = 0)   # build_jabba() sets scipen = 999
+x.bum <- jbinput2jabba3(jb.bum, keep.igamma = TRUE)
+bum.base <- jabba3(x.bum$data, x.bum$priors, x.bum$model, run = "2018 base")
+bum.base
+```
+
+```{r bum-base-plot, fig.height = 9, fig.width = 10, eval = exists("bum.base")}
+plot(bum.base)
+```
+
+The fit is close to the 2018 JAGS assessment. Note the process deviations:
+with $\sigma$ fixed at a low value they form long runs of the same sign, a
+lag-1 autocorrelation of
+
+```{r bum-acf, eval = exists("bum.base")}
+pd <- bum.base$ts$est[bum.base$ts$quantity == "Process deviation"]
+round(acf(pd, plot = FALSE)$acf[2], 2)
+```
+
+This is the persistence that the BioProcDyn simulations identify as the source
+of rebuilding optimism: a model with independent process error absorbs the
+persistent part of the production anomalies into r and K.
+
+## Applying the protocol
+
+Three steps, each added to the previous one:
+
+1. **Life-history prior on the process error scale** (the JABBA3 default,
+   $\sigma_{MSY} = 0.80 \sigma_R r^{0.45}$) instead of the fixed $\sigma = 0.07$;
+2. **production lag** at the age at maturity (here 3 years);
+3. **AR(1) process deviations** with $\rho = 0.75$ (the default; blue marlin falls
+   in the 6-10 year generation-time class of `jb3_rho_table()`).
+
+```{r bum-protocol, eval = exists("bum.base")}
+pr.fl <- x.bum$priors
+pr.fl$sdb <- jb3_priors(x.bum$data, r = c(0.098, 0.18))$sdb      # life-history sdb prior
+mod <- function(lag = 0, rho = 0){ m <- x.bum$model; m$sdb.fixed <- NULL; m$lag <- lag; m$rho <- rho; m }
+bum.runs <- list(
+  `2018 base`     = bum.base,
+  `sdb prior`     = jabba3(x.bum$data, pr.fl, mod(),        run = "sdb prior"),
+  `+ lag`         = jabba3(x.bum$data, pr.fl, mod(3),       run = "+ lag"),
+  `+ lag + AR(1)` = jabba3(x.bum$data, pr.fl, mod(3, 0.75), run = "+ lag + AR(1)"))
+pt <- jb3_partable(bum.runs, format = "wide")
+knitr::kable(pt[pt$Parameter %in% c("K", "r", "Bmsy", "Fmsy", "MSY", "sigma.proc", "rho", "B/Bmsy", "F/Fmsy"), ], row.names = FALSE)
+```
+
+```{r bum-compare, fig.height = 7.5, fig.width = 10, eval = exists("bum.runs")}
+jabbaplot3(bum.runs, panels = c("B/Bmsy", "F/Fmsy", "Catch", "kobe", "spdyn", "procdev"))
+```
+
+Each step lowers the estimated status. The base case had $B/B_{MSY} \approx 0.8$
+in 2016; with the life-history prior, the lag and persistent process error the
+estimate is about 0.45, with $F > F_{MSY}$.
+
+## Diagnostics
+
+Retrospective patterns and index prediction skill do not distinguish the runs;
+both are acceptable in all of them. As in the simulations, the standard
+diagnostics cannot tell whether a model is optimistic about rebuilding.
+
+```{r bum-diags, eval = exists("bum.runs")}
+bum.hc <- lapply(bum.runs, jb3_hindcast, n = 5)
+bum.rt <- lapply(bum.runs, jb3_retro, n = 5)
+mase <- sapply(bum.hc, function(h){ m <- h$mase; stats::setNames(m$MASE, m$index)[is.finite(m$MASE)] })
+mohn <- sapply(bum.rt, function(r) stats::setNames(r$rho$rho, r$rho$quantity))
+knitr::kable(round(rbind(mase, mohn[c("B/Bmsy", "F/Fmsy"), , drop = FALSE]), 2),
+             caption = "Hindcast MASE by index and Mohn's rho")
+```
+
+Hindcasts for the two indices that extend to the end of the series and
+dominate the recent trend (US and Brazilian recreational/longline CPUE), for the
+2018 base case and the protocol:
+
+```{r bum-hcxval, fig.height = 7, fig.width = 9, eval = exists("bum.hc")}
+patchwork::wrap_plots(
+  jbplot_hcxval(bum.hc$`2018 base`, indices = c("USA.LL", "BRA.Rec"), ncol = 1) + ggplot2::ggtitle("2018 base"),
+  jbplot_hcxval(bum.hc$`+ lag + AR(1)`, indices = c("USA.LL", "BRA.Rec"), ncol = 1) + ggplot2::ggtitle("Lag + AR(1) protocol"),
+  ncol = 2)
+```
+
+## Forecasts
+
+The runs differ most in their forecasts. Constant-catch projections of 1500,
+2000 and 2500 t, with the AR(1) process continued from the last estimated
+deviation in the persistent model:
+
+```{r bum-proj, eval = exists("bum.runs")}
+bum.pc <- lapply(bum.runs[c("2018 base", "+ lag + AR(1)")], jb3_project,
+                 catch = c(1500, 2000, 2500), nyears = 10)
+lapply(bum.pc, function(p) knitr::kable(jb3_kobematrix(p)[, c(1, 2, 4, 6, 11)],
+       caption = "P(green) by year"))
+```
+
+```{r bum-proj-plot, fig.height = 4.5, fig.width = 10, eval = exists("bum.pc")}
+patchwork::wrap_plots(
+  jbplot_projection(bum.pc$`2018 base`, type = "B/Bmsy") + ggplot2::ggtitle("2018 base"),
+  jbplot_projection(bum.pc$`+ lag + AR(1)`, type = "B/Bmsy") + ggplot2::ggtitle("Lag + AR(1) protocol"))
+```
+
+At 2000 t the base case projects a 70% probability of being in the green Kobe
+quadrant by 2026, the protocol 28%: the base case expects the stock to rebuild
+much faster. In simulation (BioProcDyn), forecasts of this kind from a model
+with independent process error were optimistic by 25-45% in $B/B_{MSY}$ during
+rebuilding, and almost two thirds of stocks still below $B_{MSY}$ were classified
+as rebuilt, whereas the lag and persistent process error brought the truth
+close to the median of the estimated distribution.
+
+> The comparison with the 2018 SS3 assessment will be added here.
