@@ -41,7 +41,8 @@ process error with no lag makes surplus production models over-optimistic
 about rebuilding, and more so for late-maturing stocks. The true process
 deviations are persistent (lag-1 autocorrelation 0.7-0.8 for most life
 histories) and a model with independent deviations absorbs this persistence
-into r and K. The recommended configuration is
+into r and K. The recommended configuration is (worked through on Atlantic blue
+marlin in chapter *The rebuilding protocol*)
 
 - a **production lag** at the age at 50% maturity, `lag = amat`;
 - **AR(1) process deviations** with $\rho = 0.75$ (sensitivity 0.5 and 0.9);
@@ -57,10 +58,27 @@ rec
 jbplot_trj(list(Current = fit, `Lag + AR(1)` = rec), type = c("B/Bmsy", "F/Fmsy"))
 ```
 
-> Provisional: the FishLife calibration suggests a life-history default
-> $\rho \approx \exp(-2.2/GT)$, with GT the generation time (about 0.4 for
-> GT = 3 and 0.8 for GT = 10 or more); $\rho = 0.75$ corresponds to GT of
-> 6-10 years.
+### Adjusting $\rho$ by generation time
+
+$\rho = 0.75$ is the default. The persistence of process deviations increases
+with generation time (GT): across age-structured simulations for 486 bony-fish
+species of the FAO SOFIA list (FishLife life histories) the lag-1
+autocorrelation followed $\rho \approx \exp(-2.2/GT)$ ($R^2 = 0.81$), and the
+default corresponds to GT of about 6-10 years. For shorter- or longer-lived
+stocks, adjust $\rho$ with the guidance table or `jb3_rho_gt()`; GT comes from
+the same Leslie matrix as the r prior (e.g. `JABBA::jbleslie()` or
+`FLSRTMB::productivity()`). Performance in simulation was flat between 0.5
+and 0.9, so the adjustment matters mostly for short-lived species, where
+persistence is weak.
+
+```{r model-rho-table}
+knitr::kable(jb3_rho_table())
+jb3_rho_gt(c(2, 4, 8, 15))
+```
+
+The scale prior on $\sigma_{MSY}$ stays tied to r (median
+$0.80\,\sigma_R\,r^{0.45}$, unbiased across the 486 species), so it follows the
+r prior directly in sensitivity runs on r.
 
 $\rho$ can be estimated with a normal prior, by switching `priors$rho` on;
 with a single index this is less stable than fixing it.

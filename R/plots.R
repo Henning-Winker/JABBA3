@@ -78,7 +78,7 @@ jb3cols <- function(n, alpha = 1){
 #' labelled lines (FLRef::plotAdvice style). Several fits (a list, or the steps of a workflow fit) are coloured by run.
 #' With \code{nested = TRUE} the plot follows JAGG's \code{jagg_advice()}: a 90\% (alpha 0.2) and a 60\% band (alpha 0.4)
 #' around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
-#' Projections from \code{\link{jb3_project}()} are appended as dashed lines (one per scenario).
+#' Projections from \code{\link{jb3_project}()} are appended after the last year (one colour per scenario, with intervals).
 #' @param x a \code{jabba3} fit, a list of fits, or a workflow fit
 #' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
 #'   "Process SD", "Surplus production", "EB"
@@ -87,17 +87,17 @@ jb3cols <- function(n, alpha = 1){
 #' @param extra named vector of extra reference points (names starting with B go to the biomass panel, F to the F panel,
 #'   on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/Bmsy)
 #' @param ncol facet columns
-#' @param colour ribbon colour for a single run
+#' @param colour interval colour for a single run (grey; projections are coloured by scenario)
 #' @param nested nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval
 #' @param probs five probabilities for \code{nested}: outer and inner bands and the median
 #' @param drop.last drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})
-#' @param proj optional output of \code{\link{jb3_project}()}, drawn dashed after the last year
+#' @param proj optional output of \code{\link{jb3_project}()}, appended after the last year
 #' @param label.size size of the reference point labels
 #' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
 #'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit
 #' @export
 jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"), steps = FALSE, refpts = TRUE, extra = NULL,
-                       ncol = NULL, colour = "dodgerblue", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
+                       ncol = NULL, colour = "grey45", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
                        drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
@@ -133,16 +133,15 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
         data.frame(scenario = sc, year = y0, quantity = l$quantity, est = l$est, lci = l$lci, uci = l$uci) }))
       pr <- rbind(last, pr); pr$quantity <- factor(pr$quantity, levels = type); pr$scenario <- factor(pr$scenario, unique(proj$ts$scenario))
       nsc <- length(unique(pr$scenario))
-      if(nsc == 1 && nr == 1){
-        p <- p + ggplot2::geom_ribbon(data = pr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = colour, alpha = 0.15) +
-          ggplot2::geom_line(data = pr, linetype = 2, linewidth = 0.6)
-      } else {
-        if(nr == 1){
-          pcol <- stats::setNames(jb3cols(nsc), levels(pr$scenario))
-          p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario, colour = .data$scenario), linetype = 2, linewidth = 0.6) +
-            ggplot2::scale_colour_manual(values = pcol, name = NULL)
-        } else p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario), linetype = 2, linewidth = 0.4, colour = "grey30")
-      }
+      mxp <- stats::ave(pr$est, pr$quantity, FUN = function(x) 3*max(abs(x), na.rm = TRUE))
+      pr$uci <- pmin(pr$uci, mxp)                                   # guard against exploding intervals
+      if(nr == 1){
+        pcol <- stats::setNames(if(nsc == 1) "dodgerblue" else jb3cols(nsc), levels(pr$scenario))
+        p <- p + ggplot2::geom_ribbon(data = pr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci, group = .data$scenario,
+                                                              fill = .data$scenario), alpha = 0.15, inherit.aes = TRUE) +
+          ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario, colour = .data$scenario), linewidth = 0.7) +
+          ggplot2::scale_colour_manual(values = pcol, name = NULL) + ggplot2::scale_fill_manual(values = pcol, name = NULL)
+      } else p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario), linewidth = 0.4, colour = "grey30")
     }
   }
   p <- p + ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = ncol) + scale_x_year() +
@@ -153,7 +152,7 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
     refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
                        name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
                        value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
-    lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim)]
+    lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim) & !names(lim) %in% names(extra)]  # extra overrides
     if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", "B"), each = length(lim)), name = rep(names(lim), 2),
                                                    value = c(lim, lim*rp["Bmsy", "est"])))
     if(length(extra)){ nm <- names(extra)
@@ -222,8 +221,14 @@ jbplot_procdev <- function(x, steps = FALSE){
 #' @param fit a \code{jabba3} fit
 #' @param npoints number of points in the cloud
 #' @param year year of the uncertainty cloud (default: last assessment year), as JAGG's \code{jagg_kobe()}
+#' @param style "points" (draws as points with contour lines) or "contours" (filled 50/80/95\% highest-density regions,
+#'   as \code{jbplot_biplot()})
+#' @param contours contour lines on the uncertainty points: \code{TRUE}/probability levels (default 50/80/95\%) or \code{FALSE}
+#'   for points only; highest-density contours of the terminal-year uncertainty (needs MASS;
+#'   \code{NULL} to omit)
 #' @export
-jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
+jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8, 0.95), style = c("points", "contours")){
+  style <- match.arg(style)
   y <- year %||% max(fit$years); N <- match(y, fit$years)
   if(is.na(N)) stop("year not in the assessment years", call. = FALSE)
   bb <- fit$ts$est[fit$ts$quantity == "B/Bmsy"]; ff <- fit$ts$est[fit$ts$quantity == "F/Fmsy"]
@@ -233,7 +238,7 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
                  ifelse(pt$stock >= 1 & pt$harvest > 1, "orange", "red")))
   pct <- round(100*prop.table(table(factor(zone, c("green", "yellow", "orange", "red")))), 1)
   if(nrow(pt) > npoints) pt <- pt[sample(nrow(pt), npoints), ]
-  xmax <- max(2, trj$stock, stats::quantile(pt$stock, 0.99))*1.05; ymax <- max(2, trj$harvest, stats::quantile(pt$harvest, 0.99), na.rm = TRUE)*1.05
+  xmax <- max(2, trj$stock, stats::quantile(pt$stock, 0.995))*1.05; ymax <- max(2, trj$harvest, stats::quantile(pt$harvest, 0.995), na.rm = TRUE)*1.05
   qd <- data.frame(xmin = c(1, 0, 1, 0), xmax = c(Inf, 1, Inf, 1), ymin = c(0, 0, 1, 1), ymax = c(1, 1, Inf, Inf),
                    zone = c("green", "yellow", "orange", "red"))
   qd$lab <- sprintf("%.1f%%", pct[qd$zone])
@@ -242,7 +247,10 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
   ggplot2::ggplot() +
     ggplot2::geom_rect(data = qd, ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = .data$ymin, ymax = .data$ymax, fill = .data$zone), alpha = 0.85) +
     ggplot2::scale_fill_manual(values = fills, breaks = qd$zone, labels = qd$lab, name = paste("Uncertainty", y)) +
-    ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey30", alpha = 0.15, size = 0.6) +
+    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8)) +
+    (if(style == "points" && !isFALSE(contours) && length(contours))
+      .kobe_contours(pt, if(isTRUE(contours)) c(0.5, 0.8, 0.95) else contours)) +
+    (if(style == "contours") .kobe_filled(pt, c(xmax, ymax))) +
     ggplot2::geom_path(data = trj, ggplot2::aes(.data$stock, .data$harvest), linewidth = 0.6) +
     ggplot2::geom_point(data = trj, ggplot2::aes(.data$stock, .data$harvest), shape = 21, fill = "white", size = 1.4) +
     ggplot2::geom_point(data = ends, ggplot2::aes(.data$stock, .data$harvest), shape = c(22, 24), fill = "white", size = 3) +
@@ -252,6 +260,30 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL){
     ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax), expand = FALSE) +
     ggplot2::labs(x = expression(B/B[MSY]), y = expression(F/F[MSY]), subtitle = fit$run) +
     theme_jabba3() + ggplot2::theme(legend.title = ggplot2::element_text(size = 8), legend.position = "right")
+}
+
+# highest-density contours of the terminal-year (stock, harvest) cloud (as JABBA's Kobe plot)
+.kobe_contours <- function(pt, probs){
+  if(!requireNamespace("MASS", quietly = TRUE) || nrow(pt) < 50) return(NULL)
+  k <- MASS::kde2d(pt$stock, pt$harvest, n = 100, lims = c(range(pt$stock)*c(0.8, 1.2), range(pt$harvest)*c(0.8, 1.2)))
+  z <- sort(k$z, decreasing = TRUE); cz <- cumsum(z)/sum(z)
+  lev <- sapply(probs, function(p) z[which(cz >= p)[1]])
+  g <- expand.grid(stock = k$x, harvest = k$y); g$z <- as.vector(k$z)
+  ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z), breaks = sort(lev),
+                        colour = "black", linewidth = 0.4)
+}
+
+
+# filled 50/80/95% highest-density regions (as jbplot_biplot)
+.kobe_filled <- function(pt, lim){
+  k <- .kde2(pt$stock, pt$harvest, lims = c(0, lim[1], 0, lim[2])); lv <- .hpd_levels(k$z, c(0.5, 0.8, 0.95))
+  cfill <- c("0.95" = "cornsilk4", "0.8" = "grey", "0.5" = "cornsilk2")
+  cl <- do.call(rbind, lapply(seq_along(lv), function(i){ L <- grDevices::contourLines(k$x, k$y, k$z, levels = lv[i])
+    if(!length(L)) return(NULL)
+    do.call(rbind, lapply(seq_along(L), function(j) data.frame(level = names(cfill)[4 - i], grp = paste(i, j), x = L[[j]]$x, y = L[[j]]$y))) }))
+  if(is.null(cl)) return(NULL)
+  lapply(names(cfill), function(l) if(any(cl$level == l)) ggplot2::geom_polygon(data = cl[cl$level == l, ],
+    ggplot2::aes(.data$x, .data$y, group = .data$grp), fill = cfill[[l]], colour = NA, alpha = 0.85))
 }
 
 #' Fits to the abundance indices
@@ -555,10 +587,11 @@ jbplot_retro <- function(retro, type = c("B/Bmsy", "F/Fmsy", "B", "F"), ncol = N
 #' @param adj also show MASE.adj in the facet labels
 #' @param ncol facet columns
 #' @return a ggplot; the MASE table in attribute "mase"
+#' @param indices optional subset of indices to show (e.g. the dominant ones)
 #' @export
-jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL){
+jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL, indices = NULL){
   d <- hc$pred; ty <- hc$terminal; np <- hc$n; ms <- hc$mase
-  keep <- ms$index[ms$n.eval > 0]; d <- d[d$index %in% keep & d$year >= ty - np - nyears, ]; ms <- ms[ms$index %in% keep, ]
+  keep <- ms$index[ms$n.eval > 0]; if(!is.null(indices)) keep <- intersect(keep, indices); d <- d[d$index %in% keep & d$year >= ty - np - nyears, ]; ms <- ms[ms$index %in% keep, ]
   peels <- 0:np; plab <- ifelse(peels == 0, "Reference", as.character(ty - peels))
   cols <- stats::setNames(c("black", jb3cols(max(np, 1))[seq_len(np)]), plab)
   ln <- d[is.finite(d$hat) & d$year <= ty - d$peel + ifelse(d$peel > 0, 1, 0), ]; ln$run <- factor(plab[match(ln$peel, peels)], levels = plab)

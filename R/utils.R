@@ -15,7 +15,8 @@ cv2sd <- function(cv) sqrt(log(cv^2 + 1))
 # Pella-Tomlinson shape m from Bmsy/K
 .m_from_bmsyk <- function(bmsyk){
   if(abs(bmsyk - 0.5) < 1e-8) return(2)
-  if(bmsyk <= exp(-1) + 1e-6) return(1.001)
+  if(abs(bmsyk - exp(-1)) < 1e-4) return(1.001)                              # Fox
+  if(bmsyk < exp(-1)) return(stats::uniroot(function(m) m^(-1/(m - 1)) - bmsyk, c(0.01, 0.9999), tol = 1e-10)$root)
   stats::uniroot(function(m) m^(-1/(m - 1)) - bmsyk, c(1.0001, 50), tol = 1e-10)$root
 }
 

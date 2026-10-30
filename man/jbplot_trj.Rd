@@ -11,7 +11,7 @@ jbplot_trj(
   refpts = TRUE,
   extra = NULL,
   ncol = NULL,
-  colour = "dodgerblue",
+  colour = "grey45",
   nested = FALSE,
   probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
   drop.last = FALSE,
@@ -36,7 +36,7 @@ on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/
 
 \item{ncol}{facet columns}
 
-\item{colour}{ribbon colour for a single run}
+\item{colour}{interval colour for a single run (grey; projections are coloured by scenario)}
 
 \item{nested}{nested 90\% and 60\% bands (JAGG style) instead of the 95\% interval}
 
@@ -44,7 +44,7 @@ on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/
 
 \item{drop.last}{drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})}
 
-\item{proj}{optional output of \code{\link{jb3_project}()}, drawn dashed after the last year}
+\item{proj}{optional output of \code{\link{jb3_project}()}, appended after the last year}
 
 \item{label.size}{size of the reference point labels}
 
@@ -56,5 +56,5 @@ One facet per quantity, the estimate (mode, or posterior median with NUTS) with 
 labelled lines (FLRef::plotAdvice style). Several fits (a list, or the steps of a workflow fit) are coloured by run.
 With \code{nested = TRUE} the plot follows JAGG's \code{jagg_advice()}: a 90\% (alpha 0.2) and a 60\% band (alpha 0.4)
 around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
-Projections from \code{\link{jb3_project}()} are appended as dashed lines (one per scenario).
+Projections from \code{\link{jb3_project}()} are appended after the last year (one colour per scenario, with intervals).
 }

@@ -1,7 +1,9 @@
 # Quick start: your first fit
 
-Atlantic bigeye tuna: catch from 1950 and two Japanese longline CPUE indices
-with log-scale standard errors, in the JABBA data-frame format.
+Atlantic bigeye tuna is the standard example of this guide: catch from 1950 and
+two Japanese longline CPUE indices with log-scale standard errors, in the JABBA
+data-frame format. Atlantic blue marlin, a more complex assessment with ten
+indices, introduces the rebuilding protocol (chapter *The rebuilding protocol*).
 
 ```{r qs-data}
 data(iccat)
@@ -63,6 +65,7 @@ nested 90% and 60% bands and the MSY reference points as labelled lines.
 
 ```{r qs-kobe, fig.height = 5}
 jbplot_kobe(fit)
+jbplot_kobe(fit, style = "contours")   # filled 50/80/95% regions, as jbplot_biplot(); contours = FALSE: points only
 ```
 
 `jbplot_all(fit, dir)` writes all standard plots of a fit to PNG files.

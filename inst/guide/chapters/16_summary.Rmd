@@ -32,6 +32,7 @@
 | Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch; optional intermediate years), `jb3_fwd()` (forecast controls, as `fw_jabba_ctrl()`) |
 | Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
 | FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
+| Life-history guidance | `jb3_rho_gt()`, `jb3_rho_table()` |
 | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_nuts_diags()` |
 | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
 | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |

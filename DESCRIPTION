@@ -30,6 +30,7 @@ Suggests:
     tmbstan,
     rstan,
     patchwork,
+    MASS,
     FLCore,
     ggplotFL,
     FLRef,

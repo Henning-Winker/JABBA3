@@ -26,11 +26,19 @@ plot(fq[c("stock", "harvest", "catch")]) + ggplot2::geom_hline(yintercept = 1, l
 `FLRef::jabba2FLStockR()`: biomass in `stock` (and `ssb()`), catch, and the
 harvest rate in `harvest`, with the draws as iterations. The `refpts` slot holds
 $F_{MSY}$, $B_{MSY}$, MSY, $B_{thr}$ and $B_{lim}$ (by default 0.5 and 0.3
-$B_{MSY}$, the SPiCT benchmark defaults) and $B_0$; `rel = TRUE` gives
-$B/B_{MSY}$ and $F/F_{MSY}$.
+$B_{MSY}$, the SPiCT benchmark defaults) and $B_0$. Advice from surplus
+production models is given in relative terms, so by default the stock is in
+$B/B_{MSY}$ and $F/F_{MSY}$; `rel = FALSE` gives absolute biomass and harvest rate.
 
-```{r flr-stockr, fig.height = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
-stk <- jb3_FLStockR(fit, ndraws = 500)
+```{r flr-stockr, fig.height = 7, fig.width = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
+stk <- jb3_FLStockR(fit, ndraws = 500)        # relative (B/Bmsy, F/Fmsy) by default
 stk@refpts
-FLRef::plotAdvice(stk)
+FLRef::plotAdvice(stk, type = "spm") + ggplot2::facet_wrap(~qname, ncol = 1, scales = "free_y")
+```
+
+Absolute biomass and harvest rate with `rel = FALSE`:
+
+```{r flr-stockr-abs, fig.height = 7, fig.width = 7, eval = requireNamespace("FLRef", quietly = TRUE)}
+FLRef::plotAdvice(jb3_FLStockR(fit, rel = FALSE, ndraws = 500), type = "spm") +
+  ggplot2::facet_wrap(~qname, ncol = 1, scales = "free_y")
 ```
