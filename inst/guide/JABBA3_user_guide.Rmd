@@ -10,6 +10,7 @@ output:
     toc_depth: 3
     number_sections: true
     math_method: mathml
+    highlight: tango
 ---
 
 ```{r setup, include = FALSE}
