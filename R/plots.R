@@ -246,7 +246,7 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   ggplot2::ggplot() +
     ggplot2::geom_rect(data = qd, ggplot2::aes(xmin = .data$xmin, xmax = .data$xmax, ymin = .data$ymin, ymax = .data$ymax, fill = .data$zone), alpha = 0.85) +
     ggplot2::scale_fill_manual(values = fills, breaks = qd$zone, labels = qd$lab, name = paste("Uncertainty", y)) +
-    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey15", alpha = 0.35, size = 0.8)) +
+    (if(style == "points") ggplot2::geom_point(data = pt, ggplot2::aes(.data$stock, .data$harvest), colour = "grey55", alpha = 0.45, size = 1.3)) +
     (if(style == "points" && length(contours)) .kobe_contours(pt, contours)) +
     (if(style == "contours") .kobe_filled(pt, c(xmax, ymax))) +
     ggplot2::geom_path(data = trj, ggplot2::aes(.data$stock, .data$harvest), linewidth = 0.6) +
@@ -267,10 +267,11 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   z <- sort(k$z, decreasing = TRUE); cz <- cumsum(z)/sum(z)
   lev <- sapply(probs, function(p) z[which(cz >= p)[1]])
   g <- expand.grid(stock = k$x, harvest = k$y); g$z <- as.vector(k$z)
-  lab <- data.frame(lev = lev, p = probs)
-  ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z), breaks = sort(lev),
-                        colour = "black", linewidth = 0.4, linetype = 1)
+  cols <- grDevices::colorRampPalette(c("navy", "lightskyblue"))(length(lev))   # inner (50%) dark to outer (95%) light
+  lapply(seq_along(lev), function(i) ggplot2::geom_contour(data = g, ggplot2::aes(.data$stock, .data$harvest, z = .data$z),
+                                                           breaks = lev[i], colour = cols[i], linewidth = 0.7))
 }
+
 
 # filled 50/80/95% highest-density regions (as jbplot_biplot)
 .kobe_filled <- function(pt, lim){
