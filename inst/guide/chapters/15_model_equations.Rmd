@@ -17,7 +17,7 @@ $$
 d_1 \sim N(0, \sigma_1^2), \qquad d_t \sim N\left(\rho\, d_{t-1},\ \sigma_t^2 (1-\rho^2)\right),
 $$
 
-$\rho = 0$ giving the independent process error of JABBA 2 and SPiCT. Either
+$\rho = 0$ giving the independent process error of JABBA and SPiCT. Either
 $\sigma_t = \sigma_{MSY}$ (constant) or $\sigma_t = \sigma_{MSY} x_t^{-k}$ with
 $x_t = B_t/B_{MSY}$ bounded to `xlim` (dynamic).
 

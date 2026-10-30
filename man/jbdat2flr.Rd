@@ -44,7 +44,7 @@ list with \code{catch} (FLQuant or FLQuants), \code{indices} (FLIndices) and \co
   the SEs in attribute "se"; \code{NULL} when not given)
 }
 \description{
-Converts the JABBA 2 input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
+Converts the JABBA input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
 \code{FLQuant} (or \code{FLQuants}, one per fleet), abundance indices to \code{FLIndices} of \code{FLIndexBiomass}
 with the log-scale standard errors in \code{index.var}, and auxiliary data (e.g. effort) to \code{FLQuants}.
 The result can be passed straight to \code{\link{jb3_data}()}.

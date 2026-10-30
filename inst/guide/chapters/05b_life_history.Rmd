@@ -1,0 +1,149 @@
+# Life history: r prior, generation time and Selex inputs
+
+JABBA3 takes life-history information in the format of FLicc (length-based
+assessment with `fiticc()`): `lhpar`, an `FLPar` with growth, natural
+mortality, maturity at length and the weight-length relationship, and `selpar`,
+the selectivity parameters on the length scale (e.g. from
+`FLicc::selpars_flicc(fit)`). From these, the tools in this chapter give
+
+- the maximum intrinsic rate of increase $r$ and the generation time GT from a
+  Leslie matrix (`jb3_leslie()`);
+- the r prior for the chosen production-function shape (`jb3_fmsy2r()`);
+- guidance for the AR(1) persistence $\rho$ from GT (`jb3_rho_gt()`);
+- the EB/SB curves for the Selex (spawning-biomass) model from length or age
+  selectivity (`jb3_selex()`), with `jbplot_selex()`.
+
+FLicc itself is not needed: its selectivity functions are included.
+
+## Leslie matrix: r and generation time
+
+Life-history parameters of the FLicc alfonsino example (von Bertalanffy
+$L_\infty$ and $k$, natural mortality $M$, length at 50% maturity, weight at
+length $W = aL^b$; steepness `s`, default 0.7):
+
+```{r lh-lhpar}
+FLPar <- FLCore::FLPar; FLPars <- FLCore::FLPars
+lhpar <- FLPar(linf = 55.7, k = 0.08, M = 0.162, L50 = 31.1859,
+               a = 0.004721956, b = 3.146168, s = 0.75)
+jb3_leslie(lhpar)
+```
+
+$r = \log\lambda$, with $\lambda$ the dominant eigenvalue of the Leslie matrix
+whose first row is the reproduction at the slope at the origin of the
+Beverton-Holt stock-recruitment relationship, $4h/(\phi_0(1-h))$ times weight
+and maturity at age; GT is the mean age of the spawners in the unfished
+population. Biology at age follows from von Bertalanffy growth (`t0`, default
+-0.5), $W = aL^b$ and logistic maturity at length ($L_{50}$, $L_{95}$; default
+$L_{50} + 0.2 L_\infty$), with ages up to where 1% of a cohort survives
+(`amax`). The calculation reproduces `JABBA::jbleslie()` and
+`FLSRTMB::productivity()`.
+
+Sex-structured parameters go in a second dimension of the `FLPar` (or
+`list(F = , M = )`); reproduction is set by `sex` (default females):
+
+```{r lh-sex}
+lh2 <- FLPar(array(c(55.7, 0.08, 0.162, 31.2, 0.0047, 3.15, 0.75,
+                     50.0, 0.09, 0.180, 29.0, 0.0047, 3.15, 0.75), dim = c(7, 2, 1),
+                   dimnames = list(params = c("linf", "k", "M", "L50", "a", "b", "s"),
+                                   sex = c("F", "M"), iter = 1)))
+lh2[, "F"]
+rbind(F = jb3_leslie(lh2, sex = "F"), M = jb3_leslie(lh2, sex = "M"))
+```
+
+`jb3_leslie()` also takes an `FLStock` (median `m`, `mat` and `stock.wt` at age,
+females from the `unit` dimension if present), `FLQuants` (`m`, `mat`, `wt`) by
+age with `unit = c("F", "M")`, or by length together with `lhpar` for growth:
+
+```{r lh-flq}
+data(ple4, package = "FLCore")
+jb3_leslie(ple4, h = 0.7)[c("r", "gt")]
+```
+
+## The r prior for the production-function shape
+
+The Leslie $r$ is the per-capita growth at low biomass. In the Pella-Tomlinson
+form of JABBA3 this equals $r/(m-1)$, while $F_{MSY} = r/m$: using the Leslie
+$r$ directly is only consistent for the Schaefer model. Matching the prior on
+$F_{MSY}$ (from an age-structured equilibrium, or $r_{Leslie}/2$ as the
+Schaefer equivalent) keeps it consistent across shapes:
+
+```{r lh-fmsy2r}
+r.les <- jb3_leslie(lhpar)[["r"]]
+Fmsy  <- r.les/2                                   # Schaefer equivalent
+c(schaefer = jb3_fmsy2r(Fmsy, shape = "schaefer"),
+  pella0.4 = jb3_fmsy2r(Fmsy, BmsyK = 0.4),
+  pella0.36 = jb3_fmsy2r(Fmsy, BmsyK = 0.36),
+  fox = jb3_fmsy2r(Fmsy, shape = "fox"))
+jb3_r2fmsy(0.2, BmsyK = 0.4)                       # and back
+```
+
+## Persistence from generation time
+
+The generation time from the same Leslie matrix gives the guidance for the AR(1)
+coefficient (chapter *Model options*):
+
+```{r lh-rho}
+gt <- jb3_leslie(lhpar)[["gt"]]
+c(GT = gt, rho = jb3_rho_gt(gt))
+```
+
+## Selex inputs from length selectivity
+
+With the Selex model (`jb3_model(ebsb = )`) the state is spawning biomass and the
+indices and removals are mapped through the equilibrium ratio of exploitable
+to spawning biomass, EB/SB, as a function of SB/SB0. `jb3_selex()` computes this
+curve for each fleet from `lhpar` and length-based selectivity, over a grid of F
+with Beverton-Holt recruitment, and fits the saturating curve
+$c(u_1, u_2, u_3, P_1, P_2)$. Selectivity parameters use the FLicc names and
+functions (logistic: `SL50`, `SL95`; `dsnormal`: `mode`, `lsd`, `rsd`; `normal`;
+`binormal`; `bidsnormal`), here as an `FLPars` as returned by
+`FLicc::selpars_flicc(fit)`; selectivity at length is converted to age by
+integrating over the length-at-age distribution (`CVL = 0.1`).
+
+```{r lh-selex}
+selpar <- FLPars(Gillnet = FLPar(mode = 32, lsd = 4, rsd = 15),
+                 Longline = FLPar(SL50 = 28, SL95 = 36))
+sx <- jb3_selex(lh2, selpar)
+sx
+```
+
+```{r lh-selex-plot, fig.height = 4.5, fig.width = 10}
+jbplot_selex(sx)
+```
+
+The JABBA 5-parameter selectivity (JABBA-Select; `jb3_sel5()`: `SL50`, `SL95`,
+then a descending limb from `SLdesc` with coefficient of variation `CVdesc`
+towards a minimum `Smin`) can be used at length, alongside the FLicc functions:
+
+```{r lh-sel5-len, fig.height = 4.5, fig.width = 10}
+sx5 <- jb3_selex(lhpar, list(Logistic = c(SL50 = 28, SL95 = 36),
+                             Dome5 = c(SL50 = 25, SL95 = 32, SLdesc = 42, CVdesc = 0.15, Smin = 0.1)))
+jbplot_selex(sx5)
+```
+
+or at age (`sel.type = "age"`; parameters in years):
+
+```{r lh-sel5-age, fig.height = 4.5, fig.width = 10}
+sxa <- jb3_selex(lhpar, list(Age5 = c(SL50 = 4, SL95 = 6, SLdesc = 15, CVdesc = 0.2, Smin = 0.2)),
+                 sel.type = "age")
+jbplot_selex(sxa, at = "age")
+```
+
+## A Selex fit
+
+The output of `jb3_selex()` goes straight into `jb3_model(ebsb = )`; with
+several fleets, `ebsb.index` and `ebsb.catch` assign the curves to the indices
+and the removals. For bigeye tuna, with illustrative life-history and longline
+selectivity parameters:
+
+```{r lh-selex-fit, fig.height = 4.5, fig.width = 10}
+lh.bet <- FLPar(linf = 190, k = 0.2, M = 0.35, L50 = 105, a = 2.4e-5, b = 2.98, s = 0.8)
+sx.bet <- jb3_selex(lh.bet, list(LL = c(SL50 = 80, SL95 = 110)))
+c(jb3_leslie(lh.bet)[c("r", "gt")], rho = jb3_rho_gt(jb3_leslie(lh.bet)[["gt"]]))
+fsx <- jabba3(d, pr, jb3_model(shape = "fox", ebsb = sx.bet), osa = FALSE)
+jbplot_ebsb_status(fsx)
+```
+
+> Check that the selectivity is plausible against the length compositions
+> (e.g. with an FLicc fit) before using the curve: it determines how the
+> exploitable-biomass indices map onto the spawning-biomass state.

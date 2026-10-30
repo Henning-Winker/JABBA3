@@ -1,21 +1,21 @@
-#' Convert a JABBA 2 input object to JABBA3
+#' Convert a JABBA input object to JABBA3
 #'
 #' Translates a \code{JABBA::build_jabba()} object into the three JABBA3 inputs: \code{data}, \code{priors} and
-#' \code{model}. Priors are carried over on the JABBA 2 scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
+#' \code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
 #' lag, catch error, catchability and variance groups, the process-error start, the BioProcDyn options (lognormal
 #' sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the Selex EB/SB curves.
 #'
 #' Differences that cannot be carried over one to one are reported as messages:
 #' \itemize{
-#'   \item JABBA 2's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
+#'   \item JABBA's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
 #'     prior on sdb), because the inverse-gamma mode collapses towards zero (set \code{keep.igamma = TRUE} for the
 #'     diffuse inverse-gamma(0.001, 0.001) instead).
 #'   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
-#'     JABBA 2 exactly).
+#'     JABBA exactly).
 #'   \item Auxiliary data, catch-only mode and Plim are not yet supported and are dropped.
 #' }
 #' @param jbinput output of \code{JABBA::build_jabba()}
-#' @param q.uniform reproduce JABBA 2's uniform prior on q
+#' @param q.uniform reproduce JABBA's uniform prior on q
 #' @param keep.igamma use the diffuse inverse-gamma prior on the process variance instead of the FishLife prior
 #' @param verbose print the conversion messages
 #' @return list(data, priors, model), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
@@ -33,13 +33,13 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
   shape <- switch(mt, Schaefer = "schaefer", Fox = "fox", "pella")
   bmsyk <- s$BmsyK %||% 0.4
   if(shape == "pella" && !is.null(jd$mu.m)) bmsyk <- jd$mu.m^(-1/(jd$mu.m - 1))
-  # priors (JABBA 2 jagsdata hold c(median, log.sd) for r, K and the lognormal psi)
+  # priors (JABBA jagsdata hold c(median, log.sd) for r, K and the lognormal psi)
   bk <- if(identical(s$psi.dist, "beta")){ a <- jd$psi.pr[1]; b <- jd$psi.pr[2]; mu <- a/(a + b); v <- a*b/((a + b)^2*(a + b + 1))
     msg("beta prior on psi converted to a lognormal prior on bkinit with the same mean and CV"); c(mu, cv2sd(sqrt(v)/mu))
   } else as.numeric(jd$psi.pr[1:2])
   m.pr <- if(identical(s$model.id, 4) || identical(mt, "Pella_m")) c(jd$mu.m, cv2sd(jd$m.CV %||% 0.3), 1) else c(NA, 0.3, 0)
   sdb <- if(!is.null(s$sigma.proc.prior)) as.numeric(s$sigma.proc.prior[1:2]) else if(keep.igamma) "igamma" else {
-    msg("JABBA 2 inverse-gamma prior on the process variance replaced by the JABBA3 FishLife prior on sdb"); "fishlife" }
+    msg("JABBA inverse-gamma prior on the process variance replaced by the JABBA3 FishLife prior on sdb"); "fishlife" }
   q <- NULL
   if(identical(s$q1.dist, "lnorm") && !is.null(jd$q1.pr)){
     nq <- jd$nq %||% 1; q <- cbind(c(jd$q1.pr[1], rep(1, nq - 1)), c(jd$q1.pr[2], rep(1, nq - 1)), c(1, rep(0, nq - 1)))
@@ -74,7 +74,7 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
                      ebsb = ebsb, ebsb.index = ebi, ebsb.removal = isTRUE(s$ebsb.removal) || is.null(ebsb),
                      q.uniform = q.uniform, P.bound = jd$P_bound %||% c(0.02, 1.3),
                      sdi.bound = jd$sigmaobs_bound %||% 1)
-  if(!q.uniform) msg("q has a flat prior on log q (JABBA 2/JAGS: uniform on q; use q.uniform = TRUE to reproduce)")
+  if(!q.uniform) msg("q has a flat prior on log q (JABBA/JAGS: uniform on q; use q.uniform = TRUE to reproduce)")
   list(data = data, priors = priors, model = model)
 }
 

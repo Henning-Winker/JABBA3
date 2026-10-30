@@ -2,14 +2,14 @@
 % Please edit documentation in R/converters_models.R
 \name{jbinput2jabba3}
 \alias{jbinput2jabba3}
-\title{Convert a JABBA 2 input object to JABBA3}
+\title{Convert a JABBA input object to JABBA3}
 \usage{
 jbinput2jabba3(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{jbinput}{output of \code{JABBA::build_jabba()}}
 
-\item{q.uniform}{reproduce JABBA 2's uniform prior on q}
+\item{q.uniform}{reproduce JABBA's uniform prior on q}
 
 \item{keep.igamma}{use the diffuse inverse-gamma prior on the process variance instead of the FishLife prior}
 
@@ -20,18 +20,18 @@ list(data, priors, model), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$d
 }
 \description{
 Translates a \code{JABBA::build_jabba()} object into the three JABBA3 inputs: \code{data}, \code{priors} and
-\code{model}. Priors are carried over on the JABBA 2 scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
+\code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
 lag, catch error, catchability and variance groups, the process-error start, the BioProcDyn options (lognormal
 sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the Selex EB/SB curves.
 }
 \details{
 Differences that cannot be carried over one to one are reported as messages:
 \itemize{
-  \item JABBA 2's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
+  \item JABBA's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
     prior on sdb), because the inverse-gamma mode collapses towards zero (set \code{keep.igamma = TRUE} for the
     diffuse inverse-gamma(0.001, 0.001) instead).
   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
-    JABBA 2 exactly).
+    JABBA exactly).
   \item Auxiliary data, catch-only mode and Plim are not yet supported and are dropped.
 }
 }

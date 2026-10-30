@@ -3,7 +3,7 @@
 #' Collects catch and abundance indices into the internal data object used by \code{\link{jabba3}()}.
 #' Native inputs follow FLR: \code{catch} as an \code{FLQuant} (or \code{FLQuants} by fleet, summed) and
 #' \code{indices} as \code{FLIndices} of \code{FLIndexBiomass}, with the log-scale SE of each observation in
-#' \code{index.var} (NA or empty = not given). Plain data frames in the JABBA 2 layout are accepted as well
+#' \code{index.var} (NA or empty = not given). Plain data frames in the JABBA layout are accepted as well
 #' (see also \code{\link{jb3_data_jabba}()}).
 #'
 #' @param catch \code{FLQuant}, \code{FLQuants}, or data.frame(year, catch[, more fleets])
@@ -40,7 +40,7 @@ jb3_data <- function(catch, indices, se = NULL, stock = "stock"){
 
 #' Convert classic JABBA inputs
 #'
-#' The JABBA 2 data frames (\code{catch}, \code{cpue}, \code{se} as used by \code{build_jabba()}) to a
+#' The JABBA data frames (\code{catch}, \code{cpue}, \code{se} as used by \code{build_jabba()}) to a
 #' \code{jb3data} object.
 #' @param catch data.frame(year, catch...)
 #' @param cpue data.frame(year, index...)

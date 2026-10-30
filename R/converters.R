@@ -1,6 +1,6 @@
 #' Convert classic JABBA data frames to FLR objects
 #'
-#' Converts the JABBA 2 input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
+#' Converts the JABBA input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
 #' \code{FLQuant} (or \code{FLQuants}, one per fleet), abundance indices to \code{FLIndices} of \code{FLIndexBiomass}
 #' with the log-scale standard errors in \code{index.var}, and auxiliary data (e.g. effort) to \code{FLQuants}.
 #' The result can be passed straight to \code{\link{jb3_data}()}.
@@ -69,7 +69,7 @@ jbidx2FLIndices <- function(index, index.se = NULL, units = "NA"){
 #' Convert FLR inputs back to classic JABBA data frames
 #'
 #' The inverse of \code{\link{jbdat2flr}()}: an \code{FLQuant}/\code{FLQuants} catch and \code{FLIndices} to the
-#' JABBA 2 data frames \code{catch}, \code{cpue} and \code{se}.
+#' JABBA data frames \code{catch}, \code{cpue} and \code{se}.
 #' @param catch FLQuant or FLQuants
 #' @param indices FLIndices (or a single FLIndexBiomass)
 #' @return list(catch, cpue, se) of data frames

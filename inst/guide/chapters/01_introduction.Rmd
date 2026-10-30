@@ -7,10 +7,10 @@ JABBA (Just Another Bayesian Biomass Assessment; Winker et al. 2018), rebuilt
 in RTMB (Kristensen et al. 2016) and with inputs and outputs in FLR (Kell et
 al. 2007):
 
-- **The same model family as JABBA 2.** Schaefer, Fox and Pella-Tomlinson
+- **The same model family as JABBA.** Schaefer, Fox and Pella-Tomlinson
   production, the JABBA priors (r, K, initial depletion, shape), process error
   after the catch, additive index variance and catch with error. With the same
-  priors JABBA3 reproduces the JABBA 2 RTMB engine to within $10^{-4}$ in
+  priors JABBA3 reproduces the JABBA RTMB engine to within $10^{-4}$ in
   $\log B/B_{MSY}$.
 - **Fast.** The log-depletion states are integrated by the Laplace
   approximation and the fixed effects estimated at the posterior mode; a fit
@@ -27,12 +27,17 @@ al. 2007):
   hindcast cross-validation (MASE).
 - **FLR inside.** Catch as `FLQuant`, indices as `FLIndices`; status, reference
   points and parameters out as `FLQuants` and `FLPar`.
-- **Converters.** Classic JABBA data frames, JABBA 2 `build_jabba()` objects
+- **Converters.** Classic JABBA data frames, JABBA `build_jabba()` objects
   and SPiCT input lists convert to JABBA3 inputs.
 
-How JABBA 2 options map to JABBA3:
+> **JABBA and JABBA3.** Since version 2.x, JABBA itself has an RTMB engine in
+> addition to JAGS, which few users are aware of. JABBA3 is the standalone RTMB
+> successor. In this guide "JABBA" means the original package (JAGS, with its
+> RTMB engine) and "JABBA3" the new one.
 
-| JABBA 2 | JABBA3 |
+How JABBA options map to JABBA3:
+
+| JABBA | JABBA3 |
 |---|---|
 | `build_jabba(catch, cpue, se, ...)` | `jb3_data()` + `jb3_priors()` + `jb3_model()`, or `jbinput2jabba3(jbinput)` |
 | `fit_jabba()` (JAGS) | `jabba3(engine = "rtmb")` (mode) or `jabba3(engine = "nuts")` |
@@ -49,7 +54,7 @@ How JABBA 2 options map to JABBA3:
 status: data, priors, model options, fitting, convergence and residual
 diagnostics, with **checks** at each step (what to look at, what is a red flag,
 what to do about it). **Part II** (sections 10-15) covers NUTS, the BioProcDyn
-process-error workflows, projections, FLR outputs, converters from JABBA 2 and
+process-error workflows, projections, FLR outputs, converters from JABBA and
 SPiCT, and the model equations. Section 16 summarises the checks and the
 functions. The examples use the built-in ICCAT data (`data(iccat)`): Atlantic
 bigeye tuna, white marlin, South Atlantic swordfish and blue marlin.

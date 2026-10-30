@@ -21,16 +21,16 @@ jb3_priors(
 )
 }
 \arguments{
-\item{data}{optional \code{jb3data}, used for the default K prior (8 x max catch, CV 1, as JABBA 2)}
+\item{data}{optional \code{jb3data}, used for the default K prior (8 x max catch, CV 1, as JABBA)}
 
 \item{r}{intrinsic growth rate, on by default}
 
-\item{K}{carrying capacity; \code{NULL} = 8 x max catch with log.sd 0.833 (JABBA 2: CV 1)}
+\item{K}{carrying capacity; \code{NULL} = 8 x max catch with log.sd 0.833 (JABBA: CV 1)}
 
-\item{bkinit}{initial depletion B1/K (JABBA 2: \code{psi}); default c(0.9, 0.246) (JABBA 2: CV 0.25)}
+\item{bkinit}{initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)}
 
 \item{sdb}{process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
-r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA 2's
+r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
 diffuse inverse-gamma(0.001, 0.001) on the variance (not recommended for the posterior mode).}
 
 \item{sigR}{recruitment SD used by \code{sdb = "fishlife"} (0.5 when unknown)}
@@ -51,14 +51,14 @@ default (rho fixed by \code{jb3_model(rho = )})}
 
 \item{status}{optional data.frame(year, type, median, log.sd) of status priors; type one of "BK", "BBmsy", "FFmsy"}
 
-\item{psi}{alias of \code{bkinit} (JABBA 2 name)}
+\item{psi}{alias of \code{bkinit} (JABBA name)}
 }
 \value{
 list of class \code{jb3priors}
 }
 \description{
 One named list of priors, each \code{c(median, log.sd, on)}: lognormal with the given median and log-scale sd, and an
-on/off switch (\code{on = 0} gives a flat prior on the log scale). JABBA stays JABBA: the defaults follow JABBA 2
+on/off switch (\code{on = 0} gives a flat prior on the log scale). The defaults follow JABBA
 (\code{build_jabba()}), except the process error prior.
 }
 \examples{

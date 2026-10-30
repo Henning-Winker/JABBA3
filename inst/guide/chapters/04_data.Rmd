@@ -2,7 +2,7 @@
 
 ## Data frames (JABBA format)
 
-`jb3_data()` takes the JABBA 2 data frames directly: `catch`
+`jb3_data()` takes the JABBA data frames directly: `catch`
 (`year, catch[, fleet 2, ...]`), `cpue` (`year, index1, index2, ...`, `NA` for
 missing years) and optionally `se` (log-scale standard errors, same columns as
 `cpue`). Catches by fleet are summed for the fit and kept in `catch.fleets`.

@@ -28,8 +28,8 @@ bum.base <- jabba3(d.bum, pr.bum, m.base, run = "2018 base")
 bum.base
 ```
 
-The same fit follows from the original JABBA 2 input with the converter
-(`jbinput2jabba3()`, chapter *Converting from JABBA 2 and SPiCT*):
+The same fit follows from the original JABBA input with the converter
+(`jbinput2jabba3()`, chapter *Converting from JABBA and SPiCT*):
 
 ```{r bum-convert, eval = FALSE}
 jb.bum <- JABBA::build_jabba(catch = bum$catch, cpue = bum$cpue, se = bum$se,

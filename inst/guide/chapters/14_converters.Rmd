@@ -1,6 +1,6 @@
-# Converting from JABBA 2 and SPiCT
+# Converting from JABBA and SPiCT
 
-## JABBA 2: `jbinput2jabba3()`
+## JABBA: `jbinput2jabba3()`
 
 `jbinput2jabba3()` takes the object returned by `JABBA::build_jabba()` and
 returns `list(data, priors, model)` for `jabba3()`. It carries over the priors
@@ -9,7 +9,7 @@ lag, catch error, catchability and variance groups, `proc.dev.all`, the
 BioProcDyn process-error options and the Selex curves, and reports each
 difference:
 
-- JABBA 2's inverse-gamma prior on the process variance is replaced by the
+- JABBA's inverse-gamma prior on the process variance is replaced by the
   FishLife prior (`keep.igamma = TRUE` keeps it);
 - q gets a flat prior on log q (`q.uniform = TRUE` reproduces the JAGS uniform
   prior on q);
@@ -24,7 +24,7 @@ f2 <- jabba3(x$data, x$priors, x$model, osa = FALSE)
 signif(f2$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 ```
 
-> With the same process-error prior, the conversion reproduces the JABBA 2 RTMB
+> With the same process-error prior, the conversion reproduces the JABBA (RTMB engine)
 > fit of bigeye exactly (K = 1,174,749; $B/B_{MSY}$ = 0.797 in 2017).
 
 ## SPiCT: `spictinp2jabba3()`

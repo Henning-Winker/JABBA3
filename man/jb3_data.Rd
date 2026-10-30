@@ -23,7 +23,7 @@ object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I
 Collects catch and abundance indices into the internal data object used by \code{\link{jabba3}()}.
 Native inputs follow FLR: \code{catch} as an \code{FLQuant} (or \code{FLQuants} by fleet, summed) and
 \code{indices} as \code{FLIndices} of \code{FLIndexBiomass}, with the log-scale SE of each observation in
-\code{index.var} (NA or empty = not given). Plain data frames in the JABBA 2 layout are accepted as well
+\code{index.var} (NA or empty = not given). Plain data frames in the JABBA layout are accepted as well
 (see also \code{\link{jb3_data_jabba}()}).
 }
 \examples{

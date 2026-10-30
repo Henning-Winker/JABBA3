@@ -3,7 +3,7 @@
 All priors are in one list from `jb3_priors()`. Each prior is
 `c(median, log.sd, on)`: lognormal with the given median and log-scale SD, and
 an on/off switch (`on = 0` gives a flat prior on the log scale). The defaults
-follow JABBA 2 (`build_jabba()`), except for the process error.
+follow JABBA (`build_jabba()`), except for the process error.
 
 ```{r priors}
 pr <- jb3_priors(d, r = c(0.2, 0.5))
@@ -13,7 +13,7 @@ pr
 | Prior | Default | Note |
 |---|---|---|
 | `r` | `c(0.2, 0.5, 1)` | intrinsic growth rate; on by default |
-| `K` | 8 x max catch, log.sd 0.833 (CV 1) | as JABBA 2; `c(NA, 0.833, 0)` for flat on log K |
+| `K` | 8 x max catch, log.sd 0.833 (CV 1) | as JABBA; `c(NA, 0.833, 0)` for flat on log K |
 | `bkinit` (alias `psi`) | `c(0.9, 0.246, 1)` | initial depletion $B_1/K$ |
 | `sdb` | `"fishlife"` | process error SD at $B_{MSY}$, see below |
 | `q` | flat on log q | matrix with one row `c(median, log.sd, on)` per catchability group |
@@ -25,7 +25,7 @@ pr
 
 ## Process error: the FishLife prior
 
-`sdb = "fishlife"` (default) replaces JABBA 2's diffuse inverse-gamma prior on
+`sdb = "fishlife"` (default) replaces JABBA's diffuse inverse-gamma prior on
 the process variance by a lognormal prior with a life-history centre,
 
 $$

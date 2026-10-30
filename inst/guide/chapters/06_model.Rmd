@@ -19,8 +19,8 @@ The model structure is set with `jb3_model()`, separately from the priors.
 | `sets.q`, `sets.var` | one per index | catchability and variance groups |
 | `catch.error`, `sdc` | `TRUE`, 0.1 | catch with lognormal error |
 | `ebsb`, `ebsb.index`, `ebsb.catch`, `ebsb.removal` | `NULL` | Selex: spawning biomass as the state, with EB/SB curves |
-| `q.uniform` | `FALSE` | JABBA 2 (JAGS) uniform prior on q |
-| `P.bound`, `K.bound`, `sdi.bound` | JABBA 2 | soft bounds |
+| `q.uniform` | `FALSE` | JABBA (JAGS) uniform prior on q |
+| `P.bound`, `K.bound`, `sdi.bound` | JABBA | soft bounds |
 
 ## Shape
 
@@ -104,7 +104,7 @@ fd$pars[c("sdb", "kdyn"), c("est", "lci", "uci")]
 
 ## Index observation error
 
-`obs.error = "additive"` (default, as JABBA 2) adds an estimated SD `sdi` to
+`obs.error = "additive"` (default, as JABBA) adds an estimated SD `sdi` to
 the input standard errors, $SD_t = \sqrt{se_t^2 + sdi^2}$.
 `obs.error = "spict"` uses SPiCT's form, $SD_t = sdi \times w_t$, where the
 input SEs enter only as relative weights $w_t$ (as `stdevfacI`); a prior on
@@ -122,7 +122,7 @@ fsp$pars[grep("sdi", rownames(fsp$pars)), c("est", "lci", "uci")]
 ## Catch error
 
 With `catch.error = TRUE` (default) the catch is estimated with lognormal error
-(SD `sdc = 0.1`) as random effects, as JABBA 2's `add.catch.CV = TRUE`; this
+(SD `sdc = 0.1`) as random effects, as JABBA's `add.catch.CV = TRUE`; this
 absorbs small inconsistencies between catch and production. `catch.error = FALSE`
 treats the catch as known.
 
@@ -134,7 +134,7 @@ a function of depletion given as a curve `c(u1, u2, u3, P1, P2)` (or a named
 list of curves, one per selectivity), assigned to indices with `ebsb.index`
 and to the removals with `ebsb.catch`. The priors are then on the
 spawning-biomass scale. The curves come from an age-structured equilibrium
-analysis (e.g. FLBRP) or from a JABBA 2 Selex setup via `jbinput2jabba3()`.
+analysis (e.g. FLBRP) or from a JABBA Selex setup via `jbinput2jabba3()`.
 Selex is a special case for stocks where the fishery selects well below
 maturity and is not covered further here.
 

@@ -15,7 +15,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0){
   if(!nrow(ok)) stop("no index observations left", call. = FALSE)
   sets.q <- model$sets.q %||% seq_len(nI); sets.var <- model$sets.var %||% seq_len(nI)
   nq <- length(unique(sets.q)); nvar <- length(unique(sets.var))
-  # base observation variance (JABBA 2 conventions) and SPiCT-type relative weights
+  # base observation variance (JABBA conventions) and SPiCT-type relative weights
   hasse <- colSums(!is.na(data$SE)) > 0
   semin <- model$se.min %||% NULL
   SE2 <- W <- matrix(1, N, nI)
@@ -118,7 +118,7 @@ jb3_nll <- function(par, dat){
   }
   sdi <- exp(logsdi)
   if(spict){ if(sdi.pr[3] == 1) nll <- nll - sum(dnorm(logsdi, log(sdi.pr[1]), sdi.pr[2], TRUE)) }
-  else nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))         # JABBA 2: gamma(0.001, 0.001) on 1/sdi^2
+  else nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))         # JABBA: gamma(0.001, 0.001) on 1/sdi^2
   if(dyn){
     if(est.k){ pk <- 1/(1 + exp(-tk)); kdyn <- -0.5 + 2.5*pk
       nll <- nll - dnorm(kdyn, kd.pr[1], kd.pr[2], TRUE) - log(2.5*pk*(1 - pk)) } else kdyn <- kd.pr[1]
@@ -159,7 +159,7 @@ jb3_nll <- function(par, dat){
     if(N > 2) nll <- nll - sum(dnorm(d[3:N], rho*d[2:(N - 1)], sqrt(v[3:N]*(1 - rho^2) + 1e-8), TRUE))
   } else nll <- nll - sum(dnorm(logP, mu, sqrt(v), TRUE))
   procdev <- logP - Pmean
-  #--- soft penalties (JABBA 2)
+  #--- soft penalties (JABBA)
   penB <- smin(logP - log(P.bound[1]), 0, 1e-4) + smax(logP - log(P.bound[2]), 0, 1e-4)
   nll <- nll + 500*sum(penB^2)
   penK <- smin(logK - log(K.bound[1]), 0, 1e-4) + smax(logK - log(K.bound[2]), 0, 1e-4)

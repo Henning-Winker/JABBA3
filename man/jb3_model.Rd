@@ -36,7 +36,7 @@ jb3_model(
 \arguments{
 \item{shape}{"pella" (shape from \code{BmsyK}), "schaefer" (Bmsy/K = 0.5) or "fox" (m = 1.001)}
 
-\item{BmsyK}{Bmsy/K for the Pella-Tomlinson form (0.4 default, as JABBA 2)}
+\item{BmsyK}{Bmsy/K for the Pella-Tomlinson form (0.4 default, as JABBA)}
 
 \item{lag}{production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag}
 
@@ -56,22 +56,23 @@ d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$r
 \item{biascor}{lognormal process error bias correction (log mean - var/2)}
 
 \item{start}{"all" (default): process error in all years; "index": deterministic before the first index year
-(JABBA 2 \code{proc.dev.all = FALSE})}
+(JABBA \code{proc.dev.all = FALSE})}
 
-\item{obs.error}{"additive" (default, JABBA 2): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x relative se weights}
+\item{obs.error}{"additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x relative se weights}
 
-\item{se.min}{fixed minimum observation SD; NULL = JABBA 2 default (0.1 without SEs, 0.001 with SEs)}
+\item{se.min}{fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)}
 
-\item{se.na}{SE used where an index has SEs but a year has none (JABBA 2: 0.3)}
+\item{se.na}{SE used where an index has SEs but a year has none (JABBA: 0.3)}
 
 \item{sets.q, sets.var}{catchability and observation-variance groups (one entry per index; default one each)}
 
-\item{catch.error}{estimate catch with lognormal error (random effects with SD \code{sdc}); on by default, as JABBA 2
+\item{catch.error}{estimate catch with lognormal error (random effects with SD \code{sdc}); on by default, as JABBA
 (\code{add.catch.CV = TRUE})}
 
 \item{sdc}{catch observation SD (log scale) when \code{catch.error = TRUE}}
 
-\item{ebsb}{Selex: EB/SB ratio curve c(u1, u2, u3, P1, P2) or a named list of curves (one per selectivity); the state
+\item{ebsb}{Selex: EB/SB ratio curve c(u1, u2, u3, P1, P2), a named list of curves (one per selectivity) or the output
+of \code{\link{jb3_selex}()}; the state
 is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)}
 
 \item{ebsb.index}{curve per index (number or name; 0 = spawning-biomass index); default curve 1 for all}
@@ -80,11 +81,11 @@ is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)}
 
 \item{ebsb.removal}{catch removes C / (EB/SB) from spawning biomass (default TRUE)}
 
-\item{q.uniform}{legacy JABBA 2 uniform prior on q (density proportional to q on log q)}
+\item{q.uniform}{legacy JABBA uniform prior on q (density proportional to q on log q)}
 
-\item{P.bound, K.bound}{soft bounds on B/K and K (JABBA 2 defaults)}
+\item{P.bound, K.bound}{soft bounds on B/K and K (JABBA defaults)}
 
-\item{sdi.bound}{soft upper bound on sdi (JABBA 2: 1)}
+\item{sdi.bound}{soft upper bound on sdi (JABBA: 1)}
 }
 \value{
 list of class \code{jb3model}

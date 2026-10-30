@@ -16,6 +16,6 @@ jb3_data_jabba(catch, cpue, se = NULL, assessment = "stock")
 \item{assessment}{stock name}
 }
 \description{
-The JABBA 2 data frames (\code{catch}, \code{cpue}, \code{se} as used by \code{build_jabba()}) to a
+The JABBA data frames (\code{catch}, \code{cpue}, \code{se} as used by \code{build_jabba()}) to a
 \code{jb3data} object.
 }

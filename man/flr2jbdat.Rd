@@ -16,5 +16,5 @@ list(catch, cpue, se) of data frames
 }
 \description{
 The inverse of \code{\link{jbdat2flr}()}: an \code{FLQuant}/\code{FLQuants} catch and \code{FLIndices} to the
-JABBA 2 data frames \code{catch}, \code{cpue} and \code{se}.
+JABBA data frames \code{catch}, \code{cpue} and \code{se}.
 }
