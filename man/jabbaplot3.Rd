@@ -45,7 +45,7 @@ a patchwork (or a list of ggplots if patchwork is not installed)
 }
 \description{
 A grid of panels (3 x 3 by default, as \code{plot()} for a SPiCT fit: B, F, Catch / B/Bmsy, F/Fmsy, Kobe /
-process deviations, surplus production dynamics, OSA residuals) built from the individual JABBA3 plots, for a
+process deviations, surplus production dynamics, surplus production phase on the Kobe colours) built from the individual JABBA3 plots, for a
 single fit or a named list of fits (runs coloured). Panels are chosen by name, in order, as in
 \code{FLRef::ploteq(panels = )}:
 \describe{
@@ -54,6 +54,7 @@ single fit or a named list of fits (runs coloured). Panels are chosen by name, i
   \item{"kobe"}{Kobe phase plot (single fit: with the terminal-year uncertainty; several fits: one trajectory per run)}
   \item{"spdyn"}{realised surplus production against biomass with the production curve (\code{jbplot_spdyn()});
     several fits: the production curves}
+  \item{"spphase"}{yield against biomass on the Kobe colours (\code{jbplot_spphase()})}
   \item{"production"}{production curves with Bmsy/MSY and the catch (yield) path}
   \item{"fits"}{index fits}
   \item{"residuals"}{OSA residuals (first run)}
