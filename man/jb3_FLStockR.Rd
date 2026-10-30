@@ -8,7 +8,7 @@ jb3_FLStockR(
   fit,
   bthr = 0.5,
   blim = 0.3,
-  rel = FALSE,
+  rel = TRUE,
   draws = !is.null(fit$draws),
   ndraws = 0
 )
@@ -18,7 +18,8 @@ jb3_FLStockR(
 
 \item{bthr, blim}{biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, SPiCT benchmark defaults)}
 
-\item{rel}{relative units (B/Bmsy, F/Fmsy)}
+\item{rel}{relative units, B/Bmsy and F/Fmsy (default; advice from surplus production models is given in relative
+terms); \code{FALSE} for absolute biomass and harvest rate}
 
 \item{draws}{use the fit's draws as iterations (default if present); \code{ndraws} > 0 generates MVN draws otherwise}
 
@@ -30,14 +31,14 @@ FLStockR
 \description{
 Biomass-dynamic FLStockR (one "age"), as \code{FLRef::jabba2FLStockR()}: \code{stock} and \code{ssb()} are the biomass,
 \code{catch} the (estimated) catch and \code{harvest} the harvest rate F = C/B; iterations are the posterior (NUTS) or
-MVN draws, or the point estimates. The \code{refpts} slot holds Fmsy, Bmsy, MSY, Bthr, Blim, B0 (= K) and, with
-\code{rel = TRUE}, everything is relative to Bmsy and Fmsy (Fmsy = Bmsy = 1). Use with \code{FLRef::plotAdvice()},
+MVN draws, or the point estimates. The \code{refpts} slot holds Fmsy, Bmsy, MSY, Bthr, Blim, B0 (= K); by default
+everything is relative to Bmsy and Fmsy (Fmsy = Bmsy = 1). Use with \code{FLRef::plotAdvice()},
 \code{ggplotFL} and \code{mse}.
 }
 \examples{
 \dontrun{
 stk <- jb3_FLStockR(fit, ndraws = 500)
-FLRef::plotAdvice(stk, type = "spm")    # biomass, F, catch (three panels)
-FLRef::plotAdvice(jb3_FLStockR(fit, rel = TRUE, ndraws = 500), type = "spm")
+FLRef::plotAdvice(stk, type = "spm") + ggplot2::facet_wrap(~qname, ncol = 1, scales = "free_y")   # B/Bmsy, F/Fmsy, catch
+FLRef::plotAdvice(jb3_FLStockR(fit, rel = FALSE, ndraws = 500), type = "spm")                  # absolute
 }
 }
