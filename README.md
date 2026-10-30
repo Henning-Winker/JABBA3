@@ -91,10 +91,9 @@ flq <- jb3_flqs(fit)
 | ![](man/figures/advice.png) | ![](man/figures/kobe.png) |
 | ![](man/figures/fits.png) | ![](man/figures/runs.png) |
 | ![](man/figures/spict_diags.png) | ![](man/figures/priorpost.png) |
-| ![](man/figures/retro.png) |
-| ![](man/figures/hindcast.png) | ![](man/figures/projection.png) |
-| ![](man/figures/tier2_steps.png) | ![](man/figures/selex_tier2.png) |
-| ![](man/figures/nuts_diags.png) | |
+| ![](man/figures/retro.png) | ![](man/figures/hindcast.png) |
+
+![](man/figures/nuts_diags.png)
 
 ## Validation against JABBA (RTMB engine, same priors)
 
