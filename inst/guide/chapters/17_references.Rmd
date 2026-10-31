@@ -1,5 +1,7 @@
 # References
 
+Betancourt, M. (2018). Calibrating model-based inferences and decisions. arXiv:1803.08393. <https://arxiv.org/abs/1803.08393>
+
 Carvalho, F., Winker, H., Courtney, D., Kapur, M., Kell, L., Cardinale, M.,
 Schirripa, M., Kitakado, T., Yemane, D., Piner, K.R., Maunder, M.N., Taylor, I.,
 Wetzel, C.R., Doering, K., Johnson, K.F. and Methot, R.D. (2021). A cookbook for
@@ -8,11 +10,7 @@ using model diagnostics in integrated stock assessments. *Fisheries Research*
 
 Conn, P.B. (2010). Hierarchical analysis of multiple noisy abundance indices. *Canadian Journal of Fisheries and Aquatic Sciences*, 67, 108-120. doi:10.1139/F09-175
 
-Sherley, R.B. et al. (2020). *Ecology and Evolution* (JARA census model applied to absolute abundance indices). doi:10.1002/ece3.6554
-
-Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale, M.
-and Fu, D. (2021). Validation of stock assessment methods: is it me or my model
-talking? *ICES Journal of Marine Science* 78(6): 2244-2255.
+Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment models. *Canadian Journal of Fisheries and Aquatic Sciences*, 68, 1124-1138.
 
 Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R. (2025).
 Transforming data and capacity-limited stock assessment: achieving risk
@@ -23,6 +21,10 @@ Kell, L.T., Mosqueira, I., Grosjean, P., Fromentin, J.-M., Garcia, D., Hillary,
 R., Jardim, E., Mardle, S., Pastoors, M.A., Poos, J.J., Scott, F. and Scott,
 R.D. (2007). FLR: an open-source framework for the evaluation and development of
 management strategies. *ICES Journal of Marine Science* 64(4): 640-646.
+
+Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale, M.
+and Fu, D. (2021). Validation of stock assessment methods: is it me or my model
+talking? *ICES Journal of Marine Science* 78(6): 2244-2255.
 
 Kristensen, K., Nielsen, A., Berg, C.W., Skaug, H. and Bell, B.M. (2016). TMB:
 automatic differentiation and Laplace approximation. *Journal of Statistical
@@ -35,9 +37,15 @@ ONE* 13(5): e0197954.
 Pedersen, M.W. and Berg, C.W. (2017). A stochastic surplus production model in
 continuous time. *Fish and Fisheries* 18(2): 226-243.
 
+Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesian workflow in cognitive science. *Psychological Methods*, 26, 103-126. Preprint: <https://arxiv.org/abs/1904.12765>
+
+Sherley, R.B. et al. (2020). *Ecology and Evolution* (JARA census model applied to absolute abundance indices). doi:10.1002/ece3.6554
+
 Thorson, J.T. (2020). Predicting recruitment density dependence and intrinsic
 growth rate for all fishes worldwide using a data-integrated life-history model.
 *Fish and Fisheries* 21(2): 237-251.
+
+Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015). Geostatistical delta-generalized linear mixed models improve precision for estimated abundance indices for West Coast groundfishes. *ICES Journal of Marine Science*, 72, 1297-1310.
 
 Thygesen, U.H., Albertsen, C.M., Berg, C.W., Kristensen, K. and Nielsen, A.
 (2017). Validation of ecological state space models using the Laplace
@@ -47,19 +55,10 @@ Vehtari, A., Gelman, A., Simpson, D., Carpenter, B. and Bürkner, P.-C. (2021).
 Rank-normalization, folding, and localization: an improved $\hat{R}$ for
 assessing convergence of MCMC. *Bayesian Analysis* 16(2): 667-718.
 
-Winker, H., Carvalho, F. and Kapur, M. (2018). JABBA: Just Another Bayesian
-Biomass Assessment. *Fisheries Research* 204: 275-288.
-
 Winker, H. et al. (2026). Process error in surplus production models:
 scale, persistence and inflation (BioProcDyn). In preparation.
 
-Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment models. *Canadian Journal of Fisheries and Aquatic Sciences*, 68, 1124-1138.
-
-Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015). Geostatistical delta-generalized linear mixed models improve precision for estimated abundance indices for West Coast groundfishes. *ICES Journal of Marine Science*, 72, 1297-1310.
+Winker, H., Carvalho, F. and Kapur, M. (2018). JABBA: Just Another Bayesian
+Biomass Assessment. *Fisheries Research* 204: 275-288.
 
 Winker, H., Thorson, J.T., Fairweather, T., Leslie, R. and Durholtz, D. (2017). Towards improving precision in South African demersal trawl survey indices using geostatistical GLMMs. MARAM/IWS/2017/Hake/BG8. University of Cape Town.
-
-Betancourt, M. (2018). Calibrating model-based inferences and decisions. arXiv:1803.08393.
-
-Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesian workflow in cognitive science. *Psychological Methods*, 26, 103-126.
-

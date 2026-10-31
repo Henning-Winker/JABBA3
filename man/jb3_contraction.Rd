@@ -47,9 +47,16 @@ and status. For each quantity (log scale for positive quantities):
   \item shift = (mean(posterior) - mean(prior predictive))/sd(prior predictive): how far the data move the
     estimate, in prior SDs.
 }
+The diagnostic is adapted from the posterior shrinkage versus posterior z-score plot of Betancourt (2018),
+used in the Bayesian workflow of Schad et al. (2021). There, shrinkage = 1 - var(posterior)/var(prior) and
+z = (mean(posterior) - true value)/sd(posterior), computed over simulated data sets with known truth, as a check
+of the model design. A real assessment has no true value, so here the z-score is replaced by the shift from the
+prior predictive mean, which measures prior-data conflict rather than calibration, and the reference
+distribution is the prior predictive run rather than the prior density (\code{contraction.pdf} is the version
+closer to Betancourt's shrinkage). The class names and thresholds are JABBA3 choices.
 A quantity with low contraction is prior-driven; one with a large shift is in conflict with its prior (the
 data pull it into the tail of the prior); high contraction with a moderate shift means it is informed by the
-data (Schad et al. 2021; Betancourt 2018). A clearly negative contraction (posterior wider than the prior
+data. A clearly negative contraction (posterior wider than the prior
 predictive) means the data move the quantity into a region the priors and catch constrain less, and is
 flagged as "posterior wider". The prior predictive run keeps the catch and the status priors,
 so contraction measures the information in the indices and auxiliary data beyond the priors and the catch;

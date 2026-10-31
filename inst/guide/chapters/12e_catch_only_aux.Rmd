@@ -274,8 +274,22 @@ predictive run (log scale):
 
 Low contraction means a quantity is prior-driven; a large shift means the data
 pull it into the tail of the prior (prior-data conflict); high contraction with
-a moderate shift means it is informed by the data (Betancourt 2018; Schad et
-al. 2021). By default the prior predictive run is made with the fit's own
+a moderate shift means it is informed by the data.
+
+> **Source.** The diagnostic is adapted from the *posterior shrinkage* versus
+> *posterior z-score* plot of Betancourt (2018), part of the principled Bayesian
+> workflow of Schad et al. (2021). Betancourt computes shrinkage
+> $= 1 - \mathrm{var(posterior)}/\mathrm{var(prior)}$ and the z-score
+> $=(\mathrm{mean(posterior)} - \theta_{true})/\mathrm{sd(posterior)}$ over
+> simulated data sets with a known true value $\theta_{true}$, to check a model
+> design before it is fitted to real data. A real assessment has no true value,
+> so JABBA3 replaces the z-score by the shift from the prior predictive mean,
+> which measures prior-data conflict rather than calibration, and uses the prior
+> predictive run as the reference distribution; `contraction.pdf`, against the
+> stated prior density, is the version closest to Betancourt's shrinkage. The
+> class names and the thresholds (`contraction.min = 0.25`, `shift.max = 2`) are
+> JABBA3 choices, not from these papers. In simulation testing, where the truth
+> is known, Betancourt's original form applies directly. By default the prior predictive run is made with the fit's own
 priors, model and catch (`jb3_contraction(fit)` runs it with NUTS). Here all
 runs are compared with the common prior predictive run `co.ppm` (catch and the
 r, K and initial-depletion priors), so that the status prior is treated as one
