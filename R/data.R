@@ -119,22 +119,17 @@ print.jb3data <- function(x, ...){
 
 #' Example data for the data-exploration (JARA) models
 #'
-#' Anonymised versions of real case studies: generic series names, multiplicative lognormal noise (log-SD 0.1) and random
-#' rescaling (absolute catches and biomass by one common factor, so that fleets and areas still add up); years and
-#' missing values unchanged.
+#' Anonymised example data: generic series names, multiplicative lognormal noise and random rescaling (absolute catches
+#' and biomass by one common factor, so that fleets and areas still add up); years and missing values as in the source
+#' data.
 #' \describe{
-#'   \item{dps}{deep-water rose shrimp (\emph{Parapenaeus longirostris}), GFCM GSAs 17-20, from the GFCM benchmark JARA
-#'     analysis (Winker): a list with \code{catch} (fleet1-6, country by GSA; fleet4 and fleet5 report from 2012),
-#'     \code{idx} and \code{idx.se} (relative survey indices area1-4 and log-SEs), \code{bio} and \code{bio.se} (absolute
-#'     survey biomass area1-4, in thousands, and log-SEs).}
-#'   \item{monk}{southern African monkfish (\emph{Lophius vomerinus}) survey and CPUE indices from the 2025 JARA monkfish
-#'     analysis (Winker): survey1 and survey2 (South African West and South Coast surveys), survey3 and survey4 (Namibian
-#'     surveys), cpue1-cpue5 (Namibian CPUE series).}
-#'   \item{dentex}{Dentex (\emph{Dentex} spp.) landings (t) of Namibia (NAM) and Angola (ANG), 1972-2023, as printed in the
-#'     2025 BCC Demersal Working Group catch reconstruction: missing reports, and low reports treated as unobserved
-#'     (NAM 2009-2011, ANG 2012), are NA.}
-#'   \item{ank, ank.se}{the last 17 years (2007-2023) of the Portuguese (POR) and Spanish (ESP) anglerfish CPUE indices and
-#'     their log-scale SEs from the JARA joint-index report (2025).}
+#'   \item{areas}{a list with \code{catch}: catch history from six fleets/areas (fleet1-fleet6) with missing early years
+#'     for two of them; \code{idx} and \code{idx.se}: relative survey indices for four areas (area1-area4) with log-scale
+#'     SEs; \code{bio} and \code{bio.se}: swept-area survey biomass for the same four areas (thousands) with log-scale
+#'     SEs.}
+#'   \item{regions}{survey and CPUE indices from three regions: \code{areaA} and \code{areaB}, surveys of two adjacent
+#'     areas; \code{C.survey1}, \code{C.survey2} and \code{C.cpue1}-\code{C.cpue5}, surveys and CPUE series of a third
+#'     region.}
 #' }
 #' @format list
 "jara_examples"

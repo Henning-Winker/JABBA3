@@ -23,7 +23,7 @@
 | Area | Functions |
 |---|---|
 | Data | `jb3_data()`, `jb3_data_jabba()` |
-| Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`; diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
+| Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jb3_qtable()` (relative catchabilities), `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`, `jbplot_q()`, `jbplot_indexcor()` (pairwise index correlations); diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
 | Priors and model | `jb3_priors()`, `jb3_model()` |
 | Fitting | `jabba3()`, `jb3_draws()` |
 | Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |

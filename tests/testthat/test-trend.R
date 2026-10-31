@@ -37,18 +37,17 @@ test_that("census and catch reconstruction", {
   expect_equal(length(f$setup$dat$sdc), length(d$years))
 })
 
-test_that("time block and multi-series catch reconstruction (Dentex)", {
-  data(jara_examples); L <- jara_examples$dentex; L <- L[L$year >= 1976, ]
-  cf <- jb3_catchfill(L, se = 0.001, timeblock = 1992)
+test_that("time block and multi-series catch reconstruction", {
+  data(jara_examples); cc <- jara_examples$areas$catch[, c("year", "fleet1", "fleet2", "fleet3")]
+  cf <- jb3_catchfill(cc, se = 0.01, timeblock = 2010)
   fit <- attr(cf, "fit")
-  expect_equal(dim(fit$r), c(2L, 2L)); expect_true(all(fit$r[1, ] < 0) && all(fit$r[2, ] > 0))
+  expect_equal(nrow(fit$r), 2L)
   tab <- jb3_fill_table(cf)
-  expect_equal(names(tab), c("year", "NAM", "ANG", "Total"))
-  expect_equal(tab$NAM[tab$year == 1985], 2918)
-  # close to the JARA (JAGS) reconstruction: ANG 1988 = 1923.4, NAM 2010 = 833.2
-  expect_lt(abs(tab$ANG[tab$year == 1988]/1923.4 - 1), 0.1); expect_lt(abs(tab$NAM[tab$year == 2010]/833.2 - 1), 0.1)
-  expect_equal(cf$catch, tab$Total)
-  tr <- jb3_trend(jara_examples$monk[jara_examples$monk$year >= 1988, c("year", "survey1", "survey2")], timeblock = 2005)
+  expect_equal(names(tab), c("year", "fleet1", "fleet2", "fleet3", "Total"))
+  obs <- !is.na(cc$fleet2); expect_equal(tab$fleet2[obs], cc$fleet2[obs])
+  expect_true(all(is.finite(tab$Total))); expect_equal(cf$catch, tab$Total)
+  rg <- jara_examples$regions
+  tr <- jb3_trend(rg[rg$year >= 1988, c("year", "areaA", "areaB")], timeblock = 2005)
   expect_equal(nrow(tr$r), 2)
 })
 
@@ -61,9 +60,9 @@ test_that("Conn (2010) independent year effects", {
   expect_gt(cor(log(a$index[ok]), log(b$index[ok])), 0.98)
 })
 
-test_that("catchfill with per-value SE and the DPS example", {
-  data(jara_examples); x <- jara_examples$dps
-  expect_true(all(c("dps", "monk", "dentex", "ank") %in% names(jara_examples)))
+test_that("catchfill with per-value SE and the areas example", {
+  data(jara_examples); x <- jara_examples$areas
+  expect_equal(names(jara_examples), c("areas", "regions"))
   cc <- x$catch; cc[1, "fleet5"] <- cc[1, "fleet2"]; cc[1, "fleet4"] <- 10
   sc <- cc; sc[, -1] <- 0.05; sc[1, c("fleet4", "fleet5")] <- 0.2
   cf <- jb3_catchfill(cc, se = sc, timeblock = 2016)
@@ -73,4 +72,22 @@ test_that("catchfill with per-value SE and the DPS example", {
   expect_true(all(is.finite(cf0$catch)))
   bi <- jb3_trend(x$bio, x$bio.se, type = "census")
   expect_equal(nrow(bi$total), nrow(x$bio))
+})
+
+test_that("relative catchability table, q plot and index correlations", {
+  data(iccat); b <- iccat$bet
+  tr <- jb3_trend(b$cpue, b$se)
+  qt <- jb3_qtable(tr)
+  expect_equal(nrow(qt), ncol(b$cpue) - 1); expect_equal(qt$q[1], 1); expect_true(qt$reference[1])
+  expect_true(is.na(qt$log.se[1])); expect_true(all(qt$lci[-1] < qt$q[-1] & qt$q[-1] < qt$uci[-1]))
+  expect_equal(qt$q[2], unname(tr$q[2]), tolerance = 1e-6)
+  expect_s3_class(jbplot_q(tr), "ggplot")
+  data(jara_examples)
+  expect_error(jb3_qtable(jb3_trend(jara_examples$areas$bio, jara_examples$areas$bio.se, type = "census")))
+  p <- jbplot_indexcor(jb3_trend(iccat$bum$cpue, iccat$bum$se))
+  expect_s3_class(p, "ggplot")
+  cr <- attr(p, "cor"); expect_true(all(c("index1", "index2", "r", "p", "n") %in% names(cr)))
+  expect_true(all(abs(cr$r[is.finite(cr$r)]) <= 1))
+  p2 <- jbplot_indexcor(jara_examples$regions, min.n = 5)
+  expect_true(all(is.na(attr(p2, "cor")$r[attr(p2, "cor")$n < 5])))
 })

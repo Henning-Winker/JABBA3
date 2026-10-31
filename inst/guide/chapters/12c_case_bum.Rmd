@@ -57,6 +57,54 @@ This is the persistence that the BioProcDyn simulations identify as the source
 of rebuilding optimism: a model with independent process error absorbs the
 persistent part of the production anomalies into r and K.
 
+## Joint versus separate indices
+
+Chapter *Data exploration* combined the ten indices into one joint index
+(`bum.joint`) and found some conflicts among them. Does it matter for the
+assessment whether the production model is fitted to the ten separate indices
+or to the joint index? Same priors and settings, the joint index with its own
+log-scale SE:
+
+```{r bum-joint, eval = TRUE}
+if(!exists("bum.joint")) bum.joint <- jb3_jointindex(jb3_trend(bum$cpue, bum$se))
+d.joint  <- jb3_data(bum$catch, bum.joint, stock = "bum")
+pr.joint <- jb3_priors(d.joint, r = c(0.098, 0.18), K = c(50000, sqrt(log(1 + 2^2))),
+                       bkinit = c(1, sqrt(log(1 + 0.25^2))))
+bum.ji <- jabba3(d.joint, pr.joint, m.base, run = "joint index")
+bum.js <- list(`10 indices` = bum.base, `joint index` = bum.ji)
+pt <- jb3_partable(bum.js, format = "wide")
+knitr::kable(pt[pt$Parameter %in% c("K", "r", "MSY", "B/Bmsy", "F/Fmsy"), ], row.names = FALSE)
+```
+
+```{r bum-joint-plot, fig.height = 5, fig.width = 10, eval = TRUE}
+jabbaplot3(bum.js, panels = c("B/Bmsy", "F/Fmsy", "kobe", "spdyn"))
+```
+
+```{r bum-joint-fit, fig.height = 3.5, fig.width = 9, eval = TRUE}
+patchwork::wrap_plots(jbplot_fits(bum.ji), jbplot_runs(bum.ji), ncol = 2)
+```
+
+```{r bum-joint-diag, eval = TRUE}
+dg <- lapply(bum.js, jb3_diags)
+knitr::kable(do.call(rbind, lapply(names(dg), function(n) data.frame(run = n, dg[[n]][, c("index", "n", "RMSE", "SDNR", "runs.p", "flag")]))),
+             digits = 3, row.names = FALSE, caption = "Residual diagnostics (OSA residuals) by index")
+```
+
+Status, reference points and productivity are practically the same: $B/B_{MSY}$
+in 2016 of about 0.78 and $F/F_{MSY}$ of 0.80 with either input, and the joint
+index gives a slightly narrower interval for $B/B_{MSY}$. The ten indices carry
+one common signal, and the production model extracts the same signal from the
+joint index. The separate fit flags six of the ten indices on their residual diagnostics;
+the joint index has a small RMSE (0.20) but its OSA residuals still fail the
+runs test (p = 0.02), which reflects the low fixed process error of the base case
+rather than conflict among indices.
+
+The rest of this chapter continues with the ten separate indices, as in the
+2018 assessment: each index keeps its own catchability and observation
+variance, and the diagnostics can still point to individual series. The joint
+index is a useful check on the combined signal and a simpler alternative where
+the separate indices are numerous and short.
+
 ## Applying the protocol
 
 Three steps, each added to the previous one:
