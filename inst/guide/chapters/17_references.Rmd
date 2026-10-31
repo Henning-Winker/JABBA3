@@ -47,3 +47,10 @@ Biomass Assessment. *Fisheries Research* 204: 275-288.
 
 Winker, H. et al. (2026). Process error in surplus production models:
 scale, persistence and inflation (BioProcDyn). In preparation.
+
+Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment models. *Canadian Journal of Fisheries and Aquatic Sciences*, 68, 1124-1138.
+
+Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015). Geostatistical delta-generalized linear mixed models improve precision for estimated abundance indices for West Coast groundfishes. *ICES Journal of Marine Science*, 72, 1297-1310.
+
+Winker, H., Thorson, J.T., Fairweather, T., Leslie, R. and Durholtz, D. (2017). Towards improving precision in South African demersal trawl survey indices using geostatistical GLMMs. MARAM/IWS/2017/Hake/BG8. University of Cape Town.
+

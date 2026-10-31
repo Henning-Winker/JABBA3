@@ -110,3 +110,93 @@ jbplot_indexcor <- function(x, min.n = 5, alpha = 0.05){
   attr(p, "cor") <- tab[as.character(tab$index1) != as.character(tab$index2), c("index1", "index2", "r", "p", "n")]
   p
 }
+
+#' Observation and process noise of indices
+#'
+#' Three measures of how noisy each index is: the mean input CV (sampling or observation error, from the log-SEs),
+#' the process-error CV of Francis (2011), from the residuals of a loess smoother fitted to the log index over time
+#' (the year-to-year noise the index carries beyond a smooth trend), and, for a trend fit, the estimated additional
+#' SD \eqn{\sigma_{p,i}} of each index against the common trend (Conn 2010) with the RMSE of its residuals.
+#' A loess CV much larger than the input CV, or a large \eqn{\sigma_{p,i}}, points to variation in catchability or
+#' availability that the sampling error does not capture; a survey index estimated with a design-based estimator
+#' typically carries more such noise than one standardised with a (geostatistical) model (Winker et al. 2017).
+#' @param x a \code{jb3trend} fit, or a data.frame of indices (year in the first column)
+#' @param se data.frame of log-SEs in the layout of \code{x} (when \code{x} is a data.frame)
+#' @param span loess span (Francis 2011 smoother)
+#' @param digits rounding (NULL for none)
+#' @return data.frame(index, n, years, obs.cv, loess.cv, and for a trend fit sd.extra, sd.total, rmse)
+#' @references Francis, R.I.C.C. (2011) Data weighting in statistical fisheries stock assessment models. CJFAS 68, 1124-1138.
+#' @examples
+#' \dontrun{
+#' tr <- jb3_trend(iccat$bum$cpue, iccat$bum$se)
+#' jb3_noise(tr); jbplot_noise(tr)
+#' }
+#' @export
+jb3_noise <- function(x, se = NULL, span = 0.6, digits = 3){
+  if(inherits(x, "jb3trend")){ I <- x$data$I; S <- x$data$SE } else { I <- as.data.frame(x); S <- if(is.null(se)) NULL else as.data.frame(se) }
+  yrs <- I[[1]]; nm <- names(I)[-1]
+  out <- do.call(rbind, lapply(nm, function(v){
+    ok <- is.finite(I[[v]]) & I[[v]] > 0; y <- yrs[ok]; li <- log(I[[v]][ok])
+    lcv <- if(sum(ok) >= 6) tryCatch({ f <- stats::loess(li ~ y, span = max(span, 4/sum(ok)), degree = 1)
+                                      stats::sd(stats::residuals(f)) }, error = function(e) NA_real_) else NA_real_
+    ocv <- if(!is.null(S) && v %in% names(S)) mean(S[[v]][ok], na.rm = TRUE) else NA_real_
+    data.frame(index = v, n = sum(ok), years = paste0(min(y), "-", max(y)), obs.cv = ocv, loess.cv = lcv)
+  }))
+  if(inherits(x, "jb3trend")){
+    l <- x$index; sdi <- x$sdi
+    out$sd.extra <- sdi
+    out$sd.total <- sqrt(out$obs.cv^2 + sdi^2)
+    out$rmse <- vapply(nm, function(v){ r <- l$residual[l$index == v]; sqrt(mean(r^2, na.rm = TRUE)) }, 0)
+  }
+  rownames(out) <- NULL
+  if(!is.null(digits)){ k <- vapply(out, is.double, TRUE); out[k] <- lapply(out[k], round, digits) }
+  out
+}
+
+#' Plot observation and process noise of indices
+#'
+#' Bars of the measures of \code{\link{jb3_noise}()} by index: input observation CV, Francis (2011) loess process
+#' CV and, for a trend fit, the estimated additional SD against the common trend.
+#' @inheritParams jb3_noise
+#' @return a ggplot
+#' @export
+jbplot_noise <- function(x, se = NULL, span = 0.6){
+  z <- jb3_noise(x, se, span, digits = NULL)
+  ms <- c(obs.cv = "Input observation CV", loess.cv = "Loess process CV (Francis 2011)", sd.extra = "Additional SD vs common trend")
+  ms <- ms[names(ms) %in% names(z)]
+  d <- do.call(rbind, lapply(names(ms), function(m) data.frame(index = z$index, measure = ms[[m]], value = z[[m]])))
+  d$index <- factor(d$index, z$index); d$measure <- factor(d$measure, ms)
+  ggplot2::ggplot(d, ggplot2::aes(index, value, fill = measure)) +
+    ggplot2::geom_col(position = ggplot2::position_dodge(0.8), width = 0.75, na.rm = TRUE) +
+    ggplot2::scale_fill_manual(values = c("grey70", "#2b8cbe", "#d95f02")[seq_along(ms)]) +
+    ggplot2::labs(x = NULL, y = "CV / log-scale SD", fill = NULL) + theme_jabba3() +
+    ggplot2::theme(legend.position = "bottom", axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+}
+
+#' Split an index at a change in vessel, gear or method
+#'
+#' Splits one index into two series at a known change in catchability (a new survey vessel, a new trawl gear, a
+#' change in the fishery), so that a trend or production model estimates a separate q for each period. Years
+#' fished with both set-ups (calibration or paired tows) can be given to both series; they identify the q ratio
+#' directly, while without overlap the ratio rests on the continuity of the trend across the change.
+#' @param I data.frame of indices (year in the first column)
+#' @param se data.frame of log-SEs in the layout of \code{I} (optional)
+#' @param index name of the index to split
+#' @param at first year of the new set-up
+#' @param overlap years in which the index is measured with both set-ups: the values go to both series (for
+#'   calibration years with separate values, supply them in \code{new})
+#' @param new optional values of the new set-up in the \code{overlap} years (same length)
+#' @param labels names of the two series
+#' @return list(I, se) with the split index replaced by two columns
+#' @export
+jb3_splitindex <- function(I, se = NULL, index, at, overlap = NULL, new = NULL, labels = paste0(index, c(".old", ".new"))){
+  I <- as.data.frame(I); yr <- I[[1]]; v <- I[[index]]
+  a <- ifelse(yr < at | yr %in% overlap, v, NA); b <- ifelse(yr >= at, v, NA)
+  if(!is.null(new)){ stopifnot(length(new) == length(overlap)); b[match(overlap, yr)] <- new }
+  pos <- match(index, names(I))
+  ins <- function(df, x1, x2){ x <- stats::setNames(data.frame(x1, x2), labels)
+    cbind(df[seq_len(pos - 1)], x, df[-seq_len(pos)]) }
+  out <- list(I = ins(I, a, b))
+  if(!is.null(se)){ se <- as.data.frame(se); s <- se[[index]]; out$se <- ins(se, ifelse(is.na(a), NA, s), ifelse(is.na(b), NA, s)) }
+  out
+}

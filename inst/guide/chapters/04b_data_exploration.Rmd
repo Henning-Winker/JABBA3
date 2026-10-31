@@ -29,6 +29,30 @@ scale. From a design-based SD of the untransformed index, use
 $CV = sd/mean$ and $\sigma = \sqrt{\log(CV^2 + 1)}$ (close to the CV for
 CV < 0.4); from a 95% interval, $\sigma = (\log(uci) - \log(lci))/(2 \times 1.96)$.
 
+## Concept: hierarchical analysis of multiple indices
+
+The joint-index models rest on the hierarchical framework of Conn (2010). Each
+index $i$ is taken to measure the same relative abundance $n_t$, but through its
+own catchability $c_i = \log q_i$, with two kinds of error: process error
+$\sigma_{p,i}$, from year-to-year variation in catchability or in the spatial
+distribution of the stock relative to the fishery or survey, and sampling error
+$\sigma_{s,it}$, known from the input CV of each value:
+
+$$\log U_{it} \sim N\left(n_t + c_i,\; \sigma_{p,i}^2 + \sigma_{s,it}^2\right)$$
+
+Only differences between the $c_i$ are identifiable, so one constraint is needed:
+a reference index with $c_1 = 0$ ($q_1 = 1$; JABBA3) or an anchor on the mean of
+the $c_i$ or $n_t$. Conn treats the $n_t$ as independent year effects; JABBA3
+(following JARA) places a random walk with drift on $n_t$ (`state = "rw"`), which
+carries the trend through years with few or no observations, and fits Conn's form
+with `state = "iid"`. The estimated index-specific $\sigma_{p,i}$ correspond to
+JABBA3's additional observation SD $\sigma_i$ (`variance.weighting = "model"`).
+The outputs follow directly: each $q_i$ is the scale of index $i$ *relative to
+the reference index*, not an absolute catchability; the joint index is the
+estimated $n_t$ with its uncertainty; and residual patterns that persist for one
+index against the common trend point to conflicts between indices rather than to
+noise.
+
 ## Aligning indices: bigeye tuna
 
 The two Japanese longline CPUE series of bigeye cover consecutive periods
@@ -58,6 +82,72 @@ Because the series do not overlap, the scaling rests on the continuity of the
 trend across 1978/79, and the interval is correspondingly wide. In the
 production model, the two series keep their own q; the trend model shows how
 much the data alone say about their relative scale.
+
+## Why catchabilities differ: changes in vessel, gear and method
+
+Differences in q between series are rarely a nuisance parameter only. In
+fishery-independent surveys, abrupt changes in catchability follow changes of
+research vessel or trawl gear. A comparison of design-based swept-area
+estimates and geostatistical delta-GLMM indices (Thorson et al. 2015) for eight
+species of a demersal trawl survey (Winker et al. 2017) found clear vessel
+effects for several species, seen as abrupt steps in the index at the change of
+research vessel, and a gear effect (lower catchability with the new gear) for one
+species. Both estimators showed the same steps, so the change was in q, not in
+the estimator. Such a change should be modelled as a change in q, not read as a
+change in abundance: split the index at the known change and let the trend model
+(or the production model) estimate a q for each period.
+
+`jb3_splitindex()` does the split. A hypothetical example: a survey index whose
+new vessel, from 2009, catches 40% less than the old one (q ratio 0.6).
+
+```{r trend-split}
+a  <- jara_examples$areas
+s  <- a$idx[c("year", "area3")]; se <- a$idx.se[c("year", "area3")]
+new.v <- 0.6*s$area3                          # what the new vessel would catch
+obs <- s; obs$area3[s$year >= 2009] <- new.v[s$year >= 2009]
+# (a) no overlap: the old vessel stops in 2008
+x0 <- jb3_splitindex(obs, se, "area3", at = 2009, labels = c("vessel.old", "vessel.new"))
+# (b) three calibration years (2009-2011) fished with both vessels
+obs1 <- obs; cy <- 2009:2011; obs1$area3[s$year %in% cy] <- s$area3[s$year %in% cy]
+x1 <- jb3_splitindex(obs1, se, "area3", at = 2009, overlap = cy, new = new.v[s$year %in% cy],
+                     labels = c("vessel.old", "vessel.new"))
+q.split <- rbind(cbind(design = "no overlap", jb3_qtable(jb3_trend(x0$I, x0$se), digits = 3)[2, ]),
+                 cbind(design = "3 calibration years", jb3_qtable(jb3_trend(x1$I, x1$se), digits = 3)[2, ]))
+knitr::kable(q.split[, c("design", "index", "q", "lci", "uci")], row.names = FALSE,
+             caption = "q of the new vessel relative to the old (true value 0.6)")
+```
+
+Without overlap the trend model cannot tell a lower q from a decline in the
+stock: the estimated ratio is close to 1 with a wide interval, and the step
+appears as a decline in the common trend. Three calibration years recover the
+ratio (about 0.64, interval excluding 1). The same holds for the bigeye
+longline series above, whose relative q rests on the continuity of the trend
+alone. Other indices help to identify a change in q only if they follow the same
+trend; indices from areas with different trends (chapter *Other data features*)
+do not.
+
+## Observation and process noise of indices
+
+Survey indices from a design-based swept-area estimator assume that density is
+homogeneous within each stratum. For patchy species, or species found in only
+part of the survey area, the catch rates of randomly placed stations then vary
+widely, and the index is imprecise and shows spikes that are implausible for the
+population (Winker et al. 2017). Model-based standardisation, such as the
+geostatistical delta-GLMM, accounts for the spatial correlation of density and
+reduces both the observation error and this year-to-year "process noise". In the
+survey comparison of Winker et al. (2017), the geostatistical indices had lower
+observation-error CVs for all eight species (e.g. 0.12 against 0.18 for one hake
+species, 0.27 against 0.39 for a patchy by-catch species), and lower process-error
+CVs (Francis 2011), with the largest reductions for the patchy by-catch species
+(0.49 to 0.35) and for the most commonly caught hake (0.53 to 0.46). The mean
+trends of the two estimators agreed.
+
+For an assessment, process noise in an index is variation in catchability or
+availability that the sampling error does not capture. It is what the
+additional SD of each index against the common trend, $\sigma_{p,i}$ (Conn 2010),
+estimates. `jb3_noise()` sets three measures side by side: the mean input CV, the
+loess process CV of Francis (2011) from a smoother through the log index, and,
+for a trend fit, $\sigma_{p,i}$ and the RMSE against the common trend.
 
 ## Index conflicts and a joint index: blue marlin
 
@@ -98,11 +188,26 @@ attr(p.ppc, "ppc")
 ```
 
 Four indices fail the runs test against the common trend (`TAI.1st`,
-`VEN.LL`, `VEN.Rec`, `GHA.GIL`); these are also the series with the largest
-additional observation SD (`sdi` in the print), i.e. the model already
+`VEN.LL`, `VEN.Rec`, `GHA.GIL`); three of them have among the largest
+additional observation SDs (`sdi` in the print), i.e. the model already
 down-weights them. The posterior predictive p-values are all between 0.17 and
 0.78, so no index is grossly inconsistent with the joint model. The relative
-catchabilities:
+catchabilities follow below. First, the noise of each index:
+
+```{r trend-bum-noise, fig.height = 3.5}
+knitr::kable(jb3_noise(tr.bum), row.names = FALSE)
+jbplot_noise(tr.bum)
+```
+
+Three of the four series flagged by the runs tests (`TAI.1st`, `VEN.Rec`,
+`GHA.GIL`) carry additional SDs of 0.6-1.0 against the common trend, well
+beyond their input CVs (0.10-0.39). For `VEN.Rec` the loess CV is similarly high
+(0.60): the series is noisy around its own trend. For `TAI.1st` and `GHA.GIL`
+the additional SD is two to three times the loess CV: the series are fairly
+smooth but follow a different trend, which is a conflict with the other indices
+rather than noise. `VEN.LL`, the fourth, is the reverse case: its input CV (0.57)
+already exceeds its loess CV and RMSE, so its runs-test failure reflects a
+residual pattern, not unaccounted noise. The relative catchabilities:
 
 ```{r trend-bum-q, fig.height = 4}
 knitr::kable(jb3_qtable(tr.bum, digits = 3), row.names = FALSE)
