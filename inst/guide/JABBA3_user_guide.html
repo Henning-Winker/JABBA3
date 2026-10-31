@@ -1788,7 +1788,7 @@ complex assessment with ten indices, introduces the rebuilding protocol
 intervals and the stock status in the last year.
 <code>ndraws = 1000</code> adds draws from the multivariate normal
 approximation at the mode, used for the Kobe plot and projections. The
-fitting took 2.49 s.</p>
+fitting took 2.55 s.</p>
 <div id="quick-output-plotfit" class="section level2" number="3.1">
 <h2><span class="header-section-number">3.1</span> Quick output:
 <code>plot(fit)</code></h2>
@@ -3476,7 +3476,7 @@ log r, log q, initial depletion, process and observation SDs) are
 estimated at the mode of the posterior. Intervals come from the delta
 method on the log scale.</p>
 <div class="sourceCode" id="cb57"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" tabindex="-1"></a>fit<span class="sc">$</span>time</span>
-<span id="cb57-2"><a href="#cb57-2" tabindex="-1"></a><span class="co">#&gt; [1] 2.486</span></span>
+<span id="cb57-2"><a href="#cb57-2" tabindex="-1"></a><span class="co">#&gt; [1] 2.547</span></span>
 <span id="cb57-3"><a href="#cb57-3" tabindex="-1"></a>fit<span class="sc">$</span>pars[, <span class="fu">c</span>(<span class="st">&quot;est&quot;</span>, <span class="st">&quot;lci&quot;</span>, <span class="st">&quot;uci&quot;</span>)]</span>
 <span id="cb57-4"><a href="#cb57-4" tabindex="-1"></a><span class="co">#&gt;                 est          lci          uci</span></span>
 <span id="cb57-5"><a href="#cb57-5" tabindex="-1"></a><span class="co">#&gt; K      1.174749e+06 6.887375e+05 2.003718e+06</span></span>
@@ -3559,7 +3559,7 @@ estimates</h2>
 residuals:</p>
 <div class="sourceCode" id="cb64"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" tabindex="-1"></a><span class="fu">system.time</span>(fq <span class="ot">&lt;-</span> <span class="fu">jabba3</span>(d, pr, <span class="fu">jb3_model</span>(<span class="at">shape =</span> <span class="st">&quot;fox&quot;</span>), <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">osa =</span> <span class="cn">FALSE</span>))</span>
 <span id="cb64-2"><a href="#cb64-2" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb64-3"><a href="#cb64-3" tabindex="-1"></a><span class="co">#&gt;   0.123   0.000   0.126</span></span>
+<span id="cb64-3"><a href="#cb64-3" tabindex="-1"></a><span class="co">#&gt;   0.127   0.000   0.127</span></span>
 <span id="cb64-4"><a href="#cb64-4" tabindex="-1"></a>fq<span class="sc">$</span>pars[<span class="fu">c</span>(<span class="st">&quot;K&quot;</span>, <span class="st">&quot;r&quot;</span>), <span class="st">&quot;est&quot;</span>]</span>
 <span id="cb64-5"><a href="#cb64-5" tabindex="-1"></a><span class="co">#&gt; [1] 1.174749e+06 1.929279e-01</span></span></code></pre></div>
 </div>
@@ -6388,13 +6388,33 @@ in prior SDs.</li>
 </ul>
 <p>Low contraction means a quantity is prior-driven; a large shift means
 the data pull it into the tail of the prior (prior-data conflict); high
-contraction with a moderate shift means it is informed by the data
-(Betancourt 2018; Schad et al. 2021). By default the prior predictive
-run is made with the fit’s own priors, model and catch
-(<code>jb3_contraction(fit)</code> runs it with NUTS). Here all runs are
-compared with the common prior predictive run <code>co.ppm</code> (catch
-and the r, K and initial-depletion priors), so that the status prior is
-treated as one of the tiers:</p>
+contraction with a moderate shift means it is informed by the data.</p>
+<blockquote>
+<p><strong>Source.</strong> The diagnostic is adapted from the
+<em>posterior shrinkage</em> versus <em>posterior z-score</em> plot of
+Betancourt (2018), part of the principled Bayesian workflow of Schad et
+al. (2021). Betancourt computes shrinkage
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mn>1</mn><mo>−</mo><mrow><mi mathvariant="normal">v</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">r</mi><mrow><mo stretchy="true" form="prefix" mathvariant="normal">(</mo><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mo stretchy="true" form="postfix" mathvariant="normal">)</mo></mrow></mrow><mi>/</mi><mrow><mi mathvariant="normal">v</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">r</mi><mrow><mo stretchy="true" form="prefix" mathvariant="normal">(</mo><mi mathvariant="normal">p</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mo stretchy="true" form="postfix" mathvariant="normal">)</mo></mrow></mrow></mrow><annotation encoding="application/x-tex">= 1 - \mathrm{var(posterior)}/\mathrm{var(prior)}</annotation></semantics></math>
+and the z-score
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">n</mi><mrow><mo stretchy="true" form="prefix" mathvariant="normal">(</mo><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mo stretchy="true" form="postfix" mathvariant="normal">)</mo></mrow></mrow><mo>−</mo><msub><mi>θ</mi><mrow><mi>t</mi><mi>r</mi><mi>u</mi><mi>e</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">d</mi><mrow><mo stretchy="true" form="prefix" mathvariant="normal">(</mo><mi mathvariant="normal">p</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mo stretchy="true" form="postfix" mathvariant="normal">)</mo></mrow></mrow></mrow><annotation encoding="application/x-tex">=(\mathrm{mean(posterior)} - \theta_{true})/\mathrm{sd(posterior)}</annotation></semantics></math>
+over simulated data sets with a known true value
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>θ</mi><mrow><mi>t</mi><mi>r</mi><mi>u</mi><mi>e</mi></mrow></msub><annotation encoding="application/x-tex">\theta_{true}</annotation></semantics></math>,
+to check a model design before it is fitted to real data. A real
+assessment has no true value, so JABBA3 replaces the z-score by the
+shift from the prior predictive mean, which measures prior-data conflict
+rather than calibration, and uses the prior predictive run as the
+reference distribution; <code>contraction.pdf</code>, against the stated
+prior density, is the version closest to Betancourt’s shrinkage. The
+class names and the thresholds (<code>contraction.min = 0.25</code>,
+<code>shift.max = 2</code>) are JABBA3 choices, not from these papers.
+In simulation testing, where the truth is known, Betancourt’s original
+form applies directly. By default the prior predictive run is made with
+the fit’s own priors, model and catch (<code>jb3_contraction(fit)</code>
+runs it with NUTS). Here all runs are compared with the common prior
+predictive run <code>co.ppm</code> (catch and the r, K and
+initial-depletion priors), so that the status prior is treated as one of
+the tiers:</p>
+</blockquote>
 <div class="sourceCode" id="cb158"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb158-1"><a href="#cb158-1" tabindex="-1"></a>ct <span class="ot">&lt;-</span> <span class="fu">jb3_contraction</span>(co.runs[<span class="sc">-</span><span class="dv">1</span>], <span class="at">prior =</span> <span class="fu">rep</span>(<span class="fu">list</span>(co.ppm), <span class="fu">length</span>(co.runs) <span class="sc">-</span> <span class="dv">1</span>), <span class="at">years =</span> <span class="fu">c</span>(<span class="dv">1990</span>, <span class="dv">2017</span>))</span>
 <span id="cb158-2"><a href="#cb158-2" tabindex="-1"></a>w <span class="ot">&lt;-</span> <span class="fu">reshape</span>(<span class="fu">as.data.frame</span>(ct)[<span class="fu">c</span>(<span class="st">&quot;run&quot;</span>, <span class="st">&quot;quantity&quot;</span>, <span class="st">&quot;contraction&quot;</span>)], <span class="at">idvar =</span> <span class="st">&quot;quantity&quot;</span>, <span class="at">timevar =</span> <span class="st">&quot;run&quot;</span>, <span class="at">direction =</span> <span class="st">&quot;wide&quot;</span>)</span>
 <span id="cb158-3"><a href="#cb158-3" tabindex="-1"></a><span class="fu">names</span>(w) <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">&quot;^contraction</span><span class="sc">\\</span><span class="st">.&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">names</span>(w))</span>
@@ -6691,7 +6711,7 @@ had no divergences in either case and is the default. The non-centred
 form remains an option for short series or very weakly informed states,
 always to be checked with <code>jb3_nuts_diags()</code>.</p>
 <blockquote>
-<p>The NUTS runs of this chapter took 7.5 minutes in total (three chains
+<p>The NUTS runs of this chapter took 6 minutes in total (three chains
 of 4000 iterations each, run in parallel).</p>
 </blockquote>
 </div>
@@ -7173,6 +7193,8 @@ example.</em></p>
 </div>
 <div id="references" class="section level1" number="23">
 <h1><span class="header-section-number">23</span> References</h1>
+<p>Betancourt, M. (2018). Calibrating model-based inferences and
+decisions. arXiv:1803.08393. <a href="https://arxiv.org/abs/1803.08393" class="uri">https://arxiv.org/abs/1803.08393</a></p>
 <p>Carvalho, F., Winker, H., Courtney, D., Kapur, M., Kell, L.,
 Cardinale, M., Schirripa, M., Kitakado, T., Yemane, D., Piner, K.R.,
 Maunder, M.N., Taylor, I., Wetzel, C.R., Doering, K., Johnson, K.F. and
@@ -7182,12 +7204,9 @@ integrated stock assessments. <em>Fisheries Research</em> 240:
 <p>Conn, P.B. (2010). Hierarchical analysis of multiple noisy abundance
 indices. <em>Canadian Journal of Fisheries and Aquatic Sciences</em>,
 67, 108-120. <a href="doi:10.1139/F09-175" class="uri">doi:10.1139/F09-175</a></p>
-<p>Sherley, R.B. et al. (2020). <em>Ecology and Evolution</em> (JARA
-census model applied to absolute abundance indices). <a href="doi:10.1002/ece3.6554" class="uri">doi:10.1002/ece3.6554</a></p>
-<p>Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I.,
-Cardinale, M. and Fu, D. (2021). Validation of stock assessment methods:
-is it me or my model talking? <em>ICES Journal of Marine Science</em>
-78(6): 2244-2255.</p>
+<p>Francis, R.I.C.C. (2011). Data weighting in statistical fisheries
+stock assessment models. <em>Canadian Journal of Fisheries and Aquatic
+Sciences</em>, 68, 1124-1138.</p>
 <p>Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R.
 (2025). Transforming data and capacity-limited stock assessment:
 achieving risk equivalence with hierarchical assessment frameworks and
@@ -7197,6 +7216,10 @@ D., Hillary, R., Jardim, E., Mardle, S., Pastoors, M.A., Poos, J.J.,
 Scott, F. and Scott, R.D. (2007). FLR: an open-source framework for the
 evaluation and development of management strategies. <em>ICES Journal of
 Marine Science</em> 64(4): 640-646.</p>
+<p>Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I.,
+Cardinale, M. and Fu, D. (2021). Validation of stock assessment methods:
+is it me or my model talking? <em>ICES Journal of Marine Science</em>
+78(6): 2244-2255.</p>
 <p>Kristensen, K., Nielsen, A., Berg, C.W., Skaug, H. and Bell, B.M.
 (2016). TMB: automatic differentiation and Laplace approximation.
 <em>Journal of Statistical Software</em> 70(5): 1-21.</p>
@@ -7206,9 +7229,18 @@ packages. <em>PLoS ONE</em> 13(5): e0197954.</p>
 <p>Pedersen, M.W. and Berg, C.W. (2017). A stochastic surplus production
 model in continuous time. <em>Fish and Fisheries</em> 18(2):
 226-243.</p>
+<p>Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a
+principled Bayesian workflow in cognitive science. <em>Psychological
+Methods</em>, 26, 103-126. Preprint: <a href="https://arxiv.org/abs/1904.12765" class="uri">https://arxiv.org/abs/1904.12765</a></p>
+<p>Sherley, R.B. et al. (2020). <em>Ecology and Evolution</em> (JARA
+census model applied to absolute abundance indices). <a href="doi:10.1002/ece3.6554" class="uri">doi:10.1002/ece3.6554</a></p>
 <p>Thorson, J.T. (2020). Predicting recruitment density dependence and
 intrinsic growth rate for all fishes worldwide using a data-integrated
 life-history model. <em>Fish and Fisheries</em> 21(2): 237-251.</p>
+<p>Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015).
+Geostatistical delta-generalized linear mixed models improve precision
+for estimated abundance indices for West Coast groundfishes. <em>ICES
+Journal of Marine Science</em>, 72, 1297-1310.</p>
 <p>Thygesen, U.H., Albertsen, C.M., Berg, C.W., Kristensen, K. and
 Nielsen, A. (2017). Validation of ecological state space models using
 the Laplace approximation. <em>Environmental and Ecological
@@ -7218,27 +7250,15 @@ P.-C. (2021). Rank-normalization, folding, and localization: an improved
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{R}</annotation></semantics></math>
 for assessing convergence of MCMC. <em>Bayesian Analysis</em> 16(2):
 667-718.</p>
+<p>Winker, H. et al. (2026). Process error in surplus production models:
+scale, persistence and inflation (BioProcDyn). In preparation.</p>
 <p>Winker, H., Carvalho, F. and Kapur, M. (2018). JABBA: Just Another
 Bayesian Biomass Assessment. <em>Fisheries Research</em> 204:
 275-288.</p>
-<p>Winker, H. et al. (2026). Process error in surplus production models:
-scale, persistence and inflation (BioProcDyn). In preparation.</p>
-<p>Francis, R.I.C.C. (2011). Data weighting in statistical fisheries
-stock assessment models. <em>Canadian Journal of Fisheries and Aquatic
-Sciences</em>, 68, 1124-1138.</p>
-<p>Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015).
-Geostatistical delta-generalized linear mixed models improve precision
-for estimated abundance indices for West Coast groundfishes. <em>ICES
-Journal of Marine Science</em>, 72, 1297-1310.</p>
 <p>Winker, H., Thorson, J.T., Fairweather, T., Leslie, R. and Durholtz,
 D. (2017). Towards improving precision in South African demersal trawl
 survey indices using geostatistical GLMMs. MARAM/IWS/2017/Hake/BG8.
 University of Cape Town.</p>
-<p>Betancourt, M. (2018). Calibrating model-based inferences and
-decisions. arXiv:1803.08393.</p>
-<p>Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a
-principled Bayesian workflow in cognitive science. <em>Psychological
-Methods</em>, 26, 103-126.</p>
 </div>
 
 
