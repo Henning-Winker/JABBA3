@@ -8,7 +8,7 @@
 \usage{
 jbdat2flr(
   catch,
-  index,
+  index = NULL,
   index.se = NULL,
   auxiliary = NULL,
   auxiliary.se = NULL,
@@ -24,7 +24,7 @@ jbidx2FLIndices(index, index.se = NULL, units = "NA")
 \arguments{
 \item{catch}{data.frame(year, catch[, catch fleet 2, ...])}
 
-\item{index}{data.frame(year, index1, index2, ...) (JABBA \code{cpue})}
+\item{index}{data.frame(year, index1, index2, ...) (JABBA \code{cpue}); NULL for catch-only}
 
 \item{index.se}{optional data.frame(year, se1, se2, ...) of log-scale standard errors (JABBA \code{se}); same columns as
 \code{index}}

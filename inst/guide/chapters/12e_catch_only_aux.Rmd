@@ -1,0 +1,312 @@
+# Special feature: catch-only assessment and auxiliary data
+
+```{r co-time0, include = FALSE}
+co.t0 <- Sys.time()
+```
+
+Most stocks have no reliable abundance index. This chapter shows how JABBA3
+handles the data-limited end of the range: catch-only assessments with priors
+on stock status, auxiliary data such as fishing effort or an index of
+exploitation, and how each kind of data changes the estimate of stock status.
+
+> **The effort and F/Fmsy series used here are hypothetical.** Bigeye tuna has
+> no effort or F/Fmsy series in the package. Both series below
+> (`iccat$bet$effort_hyp` and `iccat$bet$ffmsy_hyp`) were *simulated* from the
+> F trajectory of the bigeye example fit: effort with 2% annual effort creep
+> and lognormal noise (SD 0.15), and F/Fmsy with noise (SD 0.3) for 1990-2009
+> only. They are not real data. They are used only to show the methods, and
+> their fits are partly circular, because they were simulated from an
+> assessment that used the same catch.
+
+## Concept: hierarchical assessment framework
+
+Kell et al. (2025) set out a *hierarchical assessment framework* (HAF) for
+biomass dynamic models, in which the assessment method follows the data
+available. There are four tiers:
+
+| Tier | Data | Method |
+|:--|:--|:--|
+| Robust quantitative assessment | reliable abundance indices and catch | JABBA |
+| Preliminary quantitative assessment | partial or short indices, catch | JABBA with scenarios and sensitivity runs |
+| Auxiliary data | auxiliary indices (length-based F/Fmsy, effort), catch | auxiliary data as priors or as time series of exploitation |
+| Data-limited | catch only | catch-only model with predictive priors (e.g. current depletion) |
+
+The aim is *risk equivalence*: the risk of misclassifying stock status
+against $B_{MSY}$ and $F_{MSY}$ should be the same in every tier. It is
+measured by classification skill, for example the true skill statistic
+(sensitivity + specificity - 1) for $B < B_{MSY}$ or $F > F_{MSY}$. Each tier
+starts from *prior predictive modelling* (PPM): the model is run with the
+priors and the catch but without the data, as a reality check of what the
+assumptions alone imply. Kell et al. found that auxiliary F/Fmsy indices,
+especially from periods of high exploitation, substantially improve the
+classification of status.
+
+JABBA3 covers all tiers with one model:
+
+- `jb3_data(catch, indices = NULL)` gives a catch-only data set;
+- `jb3_priors(status = jb3_bprior(...))` adds priors on $B/B_{MSY}$, $B/K$ or
+  $F/F_{MSY}$ in any year, as JABBA's `b.prior`;
+- `jb3_data(auxiliary = , auxiliary.type = )` adds auxiliary series of type
+  `"effort"`, `"f"`, `"ffmsy"`, `"bbmsy"`, `"bk"` or `"z"`;
+- `jabba3(..., prior.only = TRUE)` switches off the likelihood of the indices
+  and auxiliary data (the catch still drives the dynamics), which gives the
+  prior predictive run.
+
+Without an index, the posterior mode and its Laplace approximation are
+unreliable: there is nothing to pin down the states. `jabba3()` therefore
+samples with NUTS by default when there is no index or when
+`prior.only = TRUE` (`engine = "rtmb"` can still be set explicitly).
+
+The runs below move up the tiers for bigeye tuna:
+
+1. catch only (tier 4): the prior predictive run, then the same with a
+   terminal-year $B/B_{MSY}$ prior;
+2. catch + auxiliary data (tier 3): hypothetical effort with 2% creep (and a
+   no-creep sensitivity), and a hypothetical F/Fmsy index from a period of
+   high exploitation;
+3. catch + index (tier 1): the two Japanese longline CPUE series;
+4. catch + auxiliary data + index.
+
+All runs use the Fox model with the r prior of the bigeye example, the default
+K and initial depletion priors, and NUTS with three chains of 4000 iterations
+(2000 warm-up; the `jabba3()` default).
+
+```{r co-setup}
+bet <- iccat$bet
+pr.r <- c(0.2, 0.5)
+mod  <- jb3_model(shape = "fox")
+nu   <- list(chains = 3, cores = 3)   # 4000 iterations per chain (default), 2000 warm-up
+```
+
+## Catch only: prior predictive and status priors
+
+With catch only, the information comes from the priors on r, K and initial
+depletion, and from the catch itself, which has to be sustainable under the
+estimated production function. The prior predictive run shows what these
+assumptions imply:
+
+```{r co-ppm}
+d0  <- jb3_data(bet$catch, NULL, stock = "bet")
+d0
+pr0 <- jb3_priors(d0, r = pr.r)
+co.ppm <- jabba3(d0, pr0, mod, prior.only = TRUE, nuts = nu, run = "Prior predictive")
+```
+
+Next, a prior on current status. As in JABBA's `b.prior`, `jb3_bprior()`
+places a lognormal prior on $B/B_{MSY}$ (or $B/K$, $F/F_{MSY}$) in a given year;
+with `year = NULL` the prior applies to the terminal year. Here
+$B/B_{MSY} = 0.7$ in 2017 with a CV of 0.2, the kind of prior that might come
+from expert judgement or a length-based method:
+
+```{r co-bprior}
+pr.b <- jb3_priors(d0, r = pr.r, status = jb3_bprior(0.7, cv = 0.2, type = "bbmsy"))
+pr.b$status
+co.b <- jabba3(d0, pr.b, mod, nuts = nu, run = "Catch + B/Bmsy prior")
+```
+
+The JABBA form `status = c(0.5, 0.2, 2010, "bbmsy")` is accepted too, and
+several priors are combined with `rbind()` (for example
+`rbind(jb3_bprior(0.7, 0.2), jb3_bprior(1.2, 0.3, 2000, "ffmsy"))`).
+
+`jbplot_priorpost_trj()` compares the two catch-only runs: trajectories, and
+the marginal distributions of r, K and terminal $B/B_{MSY}$:
+
+```{r co-pp-plot, fig.height = 6.5, fig.width = 9}
+jbplot_priorpost_trj(list(`Prior predictive` = co.ppm, `Catch + B/Bmsy prior` = co.b))
+```
+
+The prior predictive run is the reality check: with the catch and the
+default priors alone, bigeye would be lightly exploited ($B/B_{MSY}$ around 2
+in 2017, $P(B < B_{MSY}) < 0.1$), with a wide interval. This is driven by the
+default K prior (8 times the maximum catch) and initial depletion near
+unfished: with a large K, the catch history barely dents the biomass. The
+prior predictive run makes such implications visible before any data are
+fitted. The terminal-year status prior pulls $B/B_{MSY}$ down to its median
+of 0.7 and, through the catch, also the recent trajectory, K and r; but the
+result is only as good as the prior.
+
+## Catch + auxiliary data
+
+Auxiliary data enter `jb3_data()` as a data frame (one column per series, with
+`auxiliary.type`) or as a named list of series. The observation model is
+lognormal, with the input log-scale SE plus an additional observation SD
+estimated per series (`jb3_model(aux.sd = NULL)`, the default) or fixed
+(`aux.sd = 0.15`):
+
+- **effort**: $\log E_t \sim N(\log F_t - \log q_E - (t - t_0)\log(1 + c),\ \sigma^2)$,
+  where $c$ is the annual effort creep (the increase in catchability per unit
+  effort). The creep is fixed with `jb3_model(effort.creep = 0.02)` or
+  estimated with `effort.creep = "estimate"` and a normal prior
+  `jb3_priors(creep = c(0.02, 0.02))`. $q_E$ is estimated.
+- **ffmsy, bbmsy, bk**: the status quantity itself with $q = 1$ (absolute
+  status estimates, e.g. from length-based indicators or another assessment;
+  set `aux.q = NA` to estimate a scaling instead);
+- **f** ($q = 1$) and **z** (estimated $q$, as JABBA).
+
+The hypothetical bigeye series:
+
+```{r co-aux-data, fig.height = 3, fig.width = 9}
+head(bet$effort_hyp, 3)
+head(bet$ffmsy_hyp, 3)
+ax <- rbind(data.frame(year = bet$effort_hyp$year, value = bet$effort_hyp$effort, series = "Hypothetical effort"),
+            data.frame(year = bet$ffmsy_hyp$year, value = bet$ffmsy_hyp$ffmsy, series = "Hypothetical F/Fmsy"))
+ggplot2::ggplot(ax, ggplot2::aes(year, value)) + ggplot2::geom_line() + ggplot2::geom_point(size = 1) +
+  ggplot2::facet_wrap(~series, scales = "free_y") + ggplot2::expand_limits(y = 0) +
+  ggplot2::labs(x = "Year", y = NULL, title = "Hypothetical auxiliary data (simulated, not real data)") + theme_jabba3()
+```
+
+Catch + hypothetical effort, with the 2% creep it was simulated with, and with
+no creep as a sensitivity:
+
+```{r co-effort}
+d.e <- jb3_data(bet$catch, NULL, stock = "bet", auxiliary = bet$effort_hyp, auxiliary.type = "effort")
+d.e
+co.e  <- jabba3(d.e, pr0, jb3_model(shape = "fox", effort.creep = 0.02), nuts = nu, run = "Catch + effort (creep 2%)")
+co.e0 <- jabba3(d.e, pr0, jb3_model(shape = "fox", effort.creep = 0),    nuts = nu, run = "Catch + effort (no creep)")
+```
+
+Catch + hypothetical F/Fmsy index, 1990-2009 only, with its SE of 0.3:
+
+```{r co-ffmsy}
+d.f <- jb3_data(bet$catch, NULL, stock = "bet", auxiliary = bet$ffmsy_hyp[, c("year", "ffmsy")],
+                auxiliary.se = bet$ffmsy_hyp[, c("year", "se")], auxiliary.type = "ffmsy")
+co.f <- jabba3(d.f, pr0, mod, nuts = nu, run = "Catch + F/Fmsy index")
+```
+
+```{r co-auxfits, fig.height = 3.2, fig.width = 9}
+patchwork::wrap_plots(
+  jbplot_auxfits(list(`creep 2%` = co.e, `no creep` = co.e0), title = "Hypothetical effort"),
+  jbplot_auxfits(co.f, title = "Hypothetical F/Fmsy index"), ncol = 2, widths = c(1, 1))
+```
+
+Effort informs the *trend* in F, not its scale ($q_E$ is estimated), and the
+creep assumption is decisive: without creep, the same nominal effort implies
+a steadily falling F in recent years, and the stock looks lightly exploited
+($B/B_{MSY}$ about 2 in 2017). With the 2% creep the series was simulated
+with, the estimate is close to the index-based assessment, which is partly by
+construction (the effort was simulated from that assessment's F). An absolute
+F/Fmsy index informs the *scale* of exploitation: in 1990-2009 the F/Fmsy
+estimates of the catch + F/Fmsy run are about as precise as those of the
+index-based run. After 2009 there is no information on F, and the terminal
+F/Fmsy interval widens again.
+
+## Catch + index, and catch + auxiliary data + index
+
+```{r co-index}
+d.i  <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+co.i <- jabba3(d.i, jb3_priors(d.i, r = pr.r), mod, engine = "nuts", nuts = nu, run = "Catch + index")
+d.ie <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet",
+                 auxiliary = bet$effort_hyp, auxiliary.type = "effort")
+co.ie <- jabba3(d.ie, jb3_priors(d.ie, r = pr.r), jb3_model(shape = "fox", effort.creep = 0.02),
+                engine = "nuts", nuts = nu, run = "Catch + effort + index")
+```
+
+## Moving up the tiers
+
+```{r co-compare, fig.height = 7, fig.width = 10}
+co.runs <- list(`Prior predictive` = co.ppm, `Catch + B/Bmsy prior` = co.b, `Catch + effort` = co.e,
+                `Catch + effort (no creep)` = co.e0, `Catch + F/Fmsy index` = co.f, `Catch + index` = co.i,
+                `Catch + effort + index` = co.ie)
+jabbaplot3(co.runs, panels = c("B/Bmsy", "F/Fmsy", "B/K", "kobe"), ncol = 2)
+```
+
+```{r co-table}
+pt <- jb3_partable(co.runs, format = "wide")
+knitr::kable(pt[pt$Parameter %in% c("K", "r", "MSY", "qA.effort", "sdA.effort", "sdA.ffmsy", "B/Bmsy", "F/Fmsy"), ],
+             row.names = FALSE, caption = "Posterior medians (95% intervals); the effort and F/Fmsy data are hypothetical")
+```
+
+```{r co-status, fig.height = 3.5, fig.width = 9}
+stat <- do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]; ly <- as.character(max(f$years))
+  rbind(data.frame(run = n, quantity = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
+        data.frame(run = n, quantity = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
+stat$run <- factor(stat$run, rev(names(co.runs)))
+ggplot2::ggplot(stat, ggplot2::aes(value, run)) + ggplot2::geom_vline(xintercept = 1, linetype = 2) +
+  ggplot2::geom_boxplot(outlier.size = 0.3, fill = "grey85") + ggplot2::scale_x_log10() +
+  ggplot2::facet_wrap(~quantity, scales = "free_x") + ggplot2::labs(x = NULL, y = NULL) + theme_jabba3()
+```
+
+The probability of being overfished, $P(B < B_{MSY})$, and of overfishing,
+$P(F > F_{MSY})$, in 2017:
+
+```{r co-prob}
+knitr::kable(do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]
+  data.frame(run = n, `P(B<Bmsy)` = mean(f$draws$`B/Bmsy`[, "2017"] < 1), `P(F>Fmsy)` = mean(f$draws$`F/Fmsy`[, "2017"] > 1),
+             check.names = FALSE) })), digits = 2)
+```
+
+Prior against posterior for the full assessment (catch + effort + index), with
+the prior predictive run as the reference:
+
+```{r co-pp-full, fig.height = 6.5, fig.width = 9}
+jbplot_priorpost_trj(co.ppm, co.ie, labels = c("Prior predictive", "Catch + effort + index"))
+```
+
+Moving up the tiers changes the classification of the stock. The prior
+predictive run classifies bigeye as not overfished ($P(B < B_{MSY}) < 0.1$);
+every run with information on the exploitation history, whether a status
+prior, effort with creep, an F/Fmsy index or the CPUE indices, classifies it
+as overfished with probability 0.75-0.96, with similar medians of
+$B/B_{MSY}$ around 0.7-0.8. They differ in precision. The status prior fixes
+the terminal estimate wherever the prior is placed, so its value lies
+entirely in how well the prior is founded. The hypothetical F/Fmsy index
+covers only 20 years of high exploitation, yet moves the classification from
+"not overfished" to "overfished", as Kell et al. (2025) found for auxiliary
+F/Fmsy indices from periods of high exploitation; without information after
+2009 its terminal interval stays wide. Effort carries the trend in
+exploitation, but its result depends on the assumed creep, which should be
+treated as a key uncertainty (fixed scenarios, or estimated with an informed
+prior). With the CPUE indices, the effort narrows the interval of
+$B/B_{MSY}$ somewhat, but here the agreement is partly built in, because the
+hypothetical effort was simulated from the index-based assessment.
+
+## Non-centred process deviations
+
+When the data say little about the states, as in a catch-only run, the
+process deviations and their SD form a "funnel" that NUTS samples poorly in
+the usual (centred) form. In the non-centred form NUTS samples standard normal
+innovations $z_t \sim N(0, 1)$ instead, and the deviations follow from
+
+$$d_t = \rho\, d_{t-1} + \sigma_t \sqrt{1 - \rho^2}\, z_t,
+\qquad \log P_t = \log \bar P_t + d_t,$$
+
+with the production lag, bias correction, random walk and depletion-dependent
+SD exactly as in the centred form (the model is the same; only the
+coordinates of the sampler change). It is selected with
+`jb3_model(param = "noncentred")`; the default is `"centred"`, and the
+posterior mode always uses the centred form, where the Laplace approximation
+needs the states themselves. `jb3_nuts_ess()` gives the bulk and tail ESS of
+the derived states, also per 1000 draws, to compare the two:
+
+```{r co-ess, eval = FALSE}
+ess <- function(d, pr, p, ...) attr(jb3_nuts_ess(jabba3(d, pr, jb3_model(shape = "fox", param = p), nuts = nu, ...)), "summary")
+rbind(ess(d.i, jb3_priors(d.i, r = pr.r), "centred", engine = "nuts"), ess(d.i, jb3_priors(d.i, r = pr.r), "noncentred", engine = "nuts"),
+      ess(d0, pr.b, "centred"), ess(d0, pr.b, "noncentred"))
+```
+
+| Data | Form | min / median bulk ESS per 1000 draws, B/Bmsy | min tail ESS per 1000, B/Bmsy | Divergent transitions | Run time (s) |
+|:--|:--|--:|--:|--:|--:|
+| catch + index | centred | 43 / 54 | 92 | 0 | 33 |
+| catch + index | non-centred | 113 / 327 | 42 | 1016 | 227 |
+| catch + B/Bmsy prior | centred | 72 / 134 | 108 | 0 | 23 |
+| catch + B/Bmsy prior | non-centred | 313 / 813 | 133 | 394 | 280 |
+
+*Three chains of 2000 iterations (3000 post-warm-up draws); F/Fmsy behaves
+the same way.*
+
+The non-centred form gives a higher bulk ESS per draw, but many divergent
+transitions, so its draws are not reliable, and it is seven to twelve times
+slower. The reason is the production model: each state depends on *all*
+earlier innovations through the nonlinear surplus production and the catch
+removals, so the non-centred coordinates are strongly and nonlinearly
+correlated, and the curvature changes sharply where the catch approaches the
+biomass. The centred form had no divergences in either case and is the
+default. The non-centred form remains an option for short series or very
+weakly informed states, always to be checked with `jb3_nuts_diags()`.
+
+```{r co-time1, include = FALSE}
+co.time <- round(as.numeric(difftime(Sys.time(), co.t0, units = "mins")), 1)
+```
+
+> The NUTS runs of this chapter took `r co.time` minutes in total (three
+> chains of 4000 iterations each, run in parallel).

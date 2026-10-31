@@ -4,7 +4,16 @@
 \alias{jb3_data}
 \title{Assessment data for JABBA3}
 \usage{
-jb3_data(catch, indices, se = NULL, stock = "stock", catch.se = NULL)
+jb3_data(
+  catch,
+  indices = NULL,
+  se = NULL,
+  stock = "stock",
+  catch.se = NULL,
+  auxiliary = NULL,
+  auxiliary.se = NULL,
+  auxiliary.type = "effort"
+)
 }
 \arguments{
 \item{catch}{\code{FLQuant}, \code{FLQuants}, or data.frame(year, catch[, more fleets])}
@@ -18,10 +27,23 @@ jb3_data(catch, indices, se = NULL, stock = "stock", catch.se = NULL)
 \item{catch.se}{optional year-specific log-scale SE of the catch: a vector along the catch years or data.frame(year, se)
 (e.g. from \code{\link{jb3_catchfill}()}); used by the catch error (\code{jb3_model(catch.error = TRUE)}) in place
 of the constant \code{sdc}; NA = \code{sdc}}
+
+\item{auxiliary}{optional auxiliary data (JABBA \code{auxiliary}): data.frame(year, series1, ...), FLQuants (e.g. from
+\code{jbdat2flr()}, SEs in attribute "se"), or a named list of
+series, each a data.frame(year, value[, se]) or a list(data = data.frame(year, value), se = , type = ). Types (see
+\code{auxiliary.type}): \code{"effort"} (fishing effort, modelled as F / (q_E x creep)), \code{"f"} (fishing mortality,
+harvest rate), \code{"ffmsy"}, \code{"bbmsy"}, \code{"bk"} (status estimates, e.g. from another assessment or a
+length-based method) and \code{"z"} (total mortality, as JABBA). See \code{\link{jb3_model}()} for the
+catchability, additional SD and effort creep of the auxiliary series.}
+
+\item{auxiliary.se}{optional log-scale SEs of the auxiliary data, same layout as \code{auxiliary} (data.frame input)}
+
+\item{auxiliary.type}{type of each auxiliary series (recycled), one of "effort", "f", "ffmsy", "bbmsy", "bk", "z"}
 }
 \value{
 object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
-  (years x indices), \code{stock}
+  (years x indices, zero columns for catch-only), auxiliary matrices \code{A}, \code{A.SE} and types \code{A.type}
+  (NULL without auxiliary data), \code{stock}
 }
 \description{
 Collects catch and abundance indices into the internal data object used by \code{\link{jabba3}()}.
@@ -30,8 +52,16 @@ Native inputs follow FLR: \code{catch} as an \code{FLQuant} (or \code{FLQuants} 
 \code{index.var} (NA or empty = not given). Plain data frames in the JABBA layout are accepted as well
 (see also \code{\link{jb3_data_jabba}()}).
 }
+\details{
+\code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
+  (including status priors, \code{jb3_priors(status = )}) and any auxiliary data; \code{jabba3()} runs it with NUTS by
+  default.
+}
 \examples{
 data(iccat)
 d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")
 d
+# catch-only with hypothetical effort (simulated, not real data)
+d0 <- jb3_data(iccat$bet$catch, NULL, auxiliary = iccat$bet$effort_hyp[, c("year", "effort")],
+               auxiliary.type = "effort", stock = "bet")
 }

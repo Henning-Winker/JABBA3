@@ -32,24 +32,31 @@
 #' @export
 jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine = c("rtmb", "nuts"), ndraws = 0,
                    nuts = list(), osa = TRUE, workflow = c("none", "tier1", "tier2", "selex", "selex_tier1", "selex_tier2"),
-                   amat = NULL, run = NULL, se = TRUE, peels = 0, index.peels = 0, nstart = 4, silent = TRUE){
+                   amat = NULL, run = NULL, se = TRUE, peels = 0, index.peels = 0, nstart = 4, silent = TRUE, prior.only = FALSE){
   .need("RTMB", "JABBA3 needs RTMB")
-  engine <- match.arg(engine); workflow <- match.arg(workflow)
   if(!inherits(data, "jb3data")) stop("data must be a jb3_data() object", call. = FALSE)
+  if(missing(engine) && (ncol(data$I) == 0 || isTRUE(prior.only))){
+    engine <- "nuts"
+    message(if(isTRUE(prior.only)) "prior.only = TRUE" else "no abundance index (catch-only)", ": engine = \"nuts\" (set engine = \"rtmb\" for the posterior mode)")
+  }
+  engine <- match.arg(engine); workflow <- match.arg(workflow)
+  if(ncol(data$I) == 0 || isTRUE(prior.only)) osa <- FALSE
   if(workflow != "none") return(jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
                                              ndraws = ndraws, nuts = nuts, osa = osa, se = se))
   ptm <- proc.time()
-  setup <- jb3_setup(data, priors, model, peels = peels, index.peels = index.peels)
+  setup <- jb3_setup(data, priors, model, peels = peels, index.peels = index.peels, prior.only = prior.only)
   opt <- jb3_optimise(setup, nstart = nstart, silent = silent)
   fit <- jb3_output(opt, setup, sdreport = se || engine == "nuts" || ndraws > 0)
   class(fit) <- c("jabba3", "list")
   fit$run <- run %||% data$stock
   fit$priors <- priors; fit$model <- model; fit$engine <- engine; fit$peels <- peels; fit$index.peels <- index.peels
+  fit$prior.only <- isTRUE(prior.only)
   if(engine == "nuts"){
     fit <- jb3_nuts(fit, nuts)
   } else if(ndraws > 0) fit$draws <- jb3_draws(fit, ndraws)
   if(osa && index.peels == 0 && peels == 0) fit$osa <- tryCatch(jb3_osa(fit), error = function(e){ warning("OSA residuals failed: ", conditionMessage(e), call. = FALSE); NULL })
   fit$index <- .index_table(fit)
+  fit$auxiliary <- .aux_table(fit)
   fit$time <- (proc.time() - ptm)[["elapsed"]]
   fit
 }
@@ -181,9 +188,17 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   q <- g("logq"); sdi <- g("logsdi")
   pars <- rbind(p1("K", g("logK"), rep$K, mu), p1("r", g("logr"), rep$r), p1("bkinit", g("logbk"), rep$bk),
                 p1("sdb", if(dat$est.sdb) g("logsdb") else NULL, rep$sdb),
-                do.call(rbind, lapply(seq_len(dat$nq), function(j) p1(paste0("q", j), if(is.null(q)) NULL else q[j, , drop = FALSE], rep$q[j], 1/mu))),
-                do.call(rbind, lapply(seq_len(dat$nvar), function(j) p1(paste0("sdi", j), if(is.null(sdi)) NULL else sdi[j, , drop = FALSE], rep$sdi[j]))),
+                if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nq), function(j) p1(paste0("q", j), if(is.null(q)) NULL else q[j, , drop = FALSE], rep$q[j], 1/mu))),
+                if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nvar), function(j) p1(paste0("sdi", j), if(is.null(sdi)) NULL else sdi[j, , drop = FALSE], rep$sdi[j]))),
                 p1("m", if(dat$est.m) g("logm") else NULL, rep$m))
+  if(dat$nA > 0){
+    qa <- g("logqA"); sa <- g("logsdA")
+    pars <- rbind(pars, do.call(rbind, lapply(seq_len(dat$nA), function(j) rbind(
+      p1(paste0("qA.", dat$aux.names[j]), if(is.null(qa) || !dat$est.qA[j]) NULL else qa[j, , drop = FALSE], rep$qA[j]),
+      p1(paste0("sdA.", dat$aux.names[j]), if(is.null(sa) || !dat$est.sdA[j]) NULL else sa[j, , drop = FALSE], rep$sdA[j])))))
+    if(dat$est.creep){ k <- g("creep"); pars <- rbind(pars, data.frame(par = "creep", est = rep$creep,
+      lci = if(is.null(k)) NA else k[1] - 1.96*k[2], uci = if(is.null(k)) NA else k[1] + 1.96*k[2], se.log = NA)) }
+  }
   if(dat$dyn){ k <- g("kdyn"); pars <- rbind(pars, data.frame(par = "kdyn", est = rep$kdyn,
     lci = if(is.null(k)) NA else k[1] - 1.96*k[2], uci = if(is.null(k)) NA else k[1] + 1.96*k[2], se.log = NA)) }
   if(dat$est.rho || dat$rho.fix > 0){ k <- g("rho"); pars <- rbind(pars, data.frame(par = "rho", est = rep$rho,
@@ -202,6 +217,9 @@ jb3_output <- function(best, setup, sdreport = TRUE){
 # index fits table: obs, fitted (with CI), predictive interval, ordinary and OSA residuals
 .index_table <- function(fit){
   s <- fit$setup; d <- s$dat; rep <- fit$report
+  if(!length(d$obs_t)) return(data.frame(index = character(0), year = numeric(0), obs = numeric(0), hat = numeric(0), lci = numeric(0),
+                                         uci = numeric(0), sd = numeric(0), ppd_lci = numeric(0), ppd_uci = numeric(0),
+                                         residual = numeric(0), std.residual = numeric(0), osa = numeric(0)))
   im <- if(!is.null(fit$sdr)){ i <- names(fit$sdr$value) == "Imean"; cbind(fit$sdr$value[i], fit$sdr$sd[i]) } else cbind(rep$Imean, NA)
   out <- data.frame(index = s$index.names[d$obs_i], year = s$years[d$obs_t], obs = exp(d$logIobs),
                     hat = exp(im[, 1]), lci = exp(im[, 1] - 1.96*im[, 2]), uci = exp(im[, 1] + 1.96*im[, 2]),
@@ -210,5 +228,19 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   out$residual <- log(out$obs) - log(out$hat)
   out$std.residual <- out$residual/out$sd
   out$osa <- if(!is.null(fit$osa)) fit$osa else NA
+  out
+}
+
+# auxiliary fits table: obs, fitted (with CI), predictive interval, residuals
+.aux_table <- function(fit){
+  s <- fit$setup; d <- s$dat; rep <- fit$report
+  if(is.null(d$nA) || d$nA == 0) return(NULL)
+  am <- if(!is.null(fit$sdr) && any(names(fit$sdr$value) == "Amean")){ i <- names(fit$sdr$value) == "Amean"; cbind(fit$sdr$value[i], fit$sdr$sd[i]) } else cbind(rep$Amean, NA)
+  if(!is.null(fit$draws$Ahat)){ am[, 1] <- apply(fit$draws$Ahat, 2, stats::median); am[, 2] <- apply(fit$draws$Ahat, 2, stats::sd) }
+  out <- data.frame(series = d$aux.names[d$aobs_i], type = s$data$A.type[d$aobs_i], year = s$years[d$aobs_t], obs = exp(d$logAobs),
+                    hat = exp(am[, 1]), lci = exp(am[, 1] - 1.96*am[, 2]), uci = exp(am[, 1] + 1.96*am[, 2]), sd = rep$sdAo,
+                    ppd_lci = exp(am[, 1] - 1.96*sqrt(rep$sdAo^2 + am[, 2]^2)), ppd_uci = exp(am[, 1] + 1.96*sqrt(rep$sdAo^2 + am[, 2]^2)))
+  out$residual <- log(out$obs) - log(out$hat)
+  out$std.residual <- out$residual/out$sd
   out
 }

@@ -30,7 +30,12 @@ jb3_model(
   q.uniform = FALSE,
   P.bound = c(0.02, 1.3),
   K.bound = c(0.01, 1e+10),
-  sdi.bound = 1
+  sdi.bound = 1,
+  param = c("centred", "noncentred"),
+  effort.creep = 0,
+  aux.q = NULL,
+  aux.sd = NULL,
+  aux.se.min = NULL
 )
 }
 \arguments{
@@ -87,6 +92,28 @@ is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)}
 \item{P.bound, K.bound}{soft bounds on B/K and K (JABBA defaults)}
 
 \item{sdi.bound}{soft upper bound on sdi (JABBA: 1)}
+
+\item{param}{parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
+sampled directly) or \code{"noncentred"} (standard normal innovations z_t ~ N(0, 1) are sampled, and
+d_t = rho d_{t-1} + sdb_t sqrt(1 - rho^2) z_t, with lag, bias correction, random walk and dynamic SD as in the
+centred form). The model is the same; only the coordinates of the sampler change. The posterior mode
+(\code{engine = "rtmb"}) always uses the centred form. For bigeye tuna the centred form mixed better, with and
+without an index (see the user guide), because each state depends on all earlier innovations through the nonlinear
+production function; the non-centred form is kept as an option for weakly informed states.}
+
+\item{effort.creep}{auxiliary effort only: annual effort creep (increase of catchability per unit effort), fixed
+(default 0), or \code{"estimate"} with the normal prior \code{jb3_priors(creep = )}. Effort is modelled as
+E_t = F_t / (q_E (1 + creep)^(t - t0)), t0 the first effort year.}
+
+\item{aux.q}{catchability of the auxiliary series: \code{NULL} (default) estimates q for "effort" and "z" (flat on
+log q) and fixes q = 1 for "f", "ffmsy", "bbmsy" and "bk" (absolute measurements); or one entry per series, a number
+(fixed q) or NA (estimated). For effort, q is the catchability F = q E in the first effort year; for the other
+types the observation is q times the model quantity.}
+
+\item{aux.sd}{additional observation SD of the auxiliary series: \code{NULL} (default) estimates one per series
+(JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series}
+
+\item{aux.se.min}{minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)}
 }
 \value{
 list of class \code{jb3model}

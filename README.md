@@ -77,18 +77,18 @@ flq <- jb3_flqs(fit)
 | Area | Functions |
 |---|---|
 | Life history | `jb3_leslie()` (r and generation time from FLicc lhpar, FLQuants or FLStock), `jb3_fmsy2r()`, `jb3_r2fmsy()`, `jb3_rho_gt()`, `jb3_selex()` (EB/SB curves from FLicc length selectivity or the JABBA 5-parameter form, `jb3_sel5()`), `jbplot_selex()` |
-| Data | `jb3_data()` (FLQuant/FLIndices or data frames), `jb3_data_jabba()` (JABBA inputs) |
+| Data | `jb3_data()` (FLQuant/FLIndices or data frames; `indices = NULL` for catch-only; `auxiliary` series of type effort, f, ffmsy, bbmsy, bk, z), `jb3_data_jabba()` (JABBA inputs) |
 | Data exploration (JARA) | `jb3_trend()`: joint index of relative indices (random walk as JARA, or independent year effects as Conn 2010) and census of absolute series, with time blocks; `jb3_jointindex()` and `jb3_catchfill()` (catch reconstruction with year-specific catch SE) feed straight into `jb3_data()`; `jb3_fill_table()`, `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`; index alignment and conflicts with `jb3_qtable()` and `jbplot_q()` (catchability relative to the reference index) and `jbplot_indexcor()` (pairwise correlations) |
-| Priors | `jb3_priors()`: one list, each `c(median, log.sd, on)`; r on, K, bkinit (alias psi), sdb (FishLife default), q (flat log q unless given), m, kdyn, sdi, status priors |
-| Model | `jb3_model()`: Schaefer/Fox/Pella, production lag, AR(1) process deviations (`rho`, stationary with sdb as marginal SD; or estimated via `priors$rho`), random walk option, constant or dynamic sdb, bias correction, additive (JABBA) or SPiCT index error, catch error, Selex EB/SB curves |
-| Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan |
+| Priors | `jb3_priors()`: one list, each `c(median, log.sd, on)`; r on, K, bkinit (alias psi), sdb (FishLife default), q (flat log q unless given), m, kdyn, sdi, status priors (`jb3_bprior()`, JABBA `b.prior`: B/Bmsy, B/K or F/Fmsy in any year, terminal year by default), effort creep |
+| Model | `jb3_model()`: Schaefer/Fox/Pella, production lag, AR(1) process deviations (`rho`, stationary with sdb as marginal SD; or estimated via `priors$rho`), random walk option, constant or dynamic sdb, bias correction, additive (JABBA) or SPiCT index error, catch error, Selex EB/SB curves; auxiliary data (effort creep fixed or estimated, catchability, additional SD); centred or non-centred process deviations for NUTS (`param`) |
+| Engines | `jabba3(engine = "rtmb")` mode + delta method or MVN draws; `engine = "nuts"` via tmbstan (default for catch-only and for `prior.only = TRUE`, the prior predictive run) |
 | Convergence | FLicc-style: nlminb, Newton polishing, guarded restarts, Newton decrement verdict; `jb3_convergence()` |
 | Workflows | `workflow = "tier1" / "tier2" / "selex" / "selex_tier1" / "selex_tier2"`; `jb3_tier1()`, `jb3_tier2()` |
-| NUTS diagnostics | `jb3_nuts_diags()` (rank-normalised R-hat, bulk/tail ESS, divergences, tree depth, E-BFMI); `jbplot_nuts()`: trace, rank, dens, acf, pairs (divergences in red), rhat (all parameters incl. states), energy; `jbplot_nutsdiags()` one-page summary |
+| NUTS diagnostics | `jb3_nuts_diags()` (rank-normalised R-hat, bulk/tail ESS, divergences, tree depth, E-BFMI); `jb3_nuts_ess()` (ESS of the derived states); `jbplot_nuts()`: trace, rank, dens, acf, pairs (divergences in red), rhat (all parameters incl. states), energy; `jbplot_nutsdiags()` one-page summary |
 | Diagnostics | OSA residuals (particle filter), `jb3_diags()` (JABBA set + SPiCT set), `jb3_retro()` (Mohn's rho), `jb3_hindcast()` (MASE) |
 | Projections | `jb3_project()`: constant catch or F/Fmsy, with process error and lag |
 | Outputs | `jb3_flqs()` (FLQuants, iterations = draws), `jb3_flpar()` |
-| Graphics | all JAGG and JABBA plots in ggplot2: `jbplot_advice` (nested 90/60% bands, extra refpts, projections), `_trj`, `_kobe` (any year), `_biplot`, `_fits`, `_residuals`, `_stdresiduals`, `_runs`, `_spdiags`, `_ppc`, `_priorpost`, `_bprior`, `_spphase`, `_spdyn`, `_procdev`, `_data`, `_indices`, `_catch`, `_catcherror`, `_ebsb_status`, `_retro`, `_hcxval`, `_projection`, `_crisk`, `_steps`, `_ensemble`, `_summary`, `_all` |
+| Graphics | all JAGG and JABBA plots in ggplot2: `jbplot_advice` (nested 90/60% bands, extra refpts, projections), `_trj`, `_kobe` (any year), `_biplot`, `_fits`, `_residuals`, `_stdresiduals`, `_runs`, `_spdiags`, `_ppc`, `_priorpost`, `_priorpost_trj` (prior predictive vs posterior), `_auxfits`, `_bprior`, `_spphase`, `_spdyn`, `_procdev`, `_data`, `_indices`, `_catch`, `_catcherror`, `_ebsb_status`, `_retro`, `_hcxval`, `_projection`, `_crisk`, `_steps`, `_ensemble`, `_summary`, `_all` |
 
 ## Gallery (Atlantic bigeye tuna, Fox model)
 

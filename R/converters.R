@@ -6,7 +6,7 @@
 #' The result can be passed straight to \code{\link{jb3_data}()}.
 #'
 #' @param catch data.frame(year, catch[, catch fleet 2, ...])
-#' @param index data.frame(year, index1, index2, ...) (JABBA \code{cpue})
+#' @param index data.frame(year, index1, index2, ...) (JABBA \code{cpue}); NULL for catch-only
 #' @param index.se optional data.frame(year, se1, se2, ...) of log-scale standard errors (JABBA \code{se}); same columns as
 #'   \code{index}
 #' @param auxiliary optional data.frame(year, aux1, ...) (JABBA \code{auxiliary}, e.g. effort)
@@ -23,11 +23,11 @@
 #' d <- jb3_data(x$catch, x$indices, stock = "bet")
 #' }
 #' @export
-jbdat2flr <- function(catch, index, index.se = NULL, auxiliary = NULL, auxiliary.se = NULL,
+jbdat2flr <- function(catch, index = NULL, index.se = NULL, auxiliary = NULL, auxiliary.se = NULL,
                       units.catch = "t", units.index = "NA", fleets = NULL){
   .need("FLCore", "jbdat2flr() needs FLCore")
   list(catch = jbcatch2flq(catch, units = units.catch, fleets = fleets),
-       indices = jbidx2FLIndices(index, index.se, units = units.index),
+       indices = if(is.null(index)) NULL else jbidx2FLIndices(index, index.se, units = units.index),
        auxiliary = if(is.null(auxiliary)) NULL else .df2flqs(auxiliary, auxiliary.se, units = "NA"))
 }
 
@@ -69,21 +69,41 @@ jbidx2FLIndices <- function(index, index.se = NULL, units = "NA"){
 #' Convert FLR inputs back to classic JABBA data frames
 #'
 #' The inverse of \code{\link{jbdat2flr}()}: an \code{FLQuant}/\code{FLQuants} catch and \code{FLIndices} to the
-#' JABBA data frames \code{catch}, \code{cpue} and \code{se}.
+#' JABBA data frames \code{catch}, \code{cpue} and \code{se}, and auxiliary \code{FLQuants} (with SEs in attribute
+#' "se", as returned by \code{jbdat2flr()}) to \code{auxiliary} and \code{auxiliary.se}.
 #' @param catch FLQuant or FLQuants
-#' @param indices FLIndices (or a single FLIndexBiomass)
-#' @return list(catch, cpue, se) of data frames
+#' @param indices FLIndices (or a single FLIndexBiomass); NULL for catch-only
+#' @param auxiliary optional FLQuants (or FLQuant) of auxiliary data
+#' @return list(catch, cpue, se, auxiliary, auxiliary.se) of data frames (NULL where not given)
 #' @export
-flr2jbdat <- function(catch, indices){
+flr2jbdat <- function(catch, indices = NULL, auxiliary = NULL){
   .need("FLCore", "flr2jbdat() needs FLCore")
-  cl <- .catch_df(catch); ix <- .index_df(indices, NULL)
+  cl <- .catch_df(catch)
+  if(is.null(indices)){
+    yrs <- seq(min(cl$year), max(cl$year))
+    cdf <- data.frame(year = yrs, catch = cl$catch[match(yrs, cl$year)])
+    if(inherits(catch, "FLQuants")) cdf <- data.frame(year = yrs, sapply(as.list(catch), function(q)
+      as.numeric(q[1, , 1, 1, 1, 1])[match(yrs, as.numeric(dimnames(q)$year))]))
+    return(c(list(catch = cdf, cpue = NULL, se = NULL), .flqs2df(auxiliary, yrs)))
+  }
+  ix <- .index_df(indices, NULL)
   yrs <- seq(min(cl$year, ix$I$year), max(cl$year, ix$I$year))
   cdf <- data.frame(year = yrs, catch = cl$catch[match(yrs, cl$year)])
   if(inherits(catch, "FLQuants")) cdf <- data.frame(year = yrs, sapply(as.list(catch), function(q)
     as.numeric(q[1, , 1, 1, 1, 1])[match(yrs, as.numeric(dimnames(q)$year))]))
   I <- ix$I[match(yrs, ix$I$year), ]; I$year <- yrs; S <- ix$SE[match(yrs, ix$SE$year), ]; S$year <- yrs
   rownames(I) <- rownames(S) <- NULL
-  list(catch = cdf, cpue = I, se = S)
+  c(list(catch = cdf, cpue = I, se = S), .flqs2df(auxiliary, yrs))
+}
+
+.flqs2df <- function(aux, yrs){
+  if(is.null(aux)) return(list(auxiliary = NULL, auxiliary.se = NULL))
+  if(inherits(aux, "FLQuant")) aux <- FLCore::FLQuants(aux = aux)
+  se <- attr(aux, "se")
+  f <- function(x) data.frame(year = yrs, sapply(as.list(x), function(q) as.numeric(q[1, , 1, 1, 1, 1])[match(yrs, as.numeric(dimnames(q)$year))]))
+  a <- f(aux); names(a)[-1] <- names(aux)
+  s <- if(is.null(se)) NULL else { s <- f(se); names(s)[-1] <- names(aux); s }
+  list(auxiliary = a, auxiliary.se = s)
 }
 
 .df2flqs <- function(x, se = NULL, units = "NA"){

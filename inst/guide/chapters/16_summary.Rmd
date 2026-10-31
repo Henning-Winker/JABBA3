@@ -15,21 +15,22 @@
 |---|---|
 | Process error | lag at the age at maturity + AR(1) with $\rho = 0.75$ (sensitivity 0.5, 0.9); FishLife prior on $\sigma_{MSY}$ |
 | Shape | Pella with $B_{MSY}/K = 0.4$ unless known; convert the r prior with the shape |
-| Engine | posterior mode for exploration, diagnostics, retro and hindcast; NUTS for final runs |
+| Engine | posterior mode for exploration, diagnostics, retro and hindcast; NUTS for final runs, and for catch-only and prior predictive runs |
+| Data-limited | start with the prior predictive run (`prior.only = TRUE`); add status priors or auxiliary data and report how far each moves status |
 | Simulation testing and MSE | `se = FALSE, osa = FALSE` |
 
 ## Function reference
 
 | Area | Functions |
 |---|---|
-| Data | `jb3_data()`, `jb3_data_jabba()` |
+| Data | `jb3_data()` (catch-only with `indices = NULL`; auxiliary data), `jb3_data_jabba()` |
 | Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jb3_qtable()` (relative catchabilities), `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`, `jbplot_q()`, `jbplot_indexcor()` (pairwise index correlations); diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
-| Priors and model | `jb3_priors()`, `jb3_model()` |
-| Fitting | `jabba3()`, `jb3_draws()` |
+| Priors and model | `jb3_priors()`, `jb3_bprior()` (status priors), `jb3_model()` (incl. `effort.creep`, `aux.q`, `aux.sd`, `param`) |
+| Fitting | `jabba3()` (incl. `prior.only = TRUE`), `jb3_draws()` |
 | Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |
 | Convergence | `jb3_convergence()` |
 | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
-| NUTS diagnostics | `jb3_nuts_diags()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
+| NUTS diagnostics | `jb3_nuts_diags()`, `jb3_nuts_ess()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
 | Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch; optional intermediate years), `jb3_fwd()` (forecast controls, as `fw_jabba_ctrl()`) |
 | Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
 | FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
@@ -39,13 +40,13 @@
 | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |
 | Graphics: data | `jbplot_data()`, `jbplot_indices()` |
 | Graphics: estimates | `jbplot_advice()`, `jbplot_trj()`, `jbplot_kobe()`, `jbplot_biplot()`, `jbplot_procdev()`, `jbplot_catch()`, `jbplot_catcherror()`, `jbplot_spphase()`, `jbplot_spdyn()`, `jbplot_production()`, `jbplot_ebsb_status()` |
-| Graphics: priors | `jbplot_priorpost()`, `jbplot_bprior()` |
-| Graphics: diagnostics | `jbplot_fits()`, `jbplot_residuals()`, `jbplot_stdresiduals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_ppc()`, `jbplot_retro()`, `jbplot_hcxval()` |
+| Graphics: priors | `jbplot_priorpost()`, `jbplot_priorpost_trj()` (prior predictive vs posterior), `jbplot_bprior()` |
+| Graphics: diagnostics | `jbplot_fits()`, `jbplot_auxfits()`, `jbplot_residuals()`, `jbplot_stdresiduals()`, `jbplot_runs()`, `jbplot_spdiags()`, `jbplot_ppc()`, `jbplot_retro()`, `jbplot_hcxval()` |
 | Graphics: runs and projections | `jbplot_steps()`, `jbplot_ensemble()`, `jbplot_summary()`, `jbplot_projection()`, `jbplot_crisk()`, `jbplot_hcr()` |
 | Graphics: overview | `plot()` / `jabbaplot3()` (3 x 3 panels, single fit or runs) |
 | Graphics: all | `jbplot_all()` |
 | Graphics helpers | `theme_jabba3()`, `scale_x_year()`, `jb3cols()` |
 | Information | `jabba3_info()` |
 
-*Planned: auxiliary data (effort), multi-fleet Selex, non-centred NUTS for the
-states, a worked simulation-testing example.*
+*Planned: multi-fleet Selex, auxiliary-data lags (JABBA `auxiliary.lag`), a worked
+simulation-testing example.*

@@ -13,24 +13,51 @@
 #'   (e.g. from \code{\link{jb3_catchfill}()}); used by the catch error (\code{jb3_model(catch.error = TRUE)}) in place
 #'   of the constant \code{sdc}; NA = \code{sdc}
 #' @param stock stock name
+#' @param auxiliary optional auxiliary data (JABBA \code{auxiliary}): data.frame(year, series1, ...), FLQuants (e.g. from
+#'   \code{jbdat2flr()}, SEs in attribute "se"), or a named list of
+#'   series, each a data.frame(year, value[, se]) or a list(data = data.frame(year, value), se = , type = ). Types (see
+#'   \code{auxiliary.type}): \code{"effort"} (fishing effort, modelled as F / (q_E x creep)), \code{"f"} (fishing mortality,
+#'   harvest rate), \code{"ffmsy"}, \code{"bbmsy"}, \code{"bk"} (status estimates, e.g. from another assessment or a
+#'   length-based method) and \code{"z"} (total mortality, as JABBA). See \code{\link{jb3_model}()} for the
+#'   catchability, additional SD and effort creep of the auxiliary series.
+#' @param auxiliary.se optional log-scale SEs of the auxiliary data, same layout as \code{auxiliary} (data.frame input)
+#' @param auxiliary.type type of each auxiliary series (recycled), one of "effort", "f", "ffmsy", "bbmsy", "bk", "z"
+#' @details \code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
+#'   (including status priors, \code{jb3_priors(status = )}) and any auxiliary data; \code{jabba3()} runs it with NUTS by
+#'   default.
 #' @return object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
-#'   (years x indices), \code{stock}
+#'   (years x indices, zero columns for catch-only), auxiliary matrices \code{A}, \code{A.SE} and types \code{A.type}
+#'   (NULL without auxiliary data), \code{stock}
 #' @examples
 #' data(iccat)
 #' d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")
 #' d
+#' # catch-only with hypothetical effort (simulated, not real data)
+#' d0 <- jb3_data(iccat$bet$catch, NULL, auxiliary = iccat$bet$effort_hyp[, c("year", "effort")],
+#'                auxiliary.type = "effort", stock = "bet")
 #' @export
-jb3_data <- function(catch, indices, se = NULL, stock = "stock", catch.se = NULL){
+jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se = NULL, auxiliary = NULL, auxiliary.se = NULL,
+                     auxiliary.type = "effort"){
   if(inherits(catch, "jb3catchfill")){ if(is.null(catch.se)) catch.se <- data.frame(year = catch$year, se = catch$se.log)
     catch <- data.frame(year = catch$year, catch = catch$catch) }
   if(inherits(indices, "jb3jointindex") && is.null(se)){ se <- data.frame(year = indices$year, joint = indices$log.se)
     indices <- data.frame(year = indices$year, joint = indices$index) }
   cy <- .catch_df(catch)
-  ix <- .index_df(indices, se)
   years <- seq(min(cy$year), max(cy$year))
   if(any(!years %in% cy$year) || any(!is.finite(cy$catch[match(years, cy$year)])))
     stop("catch must be given for every year from ", min(years), " to ", max(years), call. = FALSE)
   C <- cy$catch[match(years, cy$year)]
+  cse <- NULL
+  if(!is.null(catch.se)){
+    cse <- if(is.data.frame(catch.se)) as.numeric(catch.se[[2]])[match(years, as.numeric(catch.se[[1]]))] else rep(as.numeric(catch.se), length.out = length(years))
+  }
+  aux <- .aux_df(auxiliary, auxiliary.se, auxiliary.type, years)
+  if(is.null(indices)){                                   # catch-only
+    I <- SE <- matrix(NA_real_, length(years), 0, dimnames = list(years, NULL))
+    return(structure(list(stock = stock, years = years, catch = C, I = I, SE = SE, catch.fleets = cy$fleets, catch.se = cse,
+                          A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"))
+  }
+  ix <- .index_df(indices, se)
   out_of <- setdiff(ix$I$year, years)
   if(length(out_of)) warning("index years outside the catch years dropped: ", paste(out_of, collapse = ", "), call. = FALSE)
   I <- as.matrix(ix$I[match(years, ix$I$year), -1, drop = FALSE])
@@ -41,12 +68,47 @@ jb3_data <- function(catch, indices, se = NULL, stock = "stock", catch.se = NULL
   keep <- colSums(!is.na(I)) > 0
   if(!any(keep)) stop("no index observations within the catch years", call. = FALSE)
   if(any(!keep)) warning("indices without observations dropped: ", paste(colnames(I)[!keep], collapse = ", "), call. = FALSE)
-  cse <- NULL
-  if(!is.null(catch.se)){
-    cse <- if(is.data.frame(catch.se)) as.numeric(catch.se[[2]])[match(years, as.numeric(catch.se[[1]]))] else rep(as.numeric(catch.se), length.out = length(years))
-  }
   structure(list(stock = stock, years = years, catch = C, I = I[, keep, drop = FALSE], SE = SE[, keep, drop = FALSE],
-                 catch.fleets = cy$fleets, catch.se = cse), class = "jb3data")
+                 catch.fleets = cy$fleets, catch.se = cse, A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data")
+}
+
+.aux_types <- c("effort", "f", "ffmsy", "bbmsy", "bk", "z")
+
+# auxiliary data to matrices along the catch years
+.aux_df <- function(aux, se, type, years){
+  if(is.null(aux)) return(list(A = NULL, SE = NULL, type = NULL))
+  N <- length(years)
+  if(inherits(aux, "FLQuants") || inherits(aux, "FLQuant")){ x <- .flqs2df(aux, years); aux <- x$auxiliary; se <- x$auxiliary.se %||% se }
+  if(is.data.frame(aux) || is.matrix(aux)){
+    aux <- as.data.frame(aux); if(ncol(aux) < 2) stop("auxiliary needs columns year and at least one series", call. = FALSE)
+    nm <- names(aux)[-1]; y <- as.numeric(aux[[1]])
+    A <- as.matrix(aux[match(years, y), -1, drop = FALSE])
+    S <- if(is.null(se)) matrix(NA_real_, N, ncol(A)) else { se <- as.data.frame(se)
+      if(ncol(se) != ncol(aux)) stop("auxiliary.se must have the same columns as auxiliary", call. = FALSE)
+      as.matrix(se[match(years, as.numeric(se[[1]])), -1, drop = FALSE]) }
+    tp <- rep(type, length.out = ncol(A))
+  } else if(is.list(aux)){
+    nm <- names(aux); if(is.null(nm) || any(nm == "")) nm <- paste0("aux", seq_along(aux))
+    tp0 <- rep(type, length.out = length(aux))
+    A <- S <- matrix(NA_real_, N, length(aux)); tp <- character(length(aux))
+    for(k in seq_along(aux)){
+      a <- aux[[k]]; s <- NULL; tk <- tp0[k]
+      if(!is.data.frame(a) && is.list(a)){ s <- a$se; tk <- a$type %||% tk; a <- a$data }
+      a <- as.data.frame(a); y <- as.numeric(a[[1]])
+      A[, k] <- as.numeric(a[[2]])[match(years, y)]
+      if(is.null(s) && ncol(a) >= 3) s <- as.numeric(a[[3]])
+      if(!is.null(s)){ s <- if(is.data.frame(s)) as.numeric(s[[2]])[match(y, as.numeric(s[[1]]))] else rep(as.numeric(s), length.out = length(y))
+        S[, k] <- s[match(years, y)] }
+      tp[k] <- tk
+    }
+  } else stop("auxiliary must be a data.frame or a list of series", call. = FALSE)
+  tp <- tolower(tp)
+  if(!all(tp %in% .aux_types)) stop("auxiliary.type must be one of ", paste(.aux_types, collapse = ", "), call. = FALSE)
+  A[!is.finite(A) | A <= 0] <- NA; S[!is.finite(S) | S <= 0] <- NA
+  dimnames(A) <- dimnames(S) <- list(years, nm)
+  keep <- colSums(!is.na(A)) > 0
+  if(!any(keep)){ warning("no auxiliary observations within the catch years", call. = FALSE); return(list(A = NULL, SE = NULL, type = NULL)) }
+  list(A = A[, keep, drop = FALSE], SE = S[, keep, drop = FALSE], type = stats::setNames(tp[keep], nm[keep]))
 }
 
 #' Convert classic JABBA inputs
@@ -102,10 +164,17 @@ jb3_data_jabba <- function(catch, cpue, se = NULL, assessment = "stock") jb3_dat
 print.jb3data <- function(x, ...){
   cat("JABBA3 data:", x$stock, "\n  years ", min(x$years), "-", max(x$years), " (", length(x$years), "), catch range ",
       signif(min(x$catch), 3), "-", signif(max(x$catch), 3), "\n", sep = "")
+  if(!ncol(x$I)) cat("  catch-only: no abundance index\n")
   for(i in seq_len(ncol(x$I))){
     o <- which(!is.na(x$I[, i]))
     cat("  index ", colnames(x$I)[i], ": ", length(o), " obs, ", x$years[min(o)], "-", x$years[max(o)],
         if(any(!is.na(x$SE[o, i]))) ", with SE" else "", "\n", sep = "")
+  }
+  for(i in seq_len(NCOL(x$A))){
+    if(is.null(x$A)) break
+    o <- which(!is.na(x$A[, i]))
+    cat("  auxiliary ", colnames(x$A)[i], " (", x$A.type[i], "): ", length(o), " obs, ", x$years[min(o)], "-", x$years[max(o)],
+        if(any(!is.na(x$A.SE[o, i]))) ", with SE" else "", "\n", sep = "")
   }
   invisible(x)
 }
@@ -114,6 +183,16 @@ print.jb3data <- function(x, ...){
 #'
 #' Catch, CPUE and SE for Atlantic bigeye tuna (bet), white marlin (whm), South Atlantic swordfish (swos) and blue
 #' marlin (bum), as in the JABBA package.
+#'
+#' Bigeye also carries two \strong{hypothetical} auxiliary series for the guide chapter on catch-only assessment and
+#' auxiliary data. They are \strong{not real data}: both are simulated from the F trajectory of the JABBA3 bet example
+#' fit (Fox, both JPN longline indices; script \code{data-raw/bet_hypothetical.R}):
+#' \describe{
+#'   \item{\code{bet$effort_hyp}}{hypothetical effort, data.frame(year, effort), 1960-2017:
+#'     E_t = F_t / (q0 x 1.02^(t - 1960)) x lognormal noise (SD 0.15), i.e. with 2\% annual effort creep}
+#'   \item{\code{bet$ffmsy_hyp}}{hypothetical F/Fmsy index, data.frame(year, ffmsy, se), 1990-2009 only (a period of high
+#'     exploitation): F/Fmsy_t x lognormal noise (SD 0.3), se = 0.3}
+#' }
 #' @format list of stocks, each a list with catch, cpue, se (data frames) and info
 "iccat"
 

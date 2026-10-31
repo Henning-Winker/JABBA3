@@ -58,7 +58,7 @@ jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL
     if(pn %in% c("B", "F", "Catch", "B/Bmsy", "F/Fmsy", "B/K", "Process deviation")){
       p <- jbplot_trj(if(multi) fl else f1, type = pn, nested = nested && !multi, bthr = bthr, blim = blim, label.size = 2) +
         ggplot2::labs(x = NULL) + th
-      if(obs && !multi && pn %in% c("B", "B/Bmsy")){
+      if(obs && !multi && pn %in% c("B", "B/Bmsy") && NROW(f1$index) > 0){
         io <- .index_scaled(f1, rel = pn == "B/Bmsy"); io$quantity <- factor(pn, levels = pn)
         p <- p + ggplot2::geom_point(data = io, ggplot2::aes(.data$year, .data$value, fill = .data$index), shape = 21,
                                      size = 1.3, colour = "grey20", inherit.aes = FALSE) +

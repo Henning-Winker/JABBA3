@@ -12,7 +12,13 @@
 #'     diffuse inverse-gamma(0.001, 0.001) instead).
 #'   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
 #'     JABBA exactly).
-#'   \item Auxiliary data, catch-only mode and Plim are not yet supported and are dropped.
+#'   \item Plim (hockey-stick production) is not supported and is dropped.
+#'   \item Auxiliary data are carried over with their type, SEs and the JABBA observation error settings
+#'     (\code{auxiliary.sigma} -> estimated additional SD, \code{auxiliary.obsE} -> \code{aux.se.min}); JABBA's
+#'     \code{auxiliary.lag} (mean exploitation over the previous years) has no JABBA3 equivalent and is reported
+#'     (JABBA3 relates each observation to the same year). JABBA's uniform prior on qA becomes a flat prior on log qA.
+#'   \item Catch-only models (\code{cpue = NULL}) become \code{jb3_data(catch, NULL)}; the status prior
+#'     (\code{b.prior}) carries over.
 #' }
 #' @param jbinput output of \code{JABBA::build_jabba()}
 #' @param q.uniform reproduce JABBA's uniform prior on q
@@ -23,11 +29,19 @@
 jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verbose = TRUE){
   s <- jbinput$settings; jd <- jbinput$jagsdata; dd <- jbinput$data
   msg <- function(...) if(verbose) message("jbinput2jabba3: ", ...)
-  if(isTRUE(s$CatchOnly)) stop("catch-only JABBA models are not supported by JABBA3 yet", call. = FALSE)
-  if(isTRUE(s$Auxiliary)) msg("auxiliary data are not supported yet and were dropped")
   if(!is.null(jd$Plim) && jd$Plim > 0) msg("Plim (hockey-stick production) is not supported and was ignored")
-  # data
-  data <- jb3_data(dd$catch, dd$cpue, if(isTRUE(s$SE.I)) dd$se else NULL, stock = s$assessment %||% "stock")
+  # data (catch-only and auxiliary data)
+  co <- isTRUE(s$CatchOnly)
+  aux <- if(isTRUE(s$Auxiliary)) dd$auxiliary else NULL
+  atype <- s$auxiliary.type %||% "z"
+  if(!is.null(aux)){
+    msg("auxiliary data of type '", atype, "' carried over")
+    if(!is.null(s$auxiliary.lag) && s$auxiliary.lag > 0 && atype %in% c("effort", "z", "ffmsy", "f"))
+      msg("auxiliary.lag = ", s$auxiliary.lag, " has no JABBA3 equivalent: observations relate to the same year (lag 0)")
+  }
+  if(co) msg("catch-only model: no abundance index")
+  data <- jb3_data(dd$catch, if(co) NULL else dd$cpue, if(isTRUE(s$SE.I) && !co) dd$se else NULL, stock = s$assessment %||% "stock",
+                   auxiliary = aux, auxiliary.se = if(!is.null(aux)) dd$auxiliary.se else NULL, auxiliary.type = atype)
   # shape
   mt <- s$model.type %||% "Schaefer"
   shape <- switch(mt, Schaefer = "schaefer", Fox = "fox", "pella")
@@ -59,7 +73,13 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
   fixed.sdb <- if(!is.null(s$proc.floor)) s$proc.floor[1] else if(is.numeric(s$sigma.proc)) s$sigma.proc else NULL
   if(!is.null(s$proc.floor)) msg("proc.floor (Tier 2) mapped to the dynamic sdb form with the floor level fixed")
   if(isTRUE(s$proc.mode == "dyn")) msg("proc.dyn (empirical ICES curve) has no JABBA3 equivalent; constant sdb used")
-  se.min <- if(isTRUE(s$SE.I)) 0.001 else sqrt(min(jd$SE2, na.rm = TRUE))
+  se.min <- if(co) NULL else if(isTRUE(s$SE.I)) 0.001 else sqrt(min(jd$SE2, na.rm = TRUE))
+  aux.se.min <- NULL; aux.sd <- NULL; aux.q <- NULL
+  if(!is.null(aux)){
+    if(is.null(dd$auxiliary.se) && !is.null(jd$A.SE2)) aux.se.min <- sqrt(min(jd$A.SE2, na.rm = TRUE))
+    if(isFALSE(s$auxiliary.sigma)) aux.sd <- 1e-4
+    aux.q <- rep(NA, ncol(aux) - 1)             # JABBA estimates qA for all auxiliary types
+  }
   ebsb <- NULL; ebi <- NULL
   if(isTRUE(s$index.ebsb.on)){
     cu <- s$ebsb.setup$curves; ebsb <- lapply(seq_len(nrow(cu)), function(i) as.numeric(cu[i, 1:5])); names(ebsb) <- rownames(cu) %||% paste0("sel", seq_len(nrow(cu)))
@@ -73,7 +93,7 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
                      sets.q = jd$sets.q, sets.var = jd$sets.var, catch.error = isTRUE(s$add.catch.CV), sdc = s$catch.cv %||% 0.1,
                      ebsb = ebsb, ebsb.index = ebi, ebsb.removal = isTRUE(s$ebsb.removal) || is.null(ebsb),
                      q.uniform = q.uniform, P.bound = jd$P_bound %||% c(0.02, 1.3),
-                     sdi.bound = jd$sigmaobs_bound %||% 1)
+                     sdi.bound = jd$sigmaobs_bound %||% 1, aux.q = aux.q, aux.sd = aux.sd, aux.se.min = aux.se.min)
   if(!q.uniform) msg("q has a flat prior on log q (JABBA/JAGS: uniform on q; use q.uniform = TRUE to reproduce)")
   list(data = data, priors = priors, model = model)
 }

@@ -32,6 +32,12 @@ Differences that cannot be carried over one to one are reported as messages:
     diffuse inverse-gamma(0.001, 0.001) instead).
   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
     JABBA exactly).
-  \item Auxiliary data, catch-only mode and Plim are not yet supported and are dropped.
+  \item Plim (hockey-stick production) is not supported and is dropped.
+  \item Auxiliary data are carried over with their type, SEs and the JABBA observation error settings
+    (\code{auxiliary.sigma} -> estimated additional SD, \code{auxiliary.obsE} -> \code{aux.se.min}); JABBA's
+    \code{auxiliary.lag} (mean exploitation over the previous years) has no JABBA3 equivalent and is reported
+    (JABBA3 relates each observation to the same year). JABBA's uniform prior on qA becomes a flat prior on log qA.
+  \item Catch-only models (\code{cpue = NULL}) become \code{jb3_data(catch, NULL)}; the status prior
+    (\code{b.prior}) carries over.
 }
 }

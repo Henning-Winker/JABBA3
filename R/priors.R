@@ -21,14 +21,19 @@
 #' @param rho AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
 #'   default (rho fixed by \code{jb3_model(rho = )})
 #' @param sdi index observation SD prior (only with \code{obs.error = "spict"}), off by default
-#' @param status optional data.frame(year, type, median, log.sd) of status priors; type one of "BK", "BBmsy", "FFmsy"
+#' @param status optional status priors: a data.frame(year, type, median, log.sd) with type one of "BK", "BBmsy",
+#'   "FFmsy" (lower case and JABBA's "bk", "bbmsy", "ffmsy" accepted; year NA = terminal year of the fit), the output of
+#'   \code{\link{jb3_bprior}()}, or a JABBA \code{b.prior} vector c(mean, cv, year, type) (the cv used as log-scale SD, as
+#'   in JABBA; year NA = terminal year)
+#' @param creep normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}
 #' @param psi alias of \code{bkinit} (JABBA name)
 #' @return list of class \code{jb3priors}
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
-                       q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL){
+                       q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
+                       creep = c(0.02, 0.02)){
   pr3 <- function(x, nm){
     x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
     if(length(x) != 3) stop("prior ", nm, " must be c(median, log.sd[, on])", call. = FALSE)
@@ -47,13 +52,49 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   kdyn <- stats::setNames(as.numeric(c(kdyn, 1)[1:3]), c("mean", "sd", "on"))
   sdi <- pr3(sdi, "sdi")
   rho <- stats::setNames(as.numeric(c(rho, 1)[1:3]), c("mean", "sd", "on"))
-  if(!is.null(status)){
-    status <- as.data.frame(status)
-    if(!all(c("year", "type", "median", "log.sd") %in% names(status))) stop("status priors need year, type, median, log.sd", call. = FALSE)
-    if(!all(status$type %in% c("BK", "BBmsy", "FFmsy"))) stop("status prior type must be BK, BBmsy or FFmsy", call. = FALSE)
-  }
+  status <- .status_df(status)
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
-                 sdi = sdi, status = status), class = "jb3priors")
+                 sdi = sdi, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd"))), class = "jb3priors")
+}
+
+#' Status priors (JABBA b.prior)
+#'
+#' Prior on stock status in a given year: B/Bmsy, B/K or F/Fmsy, lognormal with the given median and CV (as JABBA's
+#' \code{b.prior = c(mean, cv, year, type)}). Several priors are combined with \code{rbind()} and passed to
+#' \code{jb3_priors(status = )}.
+#' @param median median of the prior (e.g. 0.5 for B/Bmsy)
+#' @param cv coefficient of variation (converted to a log-scale SD, sqrt(log(1 + cv^2)))
+#' @param year year(s) of the prior; NULL or NA = terminal year of the fit
+#' @param type "bbmsy" (default), "bk" or "ffmsy"
+#' @param log.sd log-scale SD, instead of \code{cv}
+#' @return data.frame(year, type, median, log.sd)
+#' @examples
+#' jb3_bprior(0.7, 0.2, type = "bbmsy")                # terminal-year B/Bmsy prior
+#' rbind(jb3_bprior(0.5, 0.2, 2010), jb3_bprior(1.2, 0.3, 2010, "ffmsy"))
+#' @export
+jb3_bprior <- function(median, cv = 0.2, year = NULL, type = c("bbmsy", "bk", "ffmsy"), log.sd = NULL){
+  type <- match.arg(type)
+  sd <- log.sd %||% cv2sd(cv)
+  data.frame(year = if(is.null(year)) NA_real_ else as.numeric(year), type = c(bbmsy = "BBmsy", bk = "BK", ffmsy = "FFmsy")[[type]],
+             median = as.numeric(median), log.sd = as.numeric(sd))
+}
+
+.status_df <- function(status){
+  if(is.null(status)) return(NULL)
+  if(is.atomic(status) && !is.matrix(status)){                      # JABBA b.prior c(mean, cv, year, type)
+    if(length(status) < 4) stop("b.prior vector must be c(mean, cv, year, type)", call. = FALSE)
+    yr <- suppressWarnings(as.numeric(status[3]))
+    status <- jb3_bprior(as.numeric(status[1]), year = if(is.na(yr)) NULL else yr, type = tolower(status[4]),
+                         log.sd = as.numeric(status[2]))              # JABBA uses the cv as the log-scale SD
+  }
+  status <- as.data.frame(status)
+  if(!all(c("year", "type", "median", "log.sd") %in% names(status))) stop("status priors need year, type, median, log.sd", call. = FALSE)
+  map <- c(bk = "BK", bbmsy = "BBmsy", ffmsy = "FFmsy")
+  tp <- as.character(status$type); lw <- tolower(tp); tp[lw %in% names(map)] <- map[lw[lw %in% names(map)]]
+  status$type <- tp
+  if(!all(status$type %in% c("BK", "BBmsy", "FFmsy"))) stop("status prior type must be BK, BBmsy or FFmsy", call. = FALSE)
+  status$year <- as.numeric(status$year)
+  status
 }
 
 #' @export

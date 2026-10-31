@@ -17,7 +17,8 @@ jb3_priors(
   rho = c(0.7, 0.15, 0),
   sdi = c(0.2, 0.5, 0),
   status = NULL,
-  psi = NULL
+  psi = NULL,
+  creep = c(0.02, 0.02)
 )
 }
 \arguments{
@@ -49,9 +50,14 @@ default (rho fixed by \code{jb3_model(rho = )})}
 
 \item{sdi}{index observation SD prior (only with \code{obs.error = "spict"}), off by default}
 
-\item{status}{optional data.frame(year, type, median, log.sd) of status priors; type one of "BK", "BBmsy", "FFmsy"}
+\item{status}{optional status priors: a data.frame(year, type, median, log.sd) with type one of "BK", "BBmsy",
+"FFmsy" (lower case and JABBA's "bk", "bbmsy", "ffmsy" accepted; year NA = terminal year of the fit), the output of
+\code{\link{jb3_bprior}()}, or a JABBA \code{b.prior} vector c(mean, cv, year, type) (the cv used as log-scale SD, as
+in JABBA; year NA = terminal year)}
 
 \item{psi}{alias of \code{bkinit} (JABBA name)}
+
+\item{creep}{normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}}
 }
 \value{
 list of class \code{jb3priors}

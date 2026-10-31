@@ -19,7 +19,8 @@ jabba3(
   peels = 0,
   index.peels = 0,
   nstart = 4,
-  silent = TRUE
+  silent = TRUE,
+  prior.only = FALSE
 )
 }
 \arguments{

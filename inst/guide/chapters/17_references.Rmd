@@ -14,6 +14,11 @@ Kell, L.T., Sharma, R., Kitakado, T., Winker, H., Mosqueira, I., Cardinale, M.
 and Fu, D. (2021). Validation of stock assessment methods: is it me or my model
 talking? *ICES Journal of Marine Science* 78(6): 2244-2255.
 
+Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R. (2025).
+Transforming data and capacity-limited stock assessment: achieving risk
+equivalence with hierarchical assessment frameworks and auxiliary data.
+*Sustainability* 17: 9383. doi:10.3390/su17219383
+
 Kell, L.T., Mosqueira, I., Grosjean, P., Fromentin, J.-M., Garcia, D., Hillary,
 R., Jardim, E., Mardle, S., Pastoors, M.A., Poos, J.J., Scott, F. and Scott,
 R.D. (2007). FLR: an open-source framework for the evaluation and development of

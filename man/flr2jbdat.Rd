@@ -4,17 +4,20 @@
 \alias{flr2jbdat}
 \title{Convert FLR inputs back to classic JABBA data frames}
 \usage{
-flr2jbdat(catch, indices)
+flr2jbdat(catch, indices = NULL, auxiliary = NULL)
 }
 \arguments{
 \item{catch}{FLQuant or FLQuants}
 
-\item{indices}{FLIndices (or a single FLIndexBiomass)}
+\item{indices}{FLIndices (or a single FLIndexBiomass); NULL for catch-only}
+
+\item{auxiliary}{optional FLQuants (or FLQuant) of auxiliary data}
 }
 \value{
-list(catch, cpue, se) of data frames
+list(catch, cpue, se, auxiliary, auxiliary.se) of data frames (NULL where not given)
 }
 \description{
 The inverse of \code{\link{jbdat2flr}()}: an \code{FLQuant}/\code{FLQuants} catch and \code{FLIndices} to the
-JABBA data frames \code{catch}, \code{cpue} and \code{se}.
+JABBA data frames \code{catch}, \code{cpue} and \code{se}, and auxiliary \code{FLQuants} (with SEs in attribute
+"se", as returned by \code{jbdat2flr()}) to \code{auxiliary} and \code{auxiliary.se}.
 }

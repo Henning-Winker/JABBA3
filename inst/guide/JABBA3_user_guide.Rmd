@@ -84,6 +84,9 @@ blockquote p { margin-bottom: 0.4em; }
 ```{r child = "chapters/12d_other_data.Rmd"}
 ```
 
+```{r child = "chapters/12e_catch_only_aux.Rmd"}
+```
+
 ```{r child = "chapters/13_flr.Rmd"}
 ```
 
