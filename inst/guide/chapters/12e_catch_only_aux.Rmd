@@ -260,6 +260,71 @@ prior). With the CPUE indices, the effort narrows the interval of
 $B/B_{MSY}$ somewhat, but here the agreement is partly built in, because the
 hypothetical effort was simulated from the index-based assessment.
 
+## How much do the data add? Prior-posterior contraction
+
+The prior predictive run is also the reference for a diagnostic of what each
+tier adds. `jb3_contraction()` compares each quantity of a fit with the prior
+predictive run (log scale):
+
+- **contraction** = 1 − var(posterior)/var(prior predictive), the share of the
+  prior uncertainty removed by the data (0: the data add nothing; 1: fully
+  determined by the data);
+- **shift** = (mean(posterior) − mean(prior predictive))/sd(prior predictive),
+  how far the data move the estimate, in prior SDs.
+
+Low contraction means a quantity is prior-driven; a large shift means the data
+pull it into the tail of the prior (prior-data conflict); high contraction with
+a moderate shift means it is informed by the data (Betancourt 2018; Schad et
+al. 2021). By default the prior predictive run is made with the fit's own
+priors, model and catch (`jb3_contraction(fit)` runs it with NUTS). Here all
+runs are compared with the common prior predictive run `co.ppm` (catch and the
+r, K and initial-depletion priors), so that the status prior is treated as one
+of the tiers:
+
+```{r co-contraction}
+ct <- jb3_contraction(co.runs[-1], prior = rep(list(co.ppm), length(co.runs) - 1), years = c(1990, 2017))
+w <- reshape(as.data.frame(ct)[c("run", "quantity", "contraction")], idvar = "quantity", timevar = "run", direction = "wide")
+names(w) <- sub("^contraction\\.", "", names(w))
+knitr::kable(w, digits = 2, row.names = FALSE, caption = "Contraction relative to the prior predictive run")
+```
+
+```{r co-contraction-plot, fig.height = 6.5, fig.width = 10}
+jbplot_contraction(ct)
+```
+
+The initial depletion is prior-driven in every run: no tier informs it. All
+tiers with information on exploitation remove most of the prior uncertainty
+in terminal status (contraction 0.8-0.9) and move it by about 1.5 prior SDs
+towards overfished, which says that the default priors (K of 8 times the
+maximum catch, an unfished start) are optimistic for bigeye. The tiers differ
+in *where* they inform: the terminal status prior contracts only the terminal
+year, whereas $B/B_{MSY}$ in 1990 is not informed at all (contraction −0.26);
+effort and the indices inform the whole trajectory. The hypothetical F/Fmsy
+index informs F/Fmsy in 1990 (0.92) but not the terminal status: its posterior
+for $B/B_{MSY}$ in 2017 is *wider* than the prior predictive (contraction
+−0.88) and shifted by more than two prior SDs, a flag that the auxiliary data
+move the stock into a region the rest of the model constrains poorly.
+
+A catch-only fit compared with *its own* prior predictive run, which keeps the
+status prior, has a contraction of zero by construction, and the diagnostic
+says so:
+
+```{r co-contraction-own}
+cb <- jb3_contraction(co.b, nuts = nu)
+knitr::kable(as.data.frame(cb)[c("quantity", "prior.median", "post.median", "contraction", "contraction.pdf", "class")],
+             digits = 3, row.names = FALSE)
+```
+
+`contraction.pdf` compares the posterior of r, K and initial depletion with
+the stated prior density rather than with the prior predictive run. It shows
+what the catch and the status prior do to the r and K priors even without any
+data: the variance of log K is reduced by about 75% and that of log r by
+about 35%, because only combinations under which the stock survives the catch
+history and ends near the status prior remain (the CMSY logic). This is a check
+of the priors (whether much of the prior is incompatible with the catch), not
+a reason to narrow them: using the catch-conditioned r and K as priors would
+count the catch twice.
+
 ## Non-centred process deviations
 
 When the data say little about the states, as in a catch-only run, the

@@ -59,3 +59,7 @@ Thorson, J.T., Shelton, A.O., Ward, E.J. and Skaug, H.J. (2015). Geostatistical 
 
 Winker, H., Thorson, J.T., Fairweather, T., Leslie, R. and Durholtz, D. (2017). Towards improving precision in South African demersal trawl survey indices using geostatistical GLMMs. MARAM/IWS/2017/Hake/BG8. University of Cape Town.
 
+Betancourt, M. (2018). Calibrating model-based inferences and decisions. arXiv:1803.08393.
+
+Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesian workflow in cognitive science. *Psychological Methods*, 26, 103-126.
+
