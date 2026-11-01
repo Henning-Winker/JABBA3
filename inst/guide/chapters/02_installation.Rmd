@@ -9,7 +9,7 @@ package.
 install.packages(c("RTMB", "ggplot2", "Matrix", "tmbstan", "rstan", "patchwork"))
 install.packages(c("FLCore", "ggplotFL"),
                  repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
-remotes::install_github("Henning-Winker/JABBA3@converters")
+remotes::install_github("Henning-Winker/JABBA3")
 ```
 
 ```{r load}
