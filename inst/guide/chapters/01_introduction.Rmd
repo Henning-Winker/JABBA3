@@ -59,5 +59,3 @@ SPiCT, and the model equations. Section 16 summarises the checks and the
 functions. The examples use the built-in ICCAT data (`data(iccat)`): Atlantic
 bigeye tuna, white marlin, South Atlantic swordfish and blue marlin.
 
-> This is a first draft (prototype, 30 October 2026). Interfaces may still
-> change.
