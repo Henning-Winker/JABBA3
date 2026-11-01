@@ -51,6 +51,17 @@
 #' @param aux.sd additional observation SD of the auxiliary series: \code{NULL} (default) estimates one per series
 #'   (JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series
 #' @param aux.se.min minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)
+#' @param nseason number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
+#'   depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
+#'   removed during that step (an Euler scheme with dt = 1/nseason). Process variance per step is set so that the
+#'   deviations of a year add up to the annual \code{sdb} (with AR(1): step coefficient rho^(1/nseason)); the lag is
+#'   given in years. Annual outputs: biomass at the start of the year, harvest rate = annual catch / mean exploitable
+#'   biomass over the year; seasonal series in \code{fit$ts.season}.
+#' @param catch.alloc how annual catch is split over the seasons in years without seasonal catch: "F" (default; constant
+#'   harvest fraction within the year, i.e. catch proportional to the exploitable biomass of each season, as SPiCT's
+#'   F x B), "equal" (catch / nseason), or a vector of shares (one per season, e.g. from quarterly landings)
+#' @param season.w relative production weights of the seasons (rescaled to mean 1; NULL = equal), e.g. a recruitment
+#'   pulse \code{c(0, 3, 1, 0)}
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
@@ -58,7 +69,12 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
-                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL){
+                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL,
+                      nseason = 1, catch.alloc = "F", season.w = NULL){
+  nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
+  if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal"))
+  if(!is.null(season.w) && (length(season.w) != nseason || any(season.w < 0) || sum(season.w) <= 0))
+    stop("season.w: one non-negative weight per season", call. = FALSE)
   param <- match.arg(param)
   if(!(identical(effort.creep, "estimate") || (is.numeric(effort.creep) && length(effort.creep) == 1 && effort.creep > -1)))
     stop("effort.creep must be a number > -1 or \"estimate\"", call. = FALSE)
@@ -80,7 +96,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min), class = "jb3model")
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, nseason = nseason, catch.alloc = catch.alloc, season.w = season.w),
+            class = "jb3model")
 }
 
 #' @export
