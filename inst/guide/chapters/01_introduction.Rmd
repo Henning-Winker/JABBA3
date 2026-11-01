@@ -1,4 +1,4 @@
-# JABBA3: surplus production models with RTBM speed
+# JABBA3: surplus production models with RTMB speed
 
 JABBA3 fits **Bayesian state-space surplus production models**: biomass
 dynamics driven by a Pella-Tomlinson production function, fishery removals and
