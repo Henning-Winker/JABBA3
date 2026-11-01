@@ -4,7 +4,7 @@
 .fills_kobe <- c(green = "#2ca25f", yellow = "#fee391", orange = "#fd8d3c", red = "#de2d26")
 
 # draws of a fit, generating MVN draws at the mode when the fit has none
-.get_draws <- function(fit, ndraws = 1000) fit$draws %||% jb3_draws(fit, ndraws)
+.get_draws <- function(fit, ndraws = 1000) if(inherits(fit, "jb3trend")) .trend_draws(fit, ndraws) else fit$draws %||% jb3_draws(fit, ndraws)
 
 #' Posterior predictive check
 #'

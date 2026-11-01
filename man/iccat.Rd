@@ -14,4 +14,15 @@ iccat
 Catch, CPUE and SE for Atlantic bigeye tuna (bet), white marlin (whm), South Atlantic swordfish (swos) and blue
 marlin (bum), as in the JABBA package.
 }
+\details{
+Bigeye also carries two \strong{hypothetical} auxiliary series for the guide chapter on catch-only assessment and
+auxiliary data. They are \strong{not real data}: both are simulated from the F trajectory of the JABBA3 bet example
+fit (Fox, both JPN longline indices; script \code{data-raw/bet_hypothetical.R}):
+\describe{
+  \item{\code{bet$effort_hyp}}{hypothetical effort, data.frame(year, effort), 1960-2017:
+    E_t = F_t / (q0 x 1.02^(t - 1960)) x lognormal noise (SD 0.15), i.e. with 2\% annual effort creep}
+  \item{\code{bet$ffmsy_hyp}}{hypothetical F/Fmsy index, data.frame(year, ffmsy, se), 1990-2009 only (a period of high
+    exploitation): F/Fmsy_t x lognormal noise (SD 0.3), se = 0.3}
+}
+}
 \keyword{datasets}

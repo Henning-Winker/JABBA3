@@ -8,7 +8,7 @@
 \usage{
 jbdat2flr(
   catch,
-  index,
+  index = NULL,
   index.se = NULL,
   auxiliary = NULL,
   auxiliary.se = NULL,
@@ -24,7 +24,7 @@ jbidx2FLIndices(index, index.se = NULL, units = "NA")
 \arguments{
 \item{catch}{data.frame(year, catch[, catch fleet 2, ...])}
 
-\item{index}{data.frame(year, index1, index2, ...) (JABBA \code{cpue})}
+\item{index}{data.frame(year, index1, index2, ...) (JABBA \code{cpue}); NULL for catch-only}
 
 \item{index.se}{optional data.frame(year, se1, se2, ...) of log-scale standard errors (JABBA \code{se}); same columns as
 \code{index}}
@@ -44,7 +44,7 @@ list with \code{catch} (FLQuant or FLQuants), \code{indices} (FLIndices) and \co
   the SEs in attribute "se"; \code{NULL} when not given)
 }
 \description{
-Converts the JABBA 2 input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
+Converts the JABBA input data frames (as used by \code{JABBA::build_jabba()}) to FLR objects: catch to an
 \code{FLQuant} (or \code{FLQuants}, one per fleet), abundance indices to \code{FLIndices} of \code{FLIndexBiomass}
 with the log-scale standard errors in \code{index.var}, and auxiliary data (e.g. effort) to \code{FLQuants}.
 The result can be passed straight to \code{\link{jb3_data}()}.

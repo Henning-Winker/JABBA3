@@ -41,6 +41,7 @@ jb3_partable <- function(x, digits = 3, format = c("long", "wide")){
                  row("kdyn", p),
                  do.call(rbind, lapply(grep("^q[0-9]+$", rownames(p), value = TRUE), row, src = p)),
                  do.call(rbind, lapply(grep("^sdi[0-9]+$", rownames(p), value = TRUE), row, src = p)),
+                 do.call(rbind, lapply(grep("^(qA|sdA)\\.", rownames(p), value = TRUE), row, src = p)), row("creep", p),
                  st("B/Bmsy", "B/Bmsy"), st("F/Fmsy", "F/Fmsy"), st("B/K", "B/K"))
     cbind(run = n, out)
   }))

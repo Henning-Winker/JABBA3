@@ -14,7 +14,7 @@
     if(!length(hit)) stop("none of pars found; available: ", paste(unique(sub("\\[.*", "", nm)), collapse = ", "), call. = FALSE)
     return(unique(hit))
   }
-  if(states) nm else nm[!grepl("^(logP|cdev)\\[", nm)]
+  if(states) nm else nm[!grepl("^(logP|zP|cdev)\\[", nm)]
 }
 
 # iterations x chains x parameters (post warmup unless inc_warmup)
@@ -189,7 +189,7 @@ jbplot_pairs <- function(fit, pars = NULL, npoints = 1500){
 #' @export
 jbplot_rhat <- function(fit){
   dg <- jb3_nuts_diags(fit, states = TRUE); x <- dg$pars; nch <- nrow(dg$sampler)
-  x$group <- ifelse(grepl("^logP\\[", x$par), "states (logP)", ifelse(grepl("^cdev\\[", x$par), "catch deviations", "fixed effects"))
+  x$group <- ifelse(grepl("^(logP|zP)\\[", x$par), "states (logP or zP)", ifelse(grepl("^cdev\\[", x$par), "catch deviations", "fixed effects"))
   x <- rbind(data.frame(par = x$par, group = x$group, metric = "R-hat", value = x$Rhat),
              data.frame(par = x$par, group = x$group, metric = "Bulk ESS / chain", value = x$ess_bulk/nch),
              data.frame(par = x$par, group = x$group, metric = "Tail ESS / chain", value = x$ess_tail/nch))
@@ -234,4 +234,28 @@ jbplot_nutsdiags <- function(fit, pars = NULL){
   g <- function(p) p + ggplot2::theme(legend.position = "none")
   (g(jbplot_trace(fit, pars)) | g(jbplot_rank(fit, pars))) / (jbplot_rhat(fit) | jbplot_energy(fit)) +
     patchwork::plot_layout(heights = c(1, 1))
+}
+
+#' Effective sample size of the derived states
+#'
+#' Bulk and tail ESS (rank-normalised, Vehtari et al. 2021) and R-hat of the derived trajectories (e.g. B/Bmsy and
+#' F/Fmsy by year) of a NUTS fit, also per 1000 post-warmup draws. Useful to compare parameterisations
+#' (\code{jb3_model(param = "centred")} against \code{"noncentred"}), because the sampled states differ between them.
+#' @param fit a \code{jabba3} fit with \code{engine = "nuts"}
+#' @param quantities derived quantities, any of "B/Bmsy", "F/Fmsy", "B/K", "B", "F"
+#' @return data.frame(quantity, year, Rhat, ess_bulk, ess_tail, bulk.per1000, tail.per1000); attribute "summary" with
+#'   minimum and median by quantity and the run time and parameterisation
+#' @export
+jb3_nuts_ess <- function(fit, quantities = c("B/Bmsy", "F/Fmsy")){
+  sf <- .nuts_check(fit); nch <- fit$nuts$settings$chains; dr <- fit$draws
+  nd <- nrow(dr[[quantities[1]]]); ni <- nd/nch
+  out <- do.call(rbind, lapply(quantities, function(q){ x <- dr[[q]]
+    do.call(rbind, lapply(seq_len(ncol(x)), function(j){ m <- matrix(x[, j], ni, nch)
+      data.frame(quantity = q, year = fit$years[j], Rhat = rstan::Rhat(m), ess_bulk = rstan::ess_bulk(m), ess_tail = rstan::ess_tail(m)) })) }))
+  out$bulk.per1000 <- 1000*out$ess_bulk/nd; out$tail.per1000 <- 1000*out$ess_tail/nd
+  sm <- do.call(rbind, lapply(split(out, out$quantity), function(z) data.frame(quantity = z$quantity[1],
+    min.bulk.per1000 = min(z$bulk.per1000), median.bulk.per1000 = stats::median(z$bulk.per1000),
+    min.tail.per1000 = min(z$tail.per1000), max.Rhat = max(z$Rhat))))
+  attr(out, "summary") <- cbind(param = fit$nuts$param %||% "centred", sm, divergent = fit$nuts$divergent, time = fit$time)
+  out
 }

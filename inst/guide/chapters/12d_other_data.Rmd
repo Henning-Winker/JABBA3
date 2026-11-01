@@ -1,0 +1,212 @@
+# Other data features
+
+The data-exploration chapter looked at index trends, catchabilities and
+conflicts among indices of one stock. This chapter covers other common data
+situations, with two anonymised example datasets:
+
+```{r od-data}
+data(jara_examples)
+names(jara_examples)
+names(jara_examples$areas)
+names(jara_examples$regions)
+```
+
+- `areas`: a catch history from six fleets or areas, two of them with missing
+  early years; relative survey indices with log-SEs for four areas; and
+  swept-area survey biomass for the same four areas;
+- `regions`: indices from three regions, a survey each in two adjacent areas
+  (`areaA`, `areaB`) and two surveys and five CPUE series in a third region
+  (`C.*`).
+
+## Catch history with missing years
+
+Two fleets report only in the later years (`fleet4`, `fleet5`):
+
+```{r od-catch-data}
+cc <- jara_examples$areas$catch
+colSums(!is.na(cc[, -1]))
+```
+
+A census trend model (one state per fleet, summed to a total) interpolates the
+missing values. Where a fleet's early catches are not known at all, start values
+anchor the interpolation: here `fleet4` is assumed to have caught 10 t in the
+first year and `fleet5` the same as `fleet2`. The start values get a larger
+log-SE (0.2) than the reported catches (0.05); `jb3_catchfill()` takes the SE as
+a data frame with the same layout as the catch. A time block lets the trend
+change after a given year, here when the catches peaked:
+
+```{r od-catch, fig.height = 5}
+cc[1, "fleet5"] <- cc[1, "fleet2"]; cc[1, "fleet4"] <- 10
+sc <- cc; sc[, -1] <- 0.05; sc[1, c("fleet4", "fleet5")] <- 0.2
+cf <- jb3_catchfill(cc, se = sc, timeblock = 2016)
+jbplot_trend(attr(cf, "fit"))          # fleet fits and the total
+```
+
+The total catch with its year-specific log-SE, larger where fleets with assumed
+start values are interpolated:
+
+```{r od-catch-total, fig.height = 3.5}
+jbplot_catchfill(cf)
+knitr::kable(as.data.frame(cf)[c(1:3, 15:18, 24:26), c("year", "catch", "se.log", "lci", "uci")],
+             digits = 3, row.names = FALSE)
+```
+
+The filled table, with the original series, the missing values replaced by
+predictions, and the total:
+
+```{r od-catch-table}
+knitr::kable(head(jb3_fill_table(cf, digits = 1), 6), row.names = FALSE)
+```
+
+The reconstructed catch goes into `jb3_data()` with its year-specific SE,
+which the catch error of the model uses in place of the constant `sdc`; the
+`jb3catchfill` object can be passed directly as the catch:
+
+```{r od-catch-data2}
+d.cf <- jb3_data(cf, jara_examples$areas$idx, jara_examples$areas$idx.se, stock = "areas")
+round(range(d.cf$catch.se), 3)
+```
+
+## Swept-area surveys in several areas
+
+A survey covering four areas gives two kinds of index: relative indices by
+area (`idx`, with log-SEs) and swept-area biomass estimates (`bio`). The
+relative indices are combined into a joint index as in the data-exploration
+chapter:
+
+```{r od-joint, fig.height = 3.5}
+a <- jara_examples$areas
+ji.a <- jb3_trend(a$idx, a$idx.se, run = "relative")
+jdx.a <- jb3_jointindex(ji.a)
+jbplot_jointindex(ji.a)
+```
+
+The swept-area estimates are absolute and additive over areas, so a census
+model fits each area separately and sums the area states to a total biomass
+with uncertainty, smoothing through years with missing surveys:
+
+```{r od-census, fig.height = 5}
+bi <- jb3_trend(a$bio, a$bio.se, type = "census", run = "swept-area census")
+jbplot_trend(bi)
+```
+
+The census total and the relative joint index, both scaled to their means:
+
+```{r od-census-cmp, fig.height = 3.5}
+tb <- bi$total
+sc1 <- mean(jdx.a$index, na.rm = TRUE); sc2 <- mean(tb$est)
+cmp2 <- rbind(data.frame(year = jdx.a$year, index = jdx.a$index/sc1, lci = jdx.a$lci/sc1, uci = jdx.a$uci/sc1,
+                         series = "relative joint index"),
+              data.frame(year = tb$year, index = tb$est/sc2, lci = tb$lci/sc2, uci = tb$uci/sc2,
+                         series = "census total biomass"))
+round(cor(log(jdx.a$index), log(tb$est[match(jdx.a$year, tb$year)]), use = "complete.obs"), 2)
+ggplot2::ggplot(cmp2, ggplot2::aes(year, index, colour = series, fill = series)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), alpha = 0.15, colour = NA) + ggplot2::geom_line() +
+  ggplot2::labs(y = "Index (scaled to mean)", colour = NULL, fill = NULL) + theme_jabba3()
+```
+
+The two agree closely. They answer different questions, however: the joint
+index weights areas by the precision of their indices, the census total by
+their biomass, so an area with much of the biomass but a noisy index counts
+more in the census. Where the trends differ, the census total is the better
+measure of the whole stock; it can also go into the production model as an index of
+its own, with the log-SE of the census total.
+
+## Do indices among areas conflict? Stock structure
+
+When indices come from several regions, the question is whether they follow a
+common trend, in which case the regions can be assessed together, or diverge,
+which may point to separate stocks or at least to regions with different
+dynamics. The `regions` data have surveys of two adjacent areas and seven
+indices of a third region C:
+
+```{r od-reg-data}
+rg <- jara_examples$regions
+colSums(!is.na(rg[, -1]))
+```
+
+**Within regions.** First the joint index of each region: A and B together
+(adjacent areas), and C:
+
+```{r od-reg-fits}
+tr.AB <- jb3_trend(rg[, c("year", "areaA", "areaB")], run = "A + B")
+tr.C  <- jb3_trend(rg[, c("year", grep("^C\\.", names(rg), value = TRUE))], run = "C")
+tr.C
+```
+
+```{r od-reg-cor-c, fig.height = 4.5, fig.width = 5.5}
+jbplot_indexcor(tr.C)
+```
+
+The five CPUE series of region C are strongly correlated (r 0.77-0.94); the two
+surveys are noisier and agree less with each other and with the CPUE
+(the large `sdi` values). Within region C, the indices share one trend.
+
+**Between regions.** The joint indices of the two regions on one plot, and
+their correlation:
+
+```{r od-reg-cmp, fig.height = 3.5}
+jAB <- jb3_jointindex(tr.AB, name = "A + B"); jC <- jb3_jointindex(tr.C, name = "C")
+reg <- rbind(data.frame(jAB, region = "A + B"), data.frame(jC, region = "C"))
+reg <- do.call(rbind, lapply(split(reg, reg$region), function(z){ m <- mean(z$index, na.rm = TRUE)
+  z$index <- z$index/m; z$lci <- z$lci/m; z$uci <- z$uci/m; z }))
+ggplot2::ggplot(reg, ggplot2::aes(year, index, colour = region, fill = region)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), alpha = 0.15, colour = NA) +
+  ggplot2::geom_line() + ggplot2::geom_point(size = 0.8) +
+  ggplot2::labs(y = "Joint index (scaled to mean)", colour = NULL, fill = NULL) + theme_jabba3()
+J <- merge(data.frame(year = jAB$year, AB = jAB$index), data.frame(year = jC$year, C = jC$index))
+ok <- is.finite(J$AB) & is.finite(J$C)
+cor.test(log(J$AB[ok]), log(J$C[ok]))[c("estimate", "p.value")]
+```
+
+**All indices in one model.** If the regions were one stock, a single trend
+model with all nine indices should fit them without systematic residuals. The
+pairwise correlations and residual diagnostics of the joint fit:
+
+```{r od-reg-all, fig.height = 6, fig.width = 7}
+tr.all <- jb3_trend(rg, run = "all regions")
+jbplot_indexcor(tr.all)
+```
+
+The additional observation SD each index needs, fitted within its region and
+in the model with all regions:
+
+```{r od-reg-sdi}
+sdi <- function(f) stats::setNames(f$sdi, f$indices)
+knitr::kable(data.frame(index = tr.all$indices, within.region = c(sdi(tr.AB), sdi(tr.C))[tr.all$indices],
+                        all.regions = sdi(tr.all)), digits = 3, row.names = FALSE)
+```
+
+```{r od-reg-resid, fig.height = 4}
+jbplot_residuals(tr.all)
+```
+
+```{r od-reg-runs, fig.height = 6, fig.width = 9}
+p.reg <- jbplot_runs(tr.all)
+p.reg
+attr(p.reg, "runs")[, c("index", "p.runs", "test")]
+```
+
+The regional joint indices do not agree: the two regions are uncorrelated
+(r = 0.06 over 29 shared years), with A + B lowest in the late 1980s and the
+last years and C highest around 1998-1999 and stable or increasing since 2012.
+Within regions the indices agree (A and B r = 0.35; the region C CPUE series
+r 0.77-0.94). Forced onto one trend, the common state follows the numerous
+and precise region C CPUE series, and the cost falls on the A and B surveys:
+their additional SD rises from 0.08 to 0.29 (`areaA`) and from 0.23 to 0.39
+(`areaB`), while the region C CPUE series fit almost as well as on their own,
+and none of the A or B pairs with region C indices are significantly
+correlated. The residuals of A and B run negative in the last years, where
+region C is stable. The abundance data are thus not consistent with a single
+unit: A and B can be combined, but region C should be assessed separately, or
+a combined assessment checked against separate ones.
+
+**How to use this.** Agreement among regions (positive correlations, no
+residual patterns that separate the regions, similar trends in the regional
+joint indices) supports assessing the regions together with one joint index or
+with all indices in one model. Conflict between regions, while the indices
+within each region agree, suggests that the regions have different dynamics:
+assess them separately, or at least test the combined assessment against
+separate ones. The trend models cannot by themselves establish stock
+structure, which needs biological evidence (genetics, tagging, life history),
+but they show whether the abundance data are consistent with a single unit.

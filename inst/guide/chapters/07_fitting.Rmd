@@ -91,14 +91,17 @@ fq$pars[c("K", "r"), "est"]
 tmbstan (no Laplace approximation), started from the mode. Posterior medians
 and quantiles replace the mode summaries in `pars`, `refpts` and `ts`.
 
+NUTS is meant for final runs, so the defaults are rigorous: 3 chains of 4000
+iterations (half warmup). After sampling, `jabba3()` checks convergence and warns
+if the rank-normalised $\hat{R}$ exceeds 1.01, the bulk or tail effective
+sample size is below 100 per chain, there are divergent transitions, or E-BFMI
+is below 0.3; the full table is in `fn$nuts$diags` (see *NUTS diagnostics*).
+For bigeye the default run takes about half a minute.
+
 ```{r fit-nuts}
-fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts",
-             nuts = list(chains = 3, iter = 1000, cores = 3))
+fn <- jabba3(d, pr, jb3_model(shape = "fox"), engine = "nuts", nuts = list(cores = 3))
 fn
 ```
-
-> 1000 iterations per chain keep this guide fast; use at least 2000 (and check
-> the NUTS diagnostics, section *NUTS diagnostics*) for final runs.
 
 ## Fit to the indices
 

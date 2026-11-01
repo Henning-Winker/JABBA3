@@ -7,3 +7,8 @@ utils::globalVariables(c("logK","logr","logq","lbk","logm","logsdb","logsdi","tk
 utils::globalVariables(c("iter","value","chain","bin","count","lag","acf","par","x","y","xmin","xmax","ymin","ymax","v","lt",
   "flag","what","density","metric","group","rk"))
 utils::globalVariables(c("stock", "harvest"))
+# variables exposed by RTMB::getAll() in the trend model
+utils::globalVariables(c("y","oi","ot","se2","fe2","nA","census","vw","drift","sdp.pr","logsdp","logsdi","r","x","x1.pr","rb","nb","iid"))
+# auxiliary data, prior-only and non-centred variables exposed by RTMB::getAll() in jb3_nll
+utils::globalVariables(c("zP","logqA","logsdA","creep","aobs_t","aobs_i","atype","at0","ASE2","logAobs","est.qA","est.sdA",
+  "est.creep","creep.pr","prior.only","nc"))
