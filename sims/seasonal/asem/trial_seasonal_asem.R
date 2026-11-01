@@ -30,6 +30,11 @@ models <- list(
   quarter_pulse_prot = list(ns = 4,  prot = TRUE,  w = c(1, 1, 1, 3)),
   month_pulse        = list(ns = 12, prot = FALSE, w = c(rep(1, 11), 11)),
   month_pulse_prot   = list(ns = 12, prot = TRUE,  w = c(rep(1, 11), 11)))
+# protocol with generation-time rho (jb3_rho_gt(GT), GT from jb3_leslie on the OM biology): shrimp 0.56, herring 0.71, sardine 0.50
+rho_gt <- c("pra.27.3a4a" = 0.6, "her.27.25-2932" = 0.75, "pil.27.8abd" = 0.6)   # jb3_rho_table() suggested values
+models$annual_protgt  <- list(ns = 1,  prot = TRUE, rho = "gt")
+models$quarter_protgt <- list(ns = 4,  prot = TRUE, rho = "gt")
+models$month_protgt   <- list(ns = 12, prot = TRUE, rho = "gt")
 if(nzchar(Sys.getenv("MODELS"))) models <- models[strsplit(Sys.getenv("MODELS"), ",")[[1]]]
 
 one <- function(it, st){
@@ -46,7 +51,8 @@ one <- function(it, st){
   pr <- jb3_priors(d, r = c(r0, 0.3), K = c(b0, 1, 0), bkinit = c(bk, 0.3))
   do.call(rbind, lapply(names(models), function(nm){
     x <- models[[nm]]
-    md <- jb3_model(BmsyK = 0.4, lag = if(x$prot) amat else 0, rho = if(x$prot) 0.75 else 0,
+    rh <- if(!x$prot) 0 else if(identical(x$rho, "gt")) rho_gt[[st]] else 0.75
+    md <- jb3_model(BmsyK = 0.4, lag = if(x$prot) amat else 0, rho = rh,
                     nseason = x$ns, catch.alloc = x$alloc %||% "F", season.w = x$w)
     t0 <- proc.time()[["elapsed"]]
     f <- tryCatch(suppressWarnings(jabba3(d, pr, md, osa = FALSE)), error = function(e) NULL)
