@@ -42,6 +42,19 @@ jb3_draws <- function(fit, ndraws = 1000, seed = 1){
 }
 
 # NUTS with tmbstan on the same objective (all random effects sampled)
+# run tmbstan in parallel; if the parallel workers fail (e.g. on Windows, where the RTMB tape is not passed to the
+# PSOCK workers), fall back to sequential chains with a message
+.nuts_run <- function(run, cores){
+  if(cores <= 1) return(run(1))
+  out <- tryCatch(run(cores), error = function(e) e)
+  if(inherits(out, "error") || !inherits(out, "stanfit") || length(out@sim) == 0){
+    message("NUTS: parallel chains failed (", if(inherits(out, "error")) conditionMessage(out) else "no samples",
+            "); running the chains sequentially (cores = 1)")
+    out <- run(1)
+  }
+  out
+}
+
 jb3_nuts <- function(fit, nuts = list()){
   .need("tmbstan", "engine = 'nuts' needs tmbstan")
   st <- utils::modifyList(list(chains = 3, iter = 4000, seed = 1, cores = 1, thin = 1,
@@ -52,8 +65,9 @@ jb3_nuts <- function(fit, nuts = list()){
   obj <- if(nc) .nc_obj(fit) else fit$obj
   p0 <- if(nc) obj$env$par else obj$env$last.par.best
   init <- lapply(seq_len(st$chains), function(i) p0)
-  sf <- tmbstan::tmbstan(obj, chains = st$chains, iter = st$iter, warmup = st$warmup, seed = st$seed, cores = st$cores,
-                         thin = st$thin, control = st$control, laplace = FALSE, init = init, silent = TRUE, refresh = 0)
+  run <- function(cores) tmbstan::tmbstan(obj, chains = st$chains, iter = st$iter, warmup = st$warmup, seed = st$seed,
+                         cores = cores, thin = st$thin, control = st$control, laplace = FALSE, init = init, silent = TRUE, refresh = 0)
+  sf <- .nuts_run(run, st$cores)
   pm <- as.matrix(sf); pm <- pm[, colnames(pm) != "lp__", drop = FALSE]
   fit$draws <- .derive(fit, pm, obj); fit$draws$type <- "nuts"
   sm <- rstan::summary(sf)$summary

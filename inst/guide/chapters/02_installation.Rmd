@@ -1,19 +1,43 @@
 # Installation
 
-JABBA3 depends on `RTMB` and `ggplot2`. NUTS needs `tmbstan` (and `rstan`); FLR
-inputs and outputs need `FLCore` (and `ggplotFL` for plotting); `patchwork` is
-used for multi-panel diagnostics. The converters from JABBA need the `JABBA`
-package.
+## Required
+
+JABBA3 needs `RTMB`, `ggplot2` and `Matrix`; these are installed with the package:
 
 ```{r install, eval = FALSE}
-install.packages(c("RTMB", "ggplot2", "Matrix", "tmbstan", "rstan", "patchwork"))
-install.packages(c("FLCore", "ggplotFL"),
-                 repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
+install.packages("remotes")
 remotes::install_github("Henning-Winker/JABBA3")
 ```
+
+## Optional
+
+| Package | Needed for | Install |
+|---|---|---|
+| `tmbstan`, `rstan` | NUTS (`engine = "nuts"`): full posteriors for final runs, catch-only and prior predictive runs | `install.packages(c("tmbstan", "rstan"))` |
+| `patchwork` | multi-panel diagnostics and summary plots | `install.packages("patchwork")` |
+| `FLCore`, `ggplotFL`, `FLRef` | FLR inputs and outputs (`jb3_FLStockR()`, `jbdat2flr()`) | see below |
+| `JABBA` | converting JABBA (JAGS) inputs (`jbinput2jabba3()`) | `remotes::install_github("JABBAmodel/JABBA")` |
+| `MASS` | Kobe contours | `install.packages("MASS")` |
+
+```{r install-optional, eval = FALSE}
+install.packages(c("tmbstan", "rstan", "patchwork", "MASS"))
+install.packages(c("FLCore", "ggplotFL", "FLRef"),
+                 repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
+remotes::install_github("JABBAmodel/JABBA")
+```
+
+> **NUTS needs a C++ toolchain.** `rstan` compiles models, so it needs Rtools on Windows
+> (<https://cran.r-project.org/bin/windows/Rtools/>, the version matching your R) or the Xcode command-line tools
+> on macOS (`xcode-select --install`). Check the toolchain with `pkgbuild::has_build_tools(debug = TRUE)` before
+> installing `rstan`. JABBA3 runs without NUTS; only `engine = "nuts"`, the NUTS chapters and catch-only runs
+> need it.
+
+## Check the installation
 
 ```{r load}
 library(JABBA3)
 packageVersion("JABBA3")
 jabba3_info()
+opt <- c("tmbstan", "rstan", "patchwork", "FLCore", "ggplotFL", "FLRef", "JABBA", "MASS")
+data.frame(package = opt, installed = vapply(opt, requireNamespace, logical(1), quietly = TRUE), row.names = NULL)
 ```

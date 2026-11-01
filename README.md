@@ -68,7 +68,7 @@ jbplot_all(fit, "plots", retro = rt, hc = hc, proj = pj)
 flq <- jb3_flqs(fit)
 ```
 
-## What is in the prototype
+## What is in JABBA3
 
 | Area | Functions |
 |---|---|

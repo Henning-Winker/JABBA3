@@ -1,5 +1,9 @@
 # NUTS diagnostics
 
+> **Requirements.** NUTS runs through `tmbstan`, which needs `rstan` and a C++ toolchain (Rtools on Windows,
+> Xcode command-line tools on macOS); see chapter *Installation*. Without them, `engine = "nuts"` stops with a
+> message, and everything else in JABBA3 works.
+
 A NUTS fit has to be checked for convergence of the chains before its
 posterior is used. `jb3_nuts_diags()` gives the rank-normalised split
 $\hat{R}$, bulk and tail effective sample sizes (ESS; Vehtari et al. 2021) for

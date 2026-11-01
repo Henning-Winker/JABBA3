@@ -204,9 +204,10 @@ jb3_trend <- function(I, se = NULL, type = c("relative", "census"), state = c("r
   .need("tmbstan", "engine = 'nuts' needs tmbstan")
   st <- utils::modifyList(list(chains = 3, iter = 2000, seed = 1, cores = 1, control = list(adapt_delta = 0.95)), nuts)
   st$warmup <- st$warmup %||% floor(st$iter/2)
-  sf <- tmbstan::tmbstan(fit$obj, chains = st$chains, iter = st$iter, warmup = st$warmup, seed = st$seed, cores = st$cores,
-                         control = st$control, laplace = FALSE, silent = TRUE, refresh = 0,
+  run <- function(cores) tmbstan::tmbstan(fit$obj, chains = st$chains, iter = st$iter, warmup = st$warmup, seed = st$seed,
+                         cores = cores, control = st$control, laplace = FALSE, silent = TRUE, refresh = 0,
                          init = lapply(seq_len(st$chains), function(i) fit$obj$env$last.par.best))
+  sf <- .nuts_run(run, st$cores)
   pm <- as.matrix(sf); pm <- pm[, colnames(pm) != "lp__", drop = FALSE]
   fit$draws <- .trend_derive(fit, pm, "nuts"); fit$nuts <- list(stanfit = sf, settings = st)
   # posterior medians and quantiles of the states
