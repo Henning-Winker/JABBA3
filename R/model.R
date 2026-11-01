@@ -61,6 +61,7 @@
 #' @param catch.alloc how annual catch is split over the seasons in years without seasonal catch: "F" (default; constant
 #'   harvest fraction within the year, i.e. catch proportional to the exploitable biomass of each season, as SPiCT's
 #'   F x B), "equal" (catch / nseason), or a vector of shares (one per season, e.g. from quarterly landings)
+#' @param sdb.max optional upper cap on the process error SD sdb (soft bound, as \code{sdi.bound}); NULL = none
 #' @param season.w relative production weights of the seasons (rescaled to mean 1; NULL = equal), e.g. a recruitment
 #'   pulse \code{c(0, 3, 1, 0)}
 #' @return list of class \code{jb3model}
@@ -71,7 +72,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
                       param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL,
-                      nseason = 1, catch.alloc = "F", season.w = NULL){
+                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
   nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
   if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal"))
   if(!is.null(season.w) && (length(season.w) != nseason || any(season.w < 0) || sum(season.w) <= 0))
@@ -98,7 +99,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min, nseason = nseason, catch.alloc = catch.alloc, season.w = season.w),
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, nseason = nseason, catch.alloc = catch.alloc, season.w = season.w,
+                 sdb.max = sdb.max),
             class = "jb3model")
 }
 

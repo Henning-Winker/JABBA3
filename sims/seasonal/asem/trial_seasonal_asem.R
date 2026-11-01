@@ -61,7 +61,8 @@ one <- function(it, st){
     rh <- if(!x$prot) 0 else if(identical(x$rho, "gt")) rho_gt[[st]] else 0.75
     lg <- if(!x$prot) 0 else switch(x$lagv %||% "amat", amat = amat, none = 0, a50mat = a50mat[[st]], max = max(a50mat[[st]], a50sel[[st]]))
     md <- jb3_model(BmsyK = 0.4, lag = lg, rho = rh,
-                    nseason = x$ns, catch.alloc = x$alloc %||% "F", season.w = x$w)
+                    nseason = x$ns, catch.alloc = x$alloc %||% "F", season.w = x$w,
+                    sdb.max = if(nzchar(Sys.getenv("SDBMAX"))) as.numeric(Sys.getenv("SDBMAX")) else NULL)
     t0 <- proc.time()[["elapsed"]]
     f <- tryCatch(suppressWarnings(jabba3(d, pr, md, osa = FALSE)), error = function(e) NULL)
     if(is.null(f)) return(data.frame(stock = st, iter = it, model = nm, year = yrs, est = NA, lci = NA, uci = NA,

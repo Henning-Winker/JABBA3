@@ -74,6 +74,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     nst = if(is.null(st)) 0L else nrow(st), st.t = if(is.null(st)) 1L else match(st$year, data$years),
     st.type = if(is.null(st)) "BK" else as.character(st$type), st.pr = if(is.null(st)) matrix(1, 1, 2) else cbind(st$median, st$log.sd),
     P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound,
+    sdb.max = if(is.null(model$sdb.max)) -1 else model$sdb.max,
     prior.only = isTRUE(prior.only), nc = isTRUE(nc)
   )
   dat <- c(dat, ax)
@@ -236,6 +237,7 @@ jb3_nll <- function(par, dat){
   penK <- smin(logK - log(K.bound[1]), 0, 1e-4) + smax(logK - log(K.bound[2]), 0, 1e-4)
   nll <- nll + 500*penK^2
   if(!spict) nll <- nll + 500*sum(smax(logsdi - log(sdi.bound), 0, 1e-4)^2)
+  if(sdb.max > 0) nll <- nll + 500*smax(logsdb - log(sdb.max), 0, 1e-4)^2
   # step quantities (suffix S) and annual quantities (start-of-year biomass; annual harvest rate = catch / mean EB)
   PS <- P; BBmsyS <- BBmsy; remS <- rem; procdevS <- procdev; sdtS <- sdt
   HS <- estCS/(K*P*rem)
