@@ -58,7 +58,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   dat <- list(
     N = N, TC = pmax(data$catch/mucatch, 1e-8), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
     SE2 = SE2, W = W, nI = nI, nq = nq, nvar = nvar, sets.q = as.integer(factor(sets.q)), sets.var = as.integer(factor(sets.var)),
-    lagidx = pmax(seq_len(N) - model$lag*ns, 1), lag0 = model$lag*ns, stI = if(model$start == "index") fi else 1L,
+    lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
     r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), bk.pr = priors$bkinit, sdb.pr = priors$sdb,

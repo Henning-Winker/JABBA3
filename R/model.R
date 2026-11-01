@@ -4,7 +4,8 @@
 #'
 #' @param shape "pella" (shape from \code{BmsyK}), "schaefer" (Bmsy/K = 0.5) or "fox" (m = 1.001)
 #' @param BmsyK Bmsy/K for the Pella-Tomlinson form (0.4 default, as JABBA)
-#' @param lag production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag
+#' @param lag production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag.
+#'   With \code{nseason > 1} the lag may be fractional and is rounded to whole seasons (e.g. 0.75 years = 3 quarters)
 #' @param sdb.form "const" (default) or "dyn": process error SD sdb_t = sdb x (B/Bmsy)^-k (Tier 2)
 #' @param sdb.fixed fixed process error SD at Bmsy instead of estimating it (Tier 2 sets the tuned level here)
 #' @param xlim bounds of B/Bmsy in the dynamic SD
@@ -82,7 +83,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
   if(shape == "schaefer") BmsyK <- 0.5
   m <- switch(shape, schaefer = 2, fox = 1.001, pella = .m_from_bmsyk(BmsyK))
   if(shape == "fox") BmsyK <- m^(-1/(m - 1))
-  lag <- as.integer(round(lag)); if(lag < 0) stop("lag must be >= 0", call. = FALSE)
+  if(length(lag) != 1 || !is.finite(lag) || lag < 0) stop("lag must be a single number >= 0", call. = FALSE)
+  lag <- if(nseason == 1) as.integer(round(lag)) else round(lag*nseason)/nseason   # seasons: fractional lag in whole steps
   if(inherits(ebsb, "jb3selex")) ebsb <- ebsb$ebsb                       # from jb3_selex()
   if(!is.null(ebsb)){
     if(!is.list(ebsb)) ebsb <- list(ebsb)

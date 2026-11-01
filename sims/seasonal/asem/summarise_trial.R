@@ -4,7 +4,7 @@ conv <- aggregate(ok ~ stock + model, data.frame(x[x$year == max(x$year), c("sto
 x <- x[ok, ]
 x$e_eb <- log(x$est/x$tru_eb); x$e_sb <- log(x$est/x$tru_sb)
 x$phase <- cut(x$year, c(-Inf, 2004, 2014, Inf), c("down", "Fcut", "rebuild"))
-mods <- c("annual", "annual_prot", "quarter_equal", "quarter", "quarter_prot", "month", "month_prot", "quarter_pulse", "quarter_pulse_prot", "month_pulse", "month_pulse_prot", "annual_protgt", "quarter_protgt", "month_protgt")
+mods <- c("annual", "annual_prot", "quarter_equal", "quarter", "quarter_prot", "month", "month_prot", "quarter_pulse", "quarter_pulse_prot", "month_pulse", "month_pulse_prot", "annual_protgt", "quarter_protgt", "month_protgt", "annual_ar", "quarter_ar", "month_ar", "quarter_lag50", "month_lag50", "quarter_lagmax", "month_lagmax")
 term <- x[x$year == max(x$year), ]
 s <- function(d) c(median = median(d$e_eb), rmse = sqrt(mean(d$e_eb^2)), x2 = mean(abs(d$e_eb) > log(2)),
                    cover = mean(d$tru_eb >= d$lci & d$tru_eb <= d$uci, na.rm = TRUE), vsSSB = median(d$e_sb))

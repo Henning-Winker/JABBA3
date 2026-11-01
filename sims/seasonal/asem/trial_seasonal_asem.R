@@ -35,6 +35,13 @@ rho_gt <- c("pra.27.3a4a" = 0.6, "her.27.25-2932" = 0.75, "pil.27.8abd" = 0.6)  
 models$annual_protgt  <- list(ns = 1,  prot = TRUE, rho = "gt")
 models$quarter_protgt <- list(ns = 4,  prot = TRUE, rho = "gt")
 models$month_protgt   <- list(ns = 12, prot = TRUE, rho = "gt")
+# short-lived lag variants (rho from jb3_rho_table); lag in years from the OM ogives (interpolated 50% ages)
+a50mat <- c("pra.27.3a4a" = 2.16, "her.27.25-2932" = 1.71, "pil.27.8abd" = 0.62)
+a50sel <- c("pra.27.3a4a" = 1.48, "her.27.25-2932" = 3.00, "pil.27.8abd" = 1.19)
+for(ns in c(1, 4, 12)){ pre <- c("1" = "annual", "4" = "quarter", "12" = "month")[as.character(ns)]
+  models[[paste0(pre, "_ar")]] <- list(ns = ns, prot = TRUE, rho = "gt", lagv = "none")
+  if(ns > 1){ models[[paste0(pre, "_lag50")]]  <- list(ns = ns, prot = TRUE, rho = "gt", lagv = "a50mat")
+              models[[paste0(pre, "_lagmax")]] <- list(ns = ns, prot = TRUE, rho = "gt", lagv = "max") } }
 if(nzchar(Sys.getenv("MODELS"))) models <- models[strsplit(Sys.getenv("MODELS"), ",")[[1]]]
 
 one <- function(it, st){
@@ -52,7 +59,8 @@ one <- function(it, st){
   do.call(rbind, lapply(names(models), function(nm){
     x <- models[[nm]]
     rh <- if(!x$prot) 0 else if(identical(x$rho, "gt")) rho_gt[[st]] else 0.75
-    md <- jb3_model(BmsyK = 0.4, lag = if(x$prot) amat else 0, rho = rh,
+    lg <- if(!x$prot) 0 else switch(x$lagv %||% "amat", amat = amat, none = 0, a50mat = a50mat[[st]], max = max(a50mat[[st]], a50sel[[st]]))
+    md <- jb3_model(BmsyK = 0.4, lag = lg, rho = rh,
                     nseason = x$ns, catch.alloc = x$alloc %||% "F", season.w = x$w)
     t0 <- proc.time()[["elapsed"]]
     f <- tryCatch(suppressWarnings(jabba3(d, pr, md, osa = FALSE)), error = function(e) NULL)
