@@ -55,7 +55,7 @@
     both <- rowSums(!is.na(CS)) == nsd & ann > 0
     if(any(both)) stop("catch given both annually and by season in years ", paste(yrs[both], collapse = ", "), call. = FALSE)
     tot <- ifelse(rowSums(!is.na(CS)) == nsd, rowSums(CS), ann)
-    out$catch.annual <- data.frame(year = yrs, catch = tot)
+    out$catch.annual <- data.frame(year = yrs, catch = as.numeric(tot))
     out$catch.season <- CS
   }
   if(!is.null(it)){
