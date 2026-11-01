@@ -93,7 +93,7 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
                      sets.q = jd$sets.q, sets.var = jd$sets.var, catch.error = isTRUE(s$add.catch.CV), sdc = s$catch.cv %||% 0.1,
                      ebsb = ebsb, ebsb.index = ebi, ebsb.removal = isTRUE(s$ebsb.removal) || is.null(ebsb),
                      q.uniform = q.uniform, P.bound = jd$P_bound %||% c(0.02, 1.3),
-                     sdi.bound = jd$sigmaobs_bound %||% 1, aux.q = aux.q, aux.sd = aux.sd, aux.se.min = aux.se.min)
+                     sdi.bound = jd$sigmaobs_bound %||% 1, sdi.est = !isFALSE(s$sigma.est), aux.q = aux.q, aux.sd = aux.sd, aux.se.min = aux.se.min)
   if(!q.uniform) msg("q has a flat prior on log q (JABBA/JAGS: uniform on q; use q.uniform = TRUE to reproduce)")
   list(data = data, priors = priors, model = model)
 }

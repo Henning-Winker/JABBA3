@@ -32,6 +32,8 @@
 #' @param q.uniform legacy JABBA uniform prior on q (density proportional to q on log q)
 #' @param P.bound,K.bound soft bounds on B/K and K (JABBA defaults)
 #' @param sdi.bound soft upper bound on sdi (JABBA: 1)
+#' @param sdi.est estimate the additional observation SD of the indices (default); FALSE uses the input SEs
+#'   (or \code{se.min}) only, as JABBA with \code{fixed.obsE} and \code{sigma.est = FALSE}
 #' @param param parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
 #'   sampled directly) or \code{"noncentred"} (standard normal innovations z_t ~ N(0, 1) are sampled, and
 #'   d_t = rho d_{t-1} + sdb_t sqrt(1 - rho^2) z_t, with lag, bias correction, random walk and dynamic SD as in the
@@ -55,7 +57,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, rw = FALSE, rw.scale = 1, biascor = FALSE, start = c("all", "index"),
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
-                      q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1,
+                      q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
                       param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL){
   param <- match.arg(param)
   if(!(identical(effort.creep, "estimate") || (is.numeric(effort.creep) && length(effort.creep) == 1 && effort.creep > -1)))
@@ -77,7 +79,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  biascor = biascor, start = start, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
-                 K.bound = K.bound, sdi.bound = sdi.bound, param = param, effort.creep = effort.creep, aux.q = aux.q,
+                 K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
                  aux.sd = aux.sd, aux.se.min = aux.se.min), class = "jb3model")
 }
 

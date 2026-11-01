@@ -31,6 +31,7 @@ jb3_model(
   P.bound = c(0.02, 1.3),
   K.bound = c(0.01, 1e+10),
   sdi.bound = 1,
+  sdi.est = TRUE,
   param = c("centred", "noncentred"),
   effort.creep = 0,
   aux.q = NULL,
@@ -92,6 +93,9 @@ is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)}
 \item{P.bound, K.bound}{soft bounds on B/K and K (JABBA defaults)}
 
 \item{sdi.bound}{soft upper bound on sdi (JABBA: 1)}
+
+\item{sdi.est}{estimate the additional observation SD of the indices (default); FALSE uses the input SEs
+(or \code{se.min}) only, as JABBA with \code{fixed.obsE} and \code{sigma.est = FALSE}}
 
 \item{param}{parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
 sampled directly) or \code{"noncentred"} (standard normal innovations z_t ~ N(0, 1) are sampled, and

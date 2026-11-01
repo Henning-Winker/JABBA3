@@ -82,6 +82,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   if(!dat$est.rho) map$trho <- factor(NA)
   if(!dat$catch.err) map$cdev <- factor(rep(NA, N))
   if(nI == 0 || dat$prior.only){ map$logq <- factor(rep(NA, nq)); map$logsdi <- factor(rep(NA, nvar)) }
+  if(nI > 0 && isFALSE(model$sdi.est)){ map$logsdi <- factor(rep(NA, nvar)); par$logsdi <- rep(log(1e-4), nvar) }
   map$logqA <- factor(ifelse(dat$est.qA & !dat$prior.only, seq_along(dat$est.qA), NA))
   map$logsdA <- factor(ifelse(dat$est.sdA & !dat$prior.only, seq_along(dat$est.sdA), NA))
   if(!dat$est.creep) map$creep <- factor(NA)
