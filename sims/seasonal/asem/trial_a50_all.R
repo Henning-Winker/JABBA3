@@ -45,4 +45,4 @@ t0 <- proc.time()[3]
 res <- mclapply(seq_len(nrow(grid)), function(i) tryCatch(one(grid$it[i], grid$st[i]), error = function(e) conditionMessage(e)), mc.cores = cores)
 bad <- !sapply(res, is.data.frame); if(any(bad)) print(unique(unlist(res[bad])))
 out <- do.call(rbind, res[!bad]); cat("rows", nrow(out), "in", round(proc.time()[3] - t0), "s\n")
-saveRDS(list(res = out, bio = bio), sprintf("trial_a50_all_%s.rds", paste(range(its), collapse = "_")))
+saveRDS(list(res = out, bio = bio), sprintf("trial_a50_all_%s%s.rds", paste(range(its), collapse = "_"), Sys.getenv("TAG")))
