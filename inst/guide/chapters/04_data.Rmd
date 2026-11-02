@@ -53,6 +53,54 @@ Several catch columns give `FLQuants` (one per fleet) unless `fleets = FALSE`.
 `jbcatch2flq()` and `jbidx2FLIndices()` convert the catch and the indices
 separately.
 
+## Series of different lengths
+
+The catch and the indices do not have to cover the same years. `jb3_data()`
+aligns all series by year: the model years are the catch years, and each index
+keeps its own years. Leading and trailing years without catch are trimmed, but a
+gap inside the catch series is an error (fill it first, e.g. with
+`jb3_catchfill()`). Index observations outside the catch years are not used, and
+a message says how many. Rows may be in any order, and standard errors are
+matched to the indices by year and by column name, so they can be given for some
+years or some indices only.
+
+The package ships the bigeye input as FLR objects with each series in its
+original length: the catch as an `FLQuant` (1950-2017), and the two longline
+indices as `FLIndexBiomass` objects of different lengths (1959-1978 and
+1979-2017), with `index.var` still empty:
+
+```{r data-flr-lengths}
+inp <- readRDS(system.file("extdata", "flr_betinp.rds", package = "JABBA3"))
+unlist(dims(inp$catch)[c("minyear", "maxyear")])
+sapply(inp$indices, function(x) range(x)[c("minyear", "maxyear")])
+index.var(inp$indices[[1]])[, ac(1959:1963)]   # no SEs yet
+```
+
+The log-scale standard errors go in the `index.var` slot. A common choice when
+no survey-based SEs exist is a fixed value, here 0.2 for all years of both
+indices:
+
+```{r data-flr-se}
+for(i in seq_along(inp$indices)) index.var(inp$indices[[i]])[] <- 0.2
+index.var(inp$indices[[1]])[, ac(1959:1963)]
+```
+
+Year-specific SEs are filled the same way, by year, e.g. a larger SE for the
+first five years of the late index:
+`index.var(inp$indices[[2]])[, ac(1979:1983)] <- 0.3`.
+
+`jb3_data()` then aligns the series; `jb3_align()` lists the years given and
+used for each:
+
+```{r data-flr-align}
+d.inp <- jb3_data(inp$catch, inp$indices, stock = "bet")
+jb3_align(d.inp)
+all.equal(d.inp$I, d$I, check.attributes = FALSE)   # same indices as the data-frame input
+```
+
+The same works with data frames: a catch data frame of one length, an index data
+frame of another, and SEs for a subset of the years.
+
 ## Check 1: the data
 
 `jbplot_data()` shows the catch and the indices. Look for:

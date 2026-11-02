@@ -53,6 +53,15 @@ Native inputs follow FLR: \code{catch} as an \code{FLQuant} (or \code{FLQuants} 
 (see also \code{\link{jb3_data_jabba}()}).
 }
 \details{
+\strong{Alignment.} The series need not cover the same years. The model years are the catch years (leading and
+  trailing years without catch are trimmed; gaps inside the catch series are an error, see \code{\link{jb3_catchfill}()}).
+  Each index keeps its own years and is matched by year; index observations outside the catch years are not used (message).
+  Rows may be in any order; the year column is the column named \code{year} (or the first column). Standard errors are matched
+  to the indices by year and by column name (or by position when the names differ but the number of columns agrees); SEs may
+  be given for some years or some indices only. Catch by fleet is summed with missing values counted as no catch, unless all
+  fleets are missing in a year. \code{FLIndices} may hold \code{FLIndexBiomass} objects of different lengths. The years
+  used are listed by \code{\link{jb3_align}()}.
+
 \code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
   (including status priors, \code{jb3_priors(status = )}) and any auxiliary data; \code{jabba3()} runs it with NUTS by
   default.
