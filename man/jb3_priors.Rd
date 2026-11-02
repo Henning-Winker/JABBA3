@@ -18,7 +18,8 @@ jb3_priors(
   sdi = c(0.2, 0.5, 0),
   status = NULL,
   psi = NULL,
-  creep = c(0.02, 0.02)
+  creep = c(0.02, 0.02),
+  K.max = NULL
 )
 }
 \arguments{
@@ -58,6 +59,13 @@ in JABBA; year NA = terminal year)}
 \item{psi}{alias of \code{bkinit} (JABBA name)}
 
 \item{creep}{normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}}
+
+\item{K.max}{optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
+the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
+the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
+cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
+as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
+\code{NULL} (default) = no cap}
 }
 \value{
 list of class \code{jb3priors}

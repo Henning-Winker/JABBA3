@@ -27,13 +27,19 @@
 #'   in JABBA; year NA = terminal year)
 #' @param creep normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}
 #' @param psi alias of \code{bkinit} (JABBA name)
+#' @param K.max optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
+#'   the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
+#'   the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
+#'   cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
+#'   as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
+#'   \code{NULL} (default) = no cap
 #' @return list of class \code{jb3priors}
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
-                       creep = c(0.02, 0.02)){
+                       creep = c(0.02, 0.02), K.max = NULL){
   pr3 <- function(x, nm){
     x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
     if(length(x) != 3) stop("prior ", nm, " must be c(median, log.sd[, on])", call. = FALSE)
@@ -53,8 +59,12 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   sdi <- pr3(sdi, "sdi")
   rho <- stats::setNames(as.numeric(c(rho, 1)[1:3]), c("mean", "sd", "on"))
   status <- .status_df(status)
+  K.max <- if(is.null(K.max)) c(mult = NA, log.sd = NA, on = 0) else if(identical(K.max, "r"))
+    c(mult = 7.6*r[["median"]]^-0.587, log.sd = 0.3, on = 1) else {
+      if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
+      c(mult = K.max[1], log.sd = if(length(K.max) > 1) K.max[2] else 0.3, on = 1) }
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
-                 sdi = sdi, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd"))), class = "jb3priors")
+                 sdi = sdi, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max), class = "jb3priors")
 }
 
 #' Status priors (JABBA b.prior)
@@ -106,6 +116,7 @@ print.jb3priors <- function(x, ...){
                      igamma = "diffuse inverse-gamma(0.001, 0.001) on the variance (JABBA legacy)", lognormal = "user lognormal"), "\n")
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
   cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
+  if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K.max: soft upper prior at %.1f x max catch (half-normal on log K above, sd %.2f)\n", x$K.max[1], x$K.max[2]))
   if(!is.null(x$status)){ cat("status priors:\n"); print(x$status) }
   invisible(x)
 }
