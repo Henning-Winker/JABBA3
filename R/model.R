@@ -51,6 +51,10 @@
 #' @param aux.sd additional observation SD of the auxiliary series: \code{NULL} (default) estimates one per series
 #'   (JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series
 #' @param aux.se.min minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)
+#' @param frw.all only with missing catch (\code{jb3_data(catch.gaps = "estimate")}): FALSE (default) applies the random walk on
+#'   log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
+#'   (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
+#'   with catch, which tends to shrink it and smooth F through the gaps)
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
@@ -58,7 +62,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
-                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL){
+                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE){
   param <- match.arg(param)
   if(!(identical(effort.creep, "estimate") || (is.numeric(effort.creep) && length(effort.creep) == 1 && effort.creep > -1)))
     stop("effort.creep must be a number > -1 or \"estimate\"", call. = FALSE)
@@ -80,7 +84,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min), class = "jb3model")
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all), class = "jb3model")
 }
 
 #' @export

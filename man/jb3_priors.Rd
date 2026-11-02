@@ -18,7 +18,8 @@ jb3_priors(
   sdi = c(0.2, 0.5, 0),
   status = NULL,
   psi = NULL,
-  creep = c(0.02, 0.02)
+  creep = c(0.02, 0.02),
+  sdf = c(0.3, 0.5, 1)
 )
 }
 \arguments{
@@ -58,6 +59,10 @@ in JABBA; year NA = terminal year)}
 \item{psi}{alias of \code{bkinit} (JABBA name)}
 
 \item{creep}{normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}}
+
+\item{sdf}{SD of the random walk in log harvest rate, used for years without catch (\code{jb3_data(catch.gaps =
+"estimate")}): lognormal prior c(median, log.sd, on), default median 0.3 (log.sd 0.5). SPiCT benchmarks often use a loose
+prior with the catch SD fixed, e.g. c(4, 0.5, 1), together with \code{jb3_model(frw.all = TRUE)}.}
 }
 \value{
 list of class \code{jb3priors}

@@ -12,7 +12,8 @@ jb3_data(
   catch.se = NULL,
   auxiliary = NULL,
   auxiliary.se = NULL,
-  auxiliary.type = "effort"
+  auxiliary.type = "effort",
+  catch.gaps = c("stop", "estimate")
 )
 }
 \arguments{
@@ -39,6 +40,11 @@ catchability, additional SD and effort creep of the auxiliary series.}
 \item{auxiliary.se}{optional log-scale SEs of the auxiliary data, same layout as \code{auxiliary} (data.frame input)}
 
 \item{auxiliary.type}{type of each auxiliary series (recycled), one of "effort", "f", "ffmsy", "bbmsy", "bk", "z"}
+
+\item{catch.gaps}{"stop" (default): the model years are the catch years and catch must be given in all of them;
+"estimate": the model years span the catch and the indices, and catch in years without catch (gaps, years before the
+first or after the last catch year) is estimated with a random walk on log harvest rate (see \code{\link{jb3_model}()},
+\code{sdf}), as in SPiCT}
 }
 \value{
 object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}

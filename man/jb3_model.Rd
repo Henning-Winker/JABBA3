@@ -36,7 +36,8 @@ jb3_model(
   effort.creep = 0,
   aux.q = NULL,
   aux.sd = NULL,
-  aux.se.min = NULL
+  aux.se.min = NULL,
+  frw.all = FALSE
 )
 }
 \arguments{
@@ -118,6 +119,11 @@ types the observation is q times the model quantity.}
 (JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series}
 
 \item{aux.se.min}{minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)}
+
+\item{frw.all}{only with missing catch (\code{jb3_data(catch.gaps = "estimate")}): FALSE (default) applies the random walk on
+log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
+(sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
+with catch, which tends to shrink it and smooth F through the gaps)}
 }
 \value{
 list of class \code{jb3model}

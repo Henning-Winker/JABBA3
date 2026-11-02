@@ -67,6 +67,11 @@ d.inp <- jb3_data(inp$catch, inp$indices, stock = "bet")
 jb3_align(d.inp)
 ```
 
+Index years before the first (or after the last) catch year, and gaps in the
+catch, are kept with `jb3_data(..., catch.gaps = "estimate")`: the catch in those
+years is then estimated with a random walk on the log harvest rate (as in SPiCT),
+while the years with catch stay catch-conditioned.
+
 ## Check 1: the data
 
 `jbplot_data()` shows the catch and the indices. Look for:
