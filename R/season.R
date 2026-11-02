@@ -136,16 +136,16 @@
   }
   # catch: annual totals and within-year shares
   alloc <- model$catch.alloc %||% "F"
-  share <- rep(1/ns, N); allocF <- rep(FALSE, Ny)
+  share <- rep(1/ns, N); allocF <- rep(0L, Ny)
   if(is.numeric(alloc)){
     if(length(alloc) != ns || any(alloc < 0)) stop("catch.alloc shares: one non-negative value per season", call. = FALSE)
     share <- rep(alloc/sum(alloc), Ny)
-  } else if(alloc == "F" && ns > 1) allocF[] <- TRUE
+  } else if(alloc %in% c("F", "Fstate") && ns > 1) allocF[] <- if(alloc == "F") 1L else 2L
   CS <- data$catch.season
   if(!is.null(CS) && ns > 1){
     if(ncol(CS) != ns) stop("seasonal catch has ", ncol(CS), " seasons but jb3_model(nseason = ", ns, ")", call. = FALSE)
     for(y in which(rowSums(!is.na(CS)) == ns)){
-      tot <- sum(CS[y, ]); share[(y - 1)*ns + seq_len(ns)] <- if(tot > 0) CS[y, ]/tot else rep(1/ns, ns); allocF[y] <- FALSE
+      tot <- sum(CS[y, ]); share[(y - 1)*ns + seq_len(ns)] <- if(tot > 0) CS[y, ]/tot else rep(1/ns, ns); allocF[y] <- 0L
     }
   }
   w <- model$season.w %||% rep(1, ns)

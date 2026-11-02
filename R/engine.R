@@ -198,10 +198,25 @@ jb3_nll <- function(par, dat){
   }
   P <- exp(logP); BBmsy <- P/BmsyK
   if(eb.rem){ rem <- rhof(P, ebcc); rem.msy <- rhof(BmsyK, ebcc) } else { rem <- 1 + 0*P; rem.msy <- 1 }
-  # equal-F allocation of annual catch: constant harvest fraction within the year, step catch proportional to EB = P x rem
-  if(ns > 1 && sum(allocF) > 0) for(y in which(allocF == 1)){
-    ii <- (y - 1)*ns + seq_len(ns); ebi <- P[ii]*rem[ii]
-    estCS[ii] <- estC[y]*ebi/sum(ebi)
+  # equal-F allocation of annual catch: constant harvest fraction h_y within the year.
+  # allocF = 1 (default "F"): sequential (Markov): h_y and the seasonal shares come from a deterministic projection of the
+  #   biomass through the year from the state at the start of the year (fixed-point iterations so that the seasonal
+  #   catches add up to the annual catch); each step's catch depends only on the start-of-year state.
+  # allocF = 2 ("Fstate", legacy): shares proportional to the states of all seasons of the year (not Markov; for comparison).
+  if(ns > 1 && sum(allocF) > 0) for(y in which(allocF > 0)){
+    ii <- (y - 1)*ns + seq_len(ns)
+    if(allocF[y] == 2){ ebi <- P[ii]*rem[ii]; estCS[ii] <- estC[y]*ebi/sum(ebi) } else {
+      P0 <- P[ii[1]]
+      remf <- function(p) if(eb.rem) rhof(p, ebcc) else 1 + 0*p
+      h <- estC[y]/(K*ns*P0*remf(P0))
+      for(k in 1:4){
+        Pt <- P0; eb <- 0*P[ii]
+        for(s in seq_len(ns)){ ebs <- Pt*remf(Pt); eb[s] <- ebs
+          Pt <- smax(Pt + gfac[ii[s]]*r/(m - 1)*Pt*(1 - Pt^(m - 1)) - h*ebs, 0.001, 1e-7) }
+        h <- estC[y]/(K*sum(eb))
+      }
+      estCS[ii] <- estC[y]*eb/sum(eb)
+    }
   }
   MSY <- BmsyK*K*Hmsy*rem.msy
   #--- process variance (v[t] applies to the transition into year t)

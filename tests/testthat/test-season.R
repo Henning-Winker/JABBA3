@@ -18,10 +18,14 @@ test_that("nseason = 1 is the annual model; seasonal steps run and keep catch to
     expect_equal(nrow(f4$ts[f4$ts$quantity == "B/Bmsy", ]), length(d$years))           # annual outputs
     expect_equal(f4$report$vf, .season_vfac(4, 0.5^(1/4)))
   }
-  # equal F: within-year harvest fraction constant
-  f4 <- suppressWarnings(jabba3(d, pr, jb3_model(shape = "fox", nseason = 4), osa = FALSE))
-  h <- matrix(f4$report$HS, 4)
+  # legacy state-based equal F ("Fstate"): within-year harvest fraction constant on the states
+  f4s <- suppressWarnings(jabba3(d, pr, jb3_model(shape = "fox", nseason = 4, catch.alloc = "Fstate"), osa = FALSE))
+  h <- matrix(f4s$report$HS, 4)
   expect_lt(max(apply(h, 2, function(x) diff(range(x))/mean(x))), 1e-6)
+  # sequential equal F (default): shares depend only on the start-of-year state; seasons add up to the annual catch
+  f4 <- suppressWarnings(jabba3(d, pr, jb3_model(shape = "fox", nseason = 4), osa = FALSE))
+  cs <- matrix(f4$report$estCS, 4)
+  expect_equal(colSums(cs), as.numeric(f4$report$estC), tolerance = 1e-8)
   # annual model status close to the seasonal one for a slow stock
   bb1 <- tail(f1$ts$est[f1$ts$quantity == "B/Bmsy"], 1); bb4 <- tail(f4$ts$est[f4$ts$quantity == "B/Bmsy"], 1)
   expect_lt(abs(log(bb4/bb1)), 0.3)
@@ -40,7 +44,7 @@ test_that("seasonal inputs: season and time columns", {
   st <- .season_steps(d, jb3_model(nseason = 4), d$years)
   expect_equal(sum(!is.na(st$I)), 20)
   expect_equal(unique(st$stepseason[!is.na(st$I[, 1])]), c(2, 4))                     # 0.25 -> season 2, 0.75 -> season 4
-  expect_equal(st$allocF, c(TRUE, rep(FALSE, 10)))                                     # seasonal catch given from 2001
+  expect_equal(st$allocF, c(1L, rep(0L, 10)))                                     # seasonal catch given from 2001
   expect_error(jb3_data(cs[-3, ], idx, nseason = 4), "incomplete")
   # annual index with timing
   d2 <- jb3_data(data.frame(year = yrs, catch = 40), data.frame(year = yrs, cpue = 1), index.time = 0.5)

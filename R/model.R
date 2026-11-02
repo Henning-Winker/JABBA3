@@ -74,7 +74,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL,
                       nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
   nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
-  if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal"))
+  if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal", "Fstate"))
   if(!is.null(season.w) && (length(season.w) != nseason || any(season.w < 0) || sum(season.w) <= 0))
     stop("season.w: one non-negative weight per season", call. = FALSE)
   param <- match.arg(param)
