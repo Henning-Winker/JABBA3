@@ -43,6 +43,10 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   if(ncol(data$I) == 0 || isTRUE(prior.only)) osa <- FALSE
   if(workflow != "none") return(jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
                                              ndraws = ndraws, nuts = nuts, osa = osa, se = se))
+  if((model$nseason %||% 1) > 1){                        # seasonal prototype: mode fits with annual outputs
+    if(engine == "nuts" || ndraws > 0) stop("nseason > 1: NUTS and draws are not yet available (use engine = \"rtmb\", ndraws = 0)", call. = FALSE)
+    osa <- FALSE
+  }
   ptm <- proc.time()
   setup <- jb3_setup(data, priors, model, peels = peels, index.peels = index.peels, prior.only = prior.only)
   opt <- jb3_optimise(setup, nstart = nstart, silent = silent)
@@ -148,7 +152,7 @@ jb3_convergence <- function(fit){
 #---------------------------------------------------------------------------------------------------------------
 # Lean output at the mode
 jb3_output <- function(best, setup, sdreport = TRUE){
-  obj <- best$obj; opt <- best$opt; dat <- setup$dat; mu <- setup$mucatch; yrs <- setup$years; N <- dat$N
+  obj <- best$obj; opt <- best$opt; dat <- setup$dat; mu <- setup$mucatch; yrs <- setup$years; N <- dat$Ny %||% dat$N
   rep <- obj$report(obj$env$last.par.best)
   sdr <- if(sdreport) tryCatch(suppressWarnings(RTMB::sdreport(obj, opt$par)), error = function(e) NULL) else NULL
   conv <- .conv_tier(obj, opt, sdr); conv$nstart <- best$nstart
@@ -162,8 +166,10 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   }
   # time series (long)
   tsq <- function(q, x, scale = 1, est = NULL) cbind(data.frame(year = yrs, quantity = q), lnci(x, scale, est))
-  lp <- if(!is.null(sdr)) sdr$par.random[names(sdr$par.random) == "logP"] else log(rep$P)
-  lps <- if(!is.null(sdr)) sqrt(sdr$diag.cov.random[names(sdr$par.random) == "logP"]) else NA
+  lpS <- if(!is.null(sdr)) sdr$par.random[names(sdr$par.random) == "logP"] else log(rep$PS %||% rep$P)
+  lpsS <- if(!is.null(sdr)) sqrt(sdr$diag.cov.random[names(sdr$par.random) == "logP"]) else rep(NA, length(lpS))
+  y1 <- dat$yr1 %||% seq_len(N)
+  lp <- lpS[y1]; lps <- lpsS[y1]
   B <- rep$P*rep$K
   remv <- if(dat$eb.rem) rep$rem else rep(1, N)
   SP <- c((B[-1] - B[-N] + rep$estC[-N]/remv[-N])*remv[-N], NA)*mu
@@ -183,6 +189,16 @@ jb3_output <- function(best, setup, sdreport = TRUE){
     ts <- rbind(ts, data.frame(year = yrs, quantity = "EB", est = EB, lci = NA, uci = NA, se.log = NA))
   }
   ts$run <- NA_character_
+  # seasonal series (point estimates; B/K with intervals from the state SEs)
+  ts.season <- NULL
+  if((dat$ns %||% 1) > 1){
+    sy <- yrs[dat$stepyear]; ss <- dat$stepseason; tm <- sy + (ss - 1)/dat$ns
+    sq <- function(q, est, lci = NA, uci = NA) data.frame(year = sy, season = ss, time = tm, quantity = q, est = est, lci = lci, uci = uci)
+    ts.season <- rbind(sq("B/K", exp(lpS), exp(lpS - 1.96*lpsS), exp(lpS + 1.96*lpsS)),
+                       sq("B", exp(lpS)*rep$K*mu, exp(lpS - 1.96*lpsS)*rep$K*mu, exp(lpS + 1.96*lpsS)*rep$K*mu),
+                       sq("B/Bmsy", rep$BBmsyS), sq("H", rep$HS), sq("Catch", rep$estCS*mu),
+                       sq("Process deviation", rep$procdevS), sq("Process SD (annual scale)", rep$sdtS))
+  }
   # parameters
   p1 <- function(nm, x, est, scale = 1) cbind(data.frame(par = nm), lnci(x, scale, est))
   q <- g("logq"); sdi <- g("logsdi")
@@ -211,7 +227,7 @@ jb3_output <- function(best, setup, sdreport = TRUE){
     warning("Hessian not positive definite: intervals set to NA (convergence: ", conv$tier, ")", call. = FALSE)
   }
   list(stock = setup$data$stock, years = yrs, data = setup$data, ts = ts, pars = pars, refpts = refpts, convergence = conv,
-       report = rep, obj = obj, opt = opt, sdr = sdr, setup = setup, mucatch = mu)
+       report = rep, obj = obj, opt = opt, sdr = sdr, setup = setup, mucatch = mu, ts.season = ts.season, nseason = dat$ns %||% 1L)
 }
 
 # index fits table: obs, fitted (with CI), predictive interval, ordinary and OSA residuals
@@ -221,13 +237,14 @@ jb3_output <- function(best, setup, sdreport = TRUE){
                                          uci = numeric(0), sd = numeric(0), ppd_lci = numeric(0), ppd_uci = numeric(0),
                                          residual = numeric(0), std.residual = numeric(0), osa = numeric(0)))
   im <- if(!is.null(fit$sdr)){ i <- names(fit$sdr$value) == "Imean"; cbind(fit$sdr$value[i], fit$sdr$sd[i]) } else cbind(rep$Imean, NA)
-  out <- data.frame(index = s$index.names[d$obs_i], year = s$years[d$obs_t], obs = exp(d$logIobs),
+  out <- data.frame(index = s$index.names[d$obs_i], year = s$years[(d$stepyear %||% seq_len(d$N))[d$obs_t]], obs = exp(d$logIobs),
                     hat = exp(im[, 1]), lci = exp(im[, 1] - 1.96*im[, 2]), uci = exp(im[, 1] + 1.96*im[, 2]),
                     sd = rep$sdI, ppd_lci = exp(im[, 1] - 1.96*sqrt(rep$sdI^2 + im[, 2]^2)),
                     ppd_uci = exp(im[, 1] + 1.96*sqrt(rep$sdI^2 + im[, 2]^2)))
   out$residual <- log(out$obs) - log(out$hat)
   out$std.residual <- out$residual/out$sd
   out$osa <- if(!is.null(fit$osa)) fit$osa else NA
+  if((d$ns %||% 1) > 1) out$season <- d$stepseason[d$obs_t]
   out
 }
 
