@@ -178,8 +178,8 @@ jb3_output <- function(best, setup, sdreport = TRUE){
               tsq("F/Fmsy", g("logFFmsy"), 1, rep$HHmsy),
               cbind(data.frame(year = yrs, quantity = "B/K"), data.frame(est = exp(lp), lci = exp(lp - 1.96*lps), uci = exp(lp + 1.96*lps), se.log = lps)),
               data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
-                         lci = if(dat$catch.err && !is.null(g("estC"))) (g("estC")[, 1] - 1.96*g("estC")[, 2])*mu else rep$estC*mu,
-                         uci = if(dat$catch.err && !is.null(g("estC"))) (g("estC")[, 1] + 1.96*g("estC")[, 2])*mu else rep$estC*mu, se.log = NA),
+                         lci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] - 1.96*g("estC")[, 2])*mu else rep$estC*mu,
+                         uci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] + 1.96*g("estC")[, 2])*mu else rep$estC*mu, se.log = NA),
               data.frame(year = yrs, quantity = "Process deviation", est = rep$procdev,
                          lci = if(is.null(pd)) NA else pd[, 1] - 1.96*pd[, 2], uci = if(is.null(pd)) NA else pd[, 1] + 1.96*pd[, 2], se.log = NA),
               data.frame(year = yrs, quantity = "Process SD", est = rep$sdt, lci = NA, uci = NA, se.log = NA),
@@ -206,7 +206,8 @@ jb3_output <- function(best, setup, sdreport = TRUE){
                 p1("sdb", if(dat$est.sdb) g("logsdb") else NULL, rep$sdb),
                 if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nq), function(j) p1(paste0("q", j), if(is.null(q)) NULL else q[j, , drop = FALSE], rep$q[j], 1/mu))),
                 if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nvar), function(j) p1(paste0("sdi", j), if(is.null(sdi)) NULL else sdi[j, , drop = FALSE], rep$sdi[j]))),
-                p1("m", if(dat$est.m) g("logm") else NULL, rep$m))
+                p1("m", if(dat$est.m) g("logm") else NULL, rep$m),
+                if(dat$nmiss > 0) p1("sdf", g("logsdf"), rep$sdf))
   if(dat$nA > 0){
     qa <- g("logqA"); sa <- g("logsdA")
     pars <- rbind(pars, do.call(rbind, lapply(seq_len(dat$nA), function(j) rbind(

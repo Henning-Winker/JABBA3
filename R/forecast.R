@@ -57,7 +57,9 @@
 .sq <- function(x, nsq){
   dr <- if(inherits(x, "jb3ensemble")) x$draws else x$draws %||% NULL
   N <- length(x$years); j <- seq(N - nsq + 1, N)
-  csq <- mean(utils::tail(x$data$catch, nsq))
+  cq <- utils::tail(x$data$catch, nsq)
+  if(any(is.na(cq))) cq <- utils::tail(x$ts$est[x$ts$quantity == "Catch"], nsq)      # years without catch: estimated catch
+  csq <- mean(cq)
   fsq <- if(!is.null(dr)) stats::median(rowMeans(dr$`F/Fmsy`[, j, drop = FALSE]))
          else mean(x$ts$est[x$ts$quantity == "F/Fmsy"][j])
   c(Csq = csq, Fsq = fsq)

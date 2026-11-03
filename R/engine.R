@@ -6,6 +6,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   if(peels > 0){                                  # retrospective: drop the last `peels` years of all data
     keep <- seq_len(N - peels)
     data$years <- data$years[keep]; data$catch <- data$catch[keep]
+    if(!is.null(data$catch.obs)) data$catch.obs <- data$catch.obs[keep]
     data$I <- data$I[keep, , drop = FALSE]; data$SE <- data$SE[keep, , drop = FALSE]; N <- length(keep)
     if(!is.null(data$catch.se)) data$catch.se <- data$catch.se[keep]
     if(!is.null(data$A)){ data$A <- data$A[keep, , drop = FALSE]; data$A.SE <- data$A.SE[keep, , drop = FALSE] }
@@ -22,7 +23,11 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     sst <- .season_steps(data, model, data$years); I <- sst$I; SEm <- sst$SE; N <- sst$N
   }
   if(index.peels > 0) I[sst$stepyear > Ny - index.peels, ] <- NA   # hindcast: drop index values only
-  mucatch <- mean(data$catch)
+  mucatch <- mean(data$catch, na.rm = TRUE)
+  cobs <- if(is.null(data$catch.obs)) rep(TRUE, Ny) else as.logical(data$catch.obs)
+  cmiss <- which(!cobs); nmiss <- length(cmiss)
+  if(nmiss > 0 && isTRUE(nc)) stop("the non-centred parameterisation is not available with missing catch", call. = FALSE)
+  if(nmiss > 0 && N > Ny) stop("missing catch (catch.gaps = \"estimate\") is not yet available with seasons", call. = FALSE)
   ok <- which(!is.na(I), arr.ind = TRUE); ok <- ok[order(ok[, 1], ok[, 2]), , drop = FALSE]
   if(nI > 0 && !nrow(ok)) stop("no index observations left", call. = FALSE)
   sets.q <- model$sets.q %||% seq_len(nI); sets.var <- model$sets.var %||% seq_len(nI)
@@ -39,9 +44,9 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     } else SE2[, i] <- (semin %||% 0.1)^2
   }
   # priors (K and q on the catch-scaled internal units)
-  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*max(data$catch)
+  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*max(data$catch, na.rm = TRUE)
   km <- priors$K.max %||% c(NA, NA, 0)
-  Kmax.pr <- if(km[3] == 1) c(log(km[1]*max(data$catch)/mucatch), km[2], 1) else c(0, 1, 0)
+  Kmax.pr <- if(km[3] == 1) c(log(km[1]*max(data$catch, na.rm = TRUE)/mucatch), km[2], 1) else c(0, 1, 0)
   q.pr <- if(is.null(priors$q)) matrix(c(1, 1, 0), nq, 3, byrow = TRUE) else {
     x <- priors$q; if(nrow(x) == 1 && nq > 1) x <- x[rep(1, nq), , drop = FALSE]
     if(nrow(x) != nq) stop("q priors: one row per catchability group (", nq, ")", call. = FALSE); x[, 1] <- x[, 1]*mucatch; x }
@@ -58,7 +63,9 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   fi <- if(nrow(ok)) min(ok[, 1]) else 1L
   ax <- .aux_setup(data, model, priors, Ny)
   dat <- list(
-    N = N, TC = pmax(data$catch/mucatch, 1e-8), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
+    N = N, TC = pmax(ifelse(cobs, data$catch/mucatch, 1), 1e-8),
+    nmiss = nmiss, miss_t = if(nmiss) as.integer(cmiss) else 1L, rw_t = .frw_steps(cobs, isTRUE(model$frw.all)),
+    sdf.pr = priors$sdf %||% c(0.3, 1, 0), cobs = as.integer(cobs), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
     SE2 = SE2, W = W, nI = nI, nq = nq, nvar = nvar, sets.q = as.integer(factor(sets.q)), sets.var = as.integer(factor(sets.var)),
     lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
@@ -95,14 +102,15 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   if(!dat$est.sdb) map$logsdb <- factor(NA)
   if(!dat$est.k) map$tk <- factor(NA)
   if(!dat$est.rho) map$trho <- factor(NA)
-  if(!dat$catch.err) map$cdev <- factor(rep(NA, Ny))
+  if(!dat$catch.err) map$cdev <- factor(rep(NA, Ny)) else if(nmiss > 0) map$cdev <- factor(ifelse(cobs, seq_len(Ny), NA))
+  if(nmiss == 0){ map$lH <- factor(NA); map$logsdf <- factor(NA) }
   if(nI == 0 || dat$prior.only){ map$logq <- factor(rep(NA, nq)); map$logsdi <- factor(rep(NA, nvar)) }
   if(nI > 0 && isFALSE(model$sdi.est)){ map$logsdi <- factor(rep(NA, nvar)); par$logsdi <- rep(log(1e-4), nvar) }
   map$logqA <- factor(ifelse(dat$est.qA & !dat$prior.only, seq_along(dat$est.qA), NA))
   map$logsdA <- factor(ifelse(dat$est.sdA & !dat$prior.only, seq_along(dat$est.sdA), NA))
   if(!dat$est.creep) map$creep <- factor(NA)
   if(dat$nc){ par$zP <- rep(0, N); par$logP <- NULL }
-  random <- c(if(dat$nc) "zP" else "logP", if(dat$catch.err) "cdev")
+  random <- c(if(dat$nc) "zP" else "logP", if(dat$catch.err) "cdev", if(nmiss > 0) "lH")
   list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok, nseason = ns,
        index.names = colnames(data$I), data = data)
 }
@@ -113,9 +121,12 @@ jb3_inits <- function(dat, jitter = 0){
   K <- dat$K.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.3)); if(dat$Kmax.pr[3] == 1) K <- min(K, 0.8*exp(dat$Kmax.pr[1])); r <- dat$r.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.2))
   bk <- min(max(dat$bk.pr[1], 0.05), 1.2)
   rem <- function(p) if(dat$eb.rem) .rho_curve(p, dat$ebm[dat$ebcc, ]) else 1
+  TC <- dat$TC
+  if(dat$nmiss > 0){ o <- which(dat$cobs == 1)
+    TC[dat$miss_t] <- if(length(o) > 1) stats::approx(o, dat$TC[o], xout = dat$miss_t, rule = 2)$y else dat$TC[o][1] }
   for(k in 1:15){
     P <- numeric(N); P[1] <- bk
-    Cst <- dat$TC[dat$stepyear]*dat$cshare
+    Cst <- TC[dat$stepyear]*dat$cshare
     for(t in 2:N){ Pl <- P[dat$lagidx[t - 1]]; P[t] <- max(P[t-1] + dat$gfac[t-1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - Cst[t-1]/(K*rem(P[t-1])), 0.02) }
     if(mean(P <= 0.021) < 0.1) break
     K <- K*1.5
@@ -125,7 +136,7 @@ jb3_inits <- function(dat, jitter = 0){
     w <- dat$sets.q[dat$obs_i] == j; if(!any(w)) return(log(1e-3))
     mean(dat$logIobs[w] - log(P[dat$obs_t[w]]*K*(if(dat$eb.on) .rho_curve(P[dat$obs_t[w]], dat$ebm[dat$ebci[dat$obs_i[w][1]], ]) else 1)))
   }, 0)
-  Pa0 <- P[dat$yr1]; H0 <- dat$TC/(K*Pa0)
+  Pa0 <- P[dat$yr1]; H0 <- TC/(K*Pa0)
   lqA <- vapply(seq_len(max(dat$nA, 1)), function(i){
     if(dat$nA == 0 || !dat$est.qA[i]) return(log(dat$qA.fix[i] %||% 1))
     w <- dat$aobs_i == i; tt <- dat$aobs_t[w]
@@ -136,7 +147,8 @@ jb3_inits <- function(dat, jitter = 0){
   k0 <- min(max((dat$kd.pr[1] + 0.5)/2.5, 0.05), 0.95)
   lapply(list(logK = log(K), logr = log(r), logq = lq, lbk = log(bk), logm = log(m),
        logsdb = log(if(dat$est.sdb) sdb0 else dat$sdb.fix), logsdi = rep(log(0.2), dat$nvar), tk = stats::qlogis(k0), trho = stats::qlogis(min(max((if(dat$est.rho) dat$rho.pr[1] else dat$rho.fix)/0.99, 0.01), 0.99)),
-       logP = log(P), cdev = rep(0, dat$Ny), logqA = lqA, logsdA = log(dat$sdA.fix), creep = dat$creep.fix), unname)
+       logP = log(P), cdev = rep(0, dat$Ny), logqA = lqA, logsdA = log(dat$sdA.fix), creep = dat$creep.fix,
+       lH = if(dat$nmiss > 0) log(pmin(H0[dat$miss_t], 0.9)) else 0, logsdf = log(if(dat$sdf.pr[3] == 1) dat$sdf.pr[1] else 0.3)), unname)
 }
 
 # Negative log posterior (RTMB)
@@ -201,6 +213,15 @@ jb3_nll <- function(par, dat){
   }
   P <- exp(logP); BBmsy <- P/BmsyK
   if(eb.rem){ rem <- rhof(P, ebcc); rem.msy <- rhof(BmsyK, ebcc) } else { rem <- 1 + 0*P; rem.msy <- 1 }
+  # years without catch (annual model only): harvest rate H_t = exp(lH) (random walk), catch = H_t K P_t rem_t
+  sdf <- exp(logsdf)
+  if(nmiss > 0){
+    estC[miss_t] <- smin(exp(lH), 0.95, 1e-4)*K*P[miss_t]*rem[miss_t]
+    lHt <- log(estC/(K*P*rem))
+    nll <- nll - sum(dnorm(lHt[rw_t], lHt[rw_t - 1], sdf, TRUE))
+    if(sdf.pr[3] == 1) nll <- nll - dnorm(logsdf, log(sdf.pr[1]), sdf.pr[2], TRUE)
+    estCS <- estC[stepyear]*cshare
+  }
   # equal-F allocation of annual catch: constant harvest fraction h_y within the year.
   # allocF = 1 (default "F"): sequential (Markov): h_y and the seasonal shares come from a deterministic projection of the
   #   biomass through the year from the state at the start of the year (fixed-point iterations so that the seasonal
@@ -313,16 +334,24 @@ jb3_nll <- function(par, dat){
   if(est.m) RTMB::ADREPORT(logm)
   if(est.k) RTMB::ADREPORT(kdyn)
   if(est.rho) RTMB::ADREPORT(rho)
-  if(catch.err) RTMB::ADREPORT(estC)
+  if(catch.err || nmiss > 0) RTMB::ADREPORT(estC)
+  if(nmiss > 0) RTMB::ADREPORT(logsdf)
   RTMB::REPORT(K); RTMB::REPORT(r); RTMB::REPORT(q); RTMB::REPORT(bk); RTMB::REPORT(m); RTMB::REPORT(sdb); RTMB::REPORT(sdi)
   RTMB::REPORT(kdyn); RTMB::REPORT(rho); RTMB::REPORT(BmsyK); RTMB::REPORT(Hmsy); RTMB::REPORT(MSY); RTMB::REPORT(P); RTMB::REPORT(BBmsy)
-  RTMB::REPORT(H); RTMB::REPORT(HHmsy); RTMB::REPORT(estC); RTMB::REPORT(Pmean); RTMB::REPORT(procdev); RTMB::REPORT(sdt)
+  RTMB::REPORT(sdf); RTMB::REPORT(H); RTMB::REPORT(HHmsy); RTMB::REPORT(estC); RTMB::REPORT(Pmean); RTMB::REPORT(procdev); RTMB::REPORT(sdt)
   RTMB::REPORT(PS); RTMB::REPORT(BBmsyS); RTMB::REPORT(remS); RTMB::REPORT(procdevS); RTMB::REPORT(sdtS); RTMB::REPORT(HS); RTMB::REPORT(estCS)
   RTMB::REPORT(rhos); RTMB::REPORT(vf)
   RTMB::REPORT(v); RTMB::REPORT(rem); RTMB::REPORT(rem.msy); RTMB::REPORT(Imean); RTMB::REPORT(sdI)
   qA <- exp(logqA)
   RTMB::REPORT(Amean); RTMB::REPORT(sdAo); RTMB::REPORT(qA); RTMB::REPORT(sdA); RTMB::REPORT(creep); RTMB::REPORT(mu); RTMB::REPORT(logP)
   nll
+}
+
+# steps t (2..N) whose harvest-rate increment enters the F random walk: only increments involving a year without catch
+# (default), or all steps when all = TRUE (SPiCT-like; sdf informed by the years with catch)
+.frw_steps <- function(cobs, all = FALSE){
+  N <- length(cobs); if(all(cobs) || N < 2) return(integer(0))
+  t <- 2:N; as.integer(if(all) t else t[!cobs[t] | !cobs[t - 1]])
 }
 
 # year-specific catch SD (log scale): data$catch.se (from jb3_data(catch.se =), NA = model sdc) or a vector sdc in the model

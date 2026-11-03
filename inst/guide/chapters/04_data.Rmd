@@ -53,6 +53,25 @@ Several catch columns give `FLQuants` (one per fleet) unless `fleets = FALSE`.
 `jbcatch2flq()` and `jbidx2FLIndices()` convert the catch and the indices
 separately.
 
+## Series of different lengths
+
+The series do not have to cover the same years: `jb3_data()` aligns them by year
+to the catch years. The bigeye input is also shipped as FLR objects in their
+original lengths (catch 1950-2017; indices 1959-1978 and 1979-2017), with the
+standard errors still to be filled in `index.var`:
+
+```{r data-flr-lengths}
+inp <- readRDS(system.file("extdata", "flr_betinp.rds", package = "JABBA3"))
+for(i in seq_along(inp$indices)) index.var(inp$indices[[i]])[] <- 0.2   # SE = 0.2
+d.inp <- jb3_data(inp$catch, inp$indices, stock = "bet")
+jb3_align(d.inp)
+```
+
+Index years before the first (or after the last) catch year, and gaps in the
+catch, are kept with `jb3_data(..., catch.gaps = "estimate")`: the catch in those
+years is then estimated with a random walk on the log harvest rate (as in SPiCT),
+while the years with catch stay catch-conditioned.
+
 ## Check 1: the data
 
 `jbplot_data()` shows the catch and the indices. Look for:

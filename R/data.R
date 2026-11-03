@@ -22,6 +22,19 @@
 #'   catchability, additional SD and effort creep of the auxiliary series.
 #' @param auxiliary.se optional log-scale SEs of the auxiliary data, same layout as \code{auxiliary} (data.frame input)
 #' @param auxiliary.type type of each auxiliary series (recycled), one of "effort", "f", "ffmsy", "bbmsy", "bk", "z"
+#' @param catch.gaps "stop" (default): the model years are the catch years and catch must be given in all of them;
+#'   "estimate": the model years span the catch and the indices, and catch in years without catch (gaps, years before the
+#'   first or after the last catch year) is estimated with a random walk on log harvest rate (see \code{\link{jb3_model}()},
+#'   \code{sdf}), as in SPiCT
+#' @details \strong{Alignment.} The series need not cover the same years. The model years are the catch years (leading and
+#'   trailing years without catch are trimmed; gaps inside the catch series are an error, see \code{\link{jb3_catchfill}()}).
+#'   Each index keeps its own years and is matched by year; index observations outside the catch years are not used (message).
+#'   Rows may be in any order; the year column is the column named \code{year} (or the first column). Standard errors are matched
+#'   to the indices by year and by column name (or by position when the names differ but the number of columns agrees); SEs may
+#'   be given for some years or some indices only. Catch by fleet is summed with missing values counted as no catch, unless all
+#'   fleets are missing in a year. \code{FLIndices} may hold \code{FLIndexBiomass} objects of different lengths. The years
+#'   used are listed by \code{\link{jb3_align}()}.
+#'
 #' @param nseason number of seasons of seasonal inputs (needed with a \code{time} column; with a \code{season} column the
 #'   default is the largest season). Whether the model runs on seasons is set by \code{jb3_model(nseason = )}.
 #' @param index.time timing of annual indices within the year (fraction of the year, recycled over indices; 0 = start of
@@ -49,7 +62,8 @@
 #'                auxiliary.type = "effort", stock = "bet")
 #' @export
 jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se = NULL, auxiliary = NULL, auxiliary.se = NULL,
-                     auxiliary.type = "effort", nseason = NULL, index.time = 0){
+                     auxiliary.type = "effort", catch.gaps = c("stop", "estimate"), nseason = NULL, index.time = 0){
+  catch.gaps <- match.arg(catch.gaps)
   if(inherits(catch, "jb3catchfill")){ if(is.null(catch.se)) catch.se <- data.frame(year = catch$year, se = catch$se.log)
     catch <- data.frame(year = catch$year, catch = catch$catch) }
   if(inherits(indices, "jb3jointindex") && is.null(se)){ se <- data.frame(year = indices$year, joint = indices$log.se)
@@ -57,11 +71,27 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
   # seasonal inputs: a "season" or "time" column in catch and/or indices (see Details)
   sea <- .season_parse(catch, indices, se, nseason, index.time)
   if(!is.null(sea)){ catch <- sea$catch.annual; indices <- sea$I.annual; se <- sea$SE.annual }
+  if(!is.null(sea) && catch.gaps == "estimate") stop("catch.gaps = \"estimate\" is not yet available with seasonal inputs", call. = FALSE)
   cy <- .catch_df(catch)
-  years <- seq(min(cy$year), max(cy$year))
-  if(any(!years %in% cy$year) || any(!is.finite(cy$catch[match(years, cy$year)])))
-    stop("catch must be given for every year from ", min(years), " to ", max(years), call. = FALSE)
+  ok <- is.finite(cy$catch)
+  if(!any(ok)) stop("no finite catch values", call. = FALSE)
+  years <- seq(min(cy$year[ok]), max(cy$year[ok]))                  # leading/trailing NA years (padding) are trimmed
+  ix <- if(is.null(indices)) NULL else .index_df(indices, se)
+  if(catch.gaps == "estimate"){
+    # model years span the catch and the indices; catch in years without catch is estimated (F random walk, see jb3_model())
+    yi <- if(is.null(ix)) numeric(0) else ix$I$year[rowSums(is.finite(as.matrix(ix$I[, -1, drop = FALSE])) & as.matrix(ix$I[, -1, drop = FALSE]) > 0) > 0]
+    years <- seq(min(c(years, yi)), max(c(years, yi)))
+  }
   C <- cy$catch[match(years, cy$year)]
+  if(any(!is.finite(C))){
+    if(catch.gaps == "stop") stop("catch missing in years ", paste(years[!is.finite(C)], collapse = ", "),
+      " (inside the catch series ", min(years), "-", max(years), "); fill gaps first, e.g. with jb3_catchfill(), or use ",
+      "jb3_data(catch.gaps = \"estimate\") to estimate them with an F random walk", call. = FALSE)
+    message("catch missing in ", sum(!is.finite(C)), " of ", length(years), " model years (", .yr_ranges(years[!is.finite(C)]),
+            "): estimated with an F random walk")
+  }
+  align <- data.frame(series = "catch", type = "catch", first = min(cy$year), last = max(cy$year), n = sum(ok),
+                      used_first = min(years), used_last = max(years), n_used = length(years))
   cse <- NULL
   if(!is.null(catch.se)){
     cse <- if(is.data.frame(catch.se)) as.numeric(catch.se[[2]])[match(years, as.numeric(catch.se[[1]]))] else rep(as.numeric(catch.se), length.out = length(years))
@@ -70,11 +100,18 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
   if(is.null(indices)){                                   # catch-only
     I <- SE <- matrix(NA_real_, length(years), 0, dimnames = list(years, NULL))
     return(.season_attach(structure(list(stock = stock, years = years, catch = C, I = I, SE = SE, catch.fleets = cy$fleets, catch.se = cse,
-                          A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"), sea, index.time))
+                          A = aux$A, A.SE = aux$SE, A.type = aux$type, align = align, catch.obs = is.finite(C)), class = "jb3data"), sea, index.time))
   }
-  ix <- .index_df(indices, se)
-  out_of <- setdiff(ix$I$year, years)
-  if(length(out_of)) warning("index years outside the catch years dropped: ", paste(out_of, collapse = ", "), call. = FALSE)
+  # alignment by year: each index keeps its own years within the model years
+  for(k in names(ix$I)[-1]){
+    v <- ix$I[[k]]; o <- is.finite(v) & v > 0; yo <- ix$I$year[o]; u <- yo >= min(years) & yo <= max(years)
+    align <- rbind(align, data.frame(series = k, type = "index", first = if(any(o)) min(yo) else NA, last = if(any(o)) max(yo) else NA,
+      n = sum(o), used_first = if(any(u)) min(yo[u]) else NA, used_last = if(any(u)) max(yo[u]) else NA, n_used = sum(u)))
+  }
+  drop <- align[align$type == "index" & align$n_used < align$n, ]
+  if(nrow(drop)) message("index observations outside the model years (", min(years), "-", max(years), ") are not used: ",
+    paste(sprintf("%s %d of %d", drop$series, drop$n - drop$n_used, drop$n), collapse = "; "),
+    if(catch.gaps == "stop") " (catch needed in every model year; or jb3_data(catch.gaps = \"estimate\"))" else "")
   I <- as.matrix(ix$I[match(years, ix$I$year), -1, drop = FALSE])
   SE <- as.matrix(ix$SE[match(years, ix$SE$year), -1, drop = FALSE])
   I[!is.finite(I) | I <= 0] <- NA
@@ -82,9 +119,11 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
   dimnames(I) <- dimnames(SE) <- list(years, colnames(ix$I)[-1])
   keep <- colSums(!is.na(I)) > 0
   if(!any(keep)) stop("no index observations within the catch years", call. = FALSE)
-  if(any(!keep)) warning("indices without observations dropped: ", paste(colnames(I)[!keep], collapse = ", "), call. = FALSE)
+  if(any(!keep)) warning("indices without observations within the catch years dropped: ", paste(colnames(I)[!keep], collapse = ", "), call. = FALSE)
+  rownames(align) <- NULL
   .season_attach(structure(list(stock = stock, years = years, catch = C, I = I[, keep, drop = FALSE], SE = SE[, keep, drop = FALSE],
-                 catch.fleets = cy$fleets, catch.se = cse, A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"), sea, index.time)
+                 catch.fleets = cy$fleets, catch.se = cse, A = aux$A, A.SE = aux$SE, A.type = aux$type, align = align,
+                 catch.obs = is.finite(C)), class = "jb3data"), sea, index.time)
 }
 
 .aux_types <- c("effort", "f", "ffmsy", "bbmsy", "bk", "z")
@@ -138,16 +177,32 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
 jb3_data_jabba <- function(catch, cpue, se = NULL, assessment = "stock") jb3_data(catch, cpue, se, stock = assessment)
 
 .catch_df <- function(catch){
-  if(inherits(catch, "FLQuants")) catch <- Reduce(`+`, as.list(catch))
-  if(inherits(catch, "FLQuant")){
-    y <- as.numeric(dimnames(catch)$year)
-    if(dim(catch)[6] > 1) warning("catch has iterations: the first is used", call. = FALSE)
-    return(list(year = y, catch = as.numeric(catch[, , , , , 1]), fleets = 1))
+  if(inherits(catch, "FLQuants") || (inherits(catch, "FLQuant"))){
+    fl <- if(inherits(catch, "FLQuants")) as.list(catch) else list(catch)
+    if(any(vapply(fl, function(x) dim(x)[6] > 1, TRUE))) warning("catch has iterations: the first is used", call. = FALSE)
+    yrs <- sort(unique(unlist(lapply(fl, function(x) as.numeric(dimnames(x)$year)))))
+    M <- vapply(fl, function(x){ y <- as.numeric(dimnames(x)$year); as.numeric(x[1, , 1, 1, 1, 1])[match(yrs, y)] }, numeric(length(yrs)))
+    M <- matrix(M, length(yrs))
+    return(list(year = yrs, catch = .sum_na(M), fleets = length(fl)))
   }
   catch <- as.data.frame(catch)
+  yc <- .year_col(catch)
   if(ncol(catch) < 2) stop("catch needs columns year and catch", call. = FALSE)
-  list(year = as.numeric(catch[[1]]), catch = rowSums(as.matrix(catch[, -1, drop = FALSE])), fleets = ncol(catch) - 1)
+  y <- as.numeric(catch[[yc]]); v <- as.matrix(catch[, -yc, drop = FALSE]); storage.mode(v) <- "double"
+  if(any(duplicated(y))) stop("catch: duplicated years ", paste(unique(y[duplicated(y)]), collapse = ", "), call. = FALSE)
+  o <- order(y)
+  list(year = y[o], catch = .sum_na(v[o, , drop = FALSE]), fleets = ncol(v))
 }
+
+# sum over fleets: NA in a fleet counts as no catch, unless all fleets are NA in that year
+.sum_na <- function(M){ out <- rowSums(M, na.rm = TRUE); out[rowSums(!is.na(M)) == 0] <- NA; out }
+
+# compact year ranges, e.g. 1950-1959, 1990
+.yr_ranges <- function(y){ if(!length(y)) return(""); g <- cumsum(c(1, diff(y) != 1))
+  paste(vapply(split(y, g), function(v) if(length(v) > 1) paste0(min(v), "-", max(v)) else as.character(v), ""), collapse = ", ") }
+
+# year column: a column named "year" (any case; also "yr") or else the first column
+.year_col <- function(df){ k <- which(tolower(names(df)) %in% c("year", "yr", "years")); if(length(k)) k[1] else 1L }
 
 .index_df <- function(indices, se){
   if(inherits(indices, "FLIndex") || inherits(indices, "FLIndexBiomass")) indices <- list(index = indices)
@@ -166,19 +221,38 @@ jb3_data_jabba <- function(catch, cpue, se = NULL, assessment = "stock") jb3_dat
   }
   I <- as.data.frame(indices)
   if(ncol(I) < 2) stop("indices need columns year and at least one index", call. = FALSE)
-  I[[1]] <- as.numeric(I[[1]]); names(I)[1] <- "year"
-  if(is.null(se)){ S <- I; S[, -1] <- NA } else {
-    S <- as.data.frame(se); S[[1]] <- as.numeric(S[[1]]); names(S)[1] <- "year"
-    if(ncol(S) != ncol(I)) stop("se must have the same columns as the indices", call. = FALSE)
-    S <- S[match(I$year, S$year), ]; S$year <- I$year; names(S) <- names(I)
+  yc <- .year_col(I); I <- data.frame(year = as.numeric(I[[yc]]), I[, -yc, drop = FALSE], check.names = FALSE)
+  if(any(duplicated(I$year))) stop("indices: duplicated years ", paste(unique(I$year[duplicated(I$year)]), collapse = ", "),
+                                   " (one row per year; use one column per index)", call. = FALSE)
+  I <- I[order(I$year), , drop = FALSE]
+  S <- I; S[, -1] <- NA
+  if(!is.null(se)){
+    se <- as.data.frame(se); ys <- .year_col(se)
+    se <- data.frame(year = as.numeric(se[[ys]]), se[, -ys, drop = FALSE], check.names = FALSE)
+    if(any(duplicated(se$year))) stop("se: duplicated years", call. = FALSE)
+    inm <- names(I)[-1]; snm <- names(se)[-1]
+    # columns matched by name when the se names are index names; otherwise by position (same number of columns)
+    map <- if(all(snm %in% inm)) stats::setNames(snm, snm) else
+      if(!any(snm %in% inm) && length(snm) == length(inm)) stats::setNames(snm, inm) else      # JABBA convention: by position
+      stop("se: columns must be named as the indices (a subset is allowed), or one column per index in the same order", call. = FALSE)
+    for(k in names(map)) S[[k]] <- as.numeric(se[[map[[k]]]])[match(I$year, se$year)]
   }
   list(I = I, SE = S)
 }
 
+#' Alignment of the input series
+#'
+#' Year ranges of the catch and index inputs as given, and the part used after aligning all series to the catch years.
+#' @param x \code{jb3_data()} object
+#' @return data.frame(series, type, first, last, n, used_first, used_last, n_used)
+#' @export
+jb3_align <- function(x) x$align
+
 #' @export
 print.jb3data <- function(x, ...){
   cat("JABBA3 data:", x$stock, "\n  years ", min(x$years), "-", max(x$years), " (", length(x$years), "), catch range ",
-      signif(min(x$catch), 3), "-", signif(max(x$catch), 3), "\n", sep = "")
+      signif(min(x$catch, na.rm = TRUE), 3), "-", signif(max(x$catch, na.rm = TRUE), 3), "\n", sep = "")
+  if(any(is.na(x$catch))) cat("  catch missing in ", sum(is.na(x$catch)), " years (", .yr_ranges(x$years[is.na(x$catch)]), "): estimated with an F random walk\n", sep = "")
   if(!ncol(x$I)) cat("  catch-only: no abundance index\n")
   for(i in seq_len(ncol(x$I))){
     o <- which(!is.na(x$I[, i]))
@@ -191,6 +265,9 @@ print.jb3data <- function(x, ...){
     cat("  auxiliary ", colnames(x$A)[i], " (", x$A.type[i], "): ", length(o), " obs, ", x$years[min(o)], "-", x$years[max(o)],
         if(any(!is.na(x$A.SE[o, i]))) ", with SE" else "", "\n", sep = "")
   }
+  a <- x$align
+  if(!is.null(a) && any(a$n_used < a$n | (a$type == "catch" & (a$first < a$used_first | a$last > a$used_last))))
+    cat("  aligned to the catch years: some input years not used (see jb3_align())\n")
   invisible(x)
 }
 
