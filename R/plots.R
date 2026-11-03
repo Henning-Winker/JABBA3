@@ -81,7 +81,7 @@ jb3cols <- function(n, alpha = 1){
 #' around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
 #' Projections from \code{\link{jb3_project}()} are appended after the last year (one colour per scenario, with intervals).
 #' @param x a \code{jabba3} fit, a list of fits, or a workflow fit
-#' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
+#' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Catch/MSY", "Process deviation",
 #'   "Process SD", "Surplus production", "EB"
 #' @param steps for a workflow fit, plot all steps
 #' @param refpts draw reference points (with several runs: relative quantities only)
@@ -106,7 +106,8 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
   fl <- .fitlist(x, steps)
   d <- do.call(rbind, lapply(names(fl), function(n){
     t <- if(nested) .nested_ts(fl[[n]], type, probs) else { t <- fl[[n]]$ts[fl[[n]]$ts$quantity %in% type, ]
-      t$lo1 <- t$hi1 <- NA; t }
+      t$lo1 <- t$hi1 <- rep(NA_real_, nrow(t)); t }
+    if("Catch/MSY" %in% type) t <- rbind(t, .catch_msy(fl[[n]], names(t)))
     t$run <- n; t }))
   if(drop.last){ ly <- max(d$year); d <- d[!(d$quantity %in% c("F", "F/Fmsy", "Catch") & d$year == ly), ] }
   d$quantity <- factor(d$quantity, levels = type); d$run <- factor(d$run, levels = names(fl))
@@ -165,6 +166,7 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
       refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "Process deviation"), name = c("Bmsy", "Fmsy", "zero"), value = c(1, 1, 0))
       if(same) refs <- rbind(refs, data.frame(quantity = "B/K", name = "Bmsy", value = bmk[[1]]))
     }
+    refs <- rbind(refs, data.frame(quantity = "Catch/MSY", name = "MSY", value = 1))
     lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim) & !names(lim) %in% names(extra)]  # extra overrides
     if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", if(single) "B"), each = length(lim)),
                                                    name = rep(names(lim), 1 + single),
@@ -298,6 +300,18 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   if(is.null(cl)) return(NULL)
   lapply(names(cfill), function(l) if(any(cl$level == l)) ggplot2::geom_polygon(data = cl[cl$level == l, ],
     ggplot2::aes(.data$x, .data$y, group = .data$grp), fill = cfill[[l]], colour = NA, alpha = 0.85))
+}
+
+# catch relative to MSY (estimated catch and its interval divided by the MSY estimate of the run)
+.catch_msy <- function(fit, cols){
+  t <- fit$ts[fit$ts$quantity == "Catch", ]
+  if(!nrow(t) || is.null(fit$refpts) || !"MSY" %in% rownames(fit$refpts)) return(NULL)
+  msy <- fit$refpts["MSY", "est"]
+  for(v in intersect(c("est", "lci", "uci", "lo1", "hi1"), names(t))) t[[v]] <- t[[v]]/msy
+  t$quantity <- "Catch/MSY"
+  if(!"lo1" %in% names(t)) t$lo1 <- rep(NA_real_, nrow(t))
+  if(!"hi1" %in% names(t)) t$hi1 <- rep(NA_real_, nrow(t))
+  t[, cols, drop = FALSE]
 }
 
 #' Fits to the abundance indices

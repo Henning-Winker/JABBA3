@@ -23,7 +23,9 @@
 #' @param x a \code{jabba3} fit, a named list of fits or a workflow fit
 #' @param type "full" (3 x 3, as SPiCT \code{plot()}) or "simple" (2 x 2: B/Bmsy, F/Fmsy, Catch, Kobe, as SPiCT
 #'   \code{plot2()}); ignored when \code{panels} is given
-#' @param panels panel names or their positions in the full set
+#' @param panels panel names or their positions in the full set. Besides the full set: "Catch/MSY", "B/K", "residuals",
+#'   "production", "fits", "priorpost". With several runs, "Catch" is shown as catch relative to each run's MSY
+#'   ("Catch/MSY"); a single run shows the catch with its MSY line
 #' @param ncol number of columns
 #' @param nested nested 90/60\% bands on the trajectories (single fit)
 #' @param bthr,blim as in \code{\link{jbplot_trj}()}
@@ -45,9 +47,10 @@ jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL
   if(is.null(panels)) panels <- if(type == "full") all else c("B/Bmsy", "F/Fmsy", "Catch", "kobe")
   if(is.null(ncol)) ncol <- if(length(panels) <= 4) 2 else 3
   if(is.numeric(panels)) panels <- all[panels]
-  ok <- c(all, "residuals", "B/K", "Process deviation", "production", "fits", "priorpost")
+  ok <- c(all, "Catch/MSY", "residuals", "B/K", "Process deviation", "production", "fits", "priorpost")
   bad <- setdiff(panels, ok); if(length(bad)) stop("unknown panels: ", paste(bad, collapse = ", "), "; use any of ", paste(ok, collapse = ", "), call. = FALSE)
   fl <- .fitlist(x); multi <- length(fl) > 1; f1 <- fl[[1]]
+  if(multi) panels[panels == "Catch"] <- "Catch/MSY"         # several runs: catch relative to each run's MSY
   th <- theme_jabba3(base_size) + ggplot2::theme(legend.position = if(multi) "bottom" else "none")
   ttl <- function(p, t){                                   # strip title as on the facetted panels
     if(is.data.frame(p$data)) p$data$.panel <- t
@@ -55,7 +58,7 @@ jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL
     p + ggplot2::labs(title = NULL, subtitle = NULL) + ggplot2::facet_wrap(~.panel) + th
   }
   one <- function(pn){
-    if(pn %in% c("B", "F", "Catch", "B/Bmsy", "F/Fmsy", "B/K", "Process deviation")){
+    if(pn %in% c("B", "F", "Catch", "Catch/MSY", "B/Bmsy", "F/Fmsy", "B/K", "Process deviation")){
       p <- jbplot_trj(if(multi) fl else f1, type = pn, nested = nested && !multi, bthr = bthr, blim = blim, label.size = 2) +
         ggplot2::labs(x = NULL) + th
       if(obs && !multi && pn %in% c("B", "B/Bmsy") && NROW(f1$index) > 0){

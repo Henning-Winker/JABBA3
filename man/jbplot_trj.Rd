@@ -24,7 +24,7 @@ jbplot_trj(
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
 
-\item{type}{quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
+\item{type}{quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Catch/MSY", "Process deviation",
 "Process SD", "Surplus production", "EB"}
 
 \item{steps}{for a workflow fit, plot all steps}

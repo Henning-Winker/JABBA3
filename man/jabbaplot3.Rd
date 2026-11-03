@@ -25,7 +25,9 @@ jabbaplot3(
 \item{type}{"full" (3 x 3, as SPiCT \code{plot()}) or "simple" (2 x 2: B/Bmsy, F/Fmsy, Catch, Kobe, as SPiCT
 \code{plot2()}); ignored when \code{panels} is given}
 
-\item{panels}{panel names or their positions in the full set}
+\item{panels}{panel names or their positions in the full set. Besides the full set: "Catch/MSY", "B/K", "residuals",
+"production", "fits", "priorpost". With several runs, "Catch" is shown as catch relative to each run's MSY
+("Catch/MSY"); a single run shows the catch with its MSY line}
 
 \item{ncol}{number of columns}
 
