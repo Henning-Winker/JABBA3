@@ -4,7 +4,15 @@
 \alias{jbplot_fits}
 \title{Fits to the abundance indices}
 \usage{
-jbplot_fits(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dodgerblue")
+jbplot_fits(
+  x,
+  log = FALSE,
+  ppd = TRUE,
+  steps = FALSE,
+  colour = "dodgerblue",
+  years = c("observed", "all"),
+  ndraws = 1000
+)
 }
 \arguments{
 \item{x}{a \code{jabba3} fit, a list of fits, or a workflow fit}
@@ -16,7 +24,15 @@ jbplot_fits(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dodgerblue")
 \item{steps}{for a workflow fit, plot all steps}
 
 \item{colour}{interval colour for a single run (grey; projections are coloured by scenario)}
+
+\item{years}{"observed" (default): years with observations of each index; "all": the full assessment period}
+
+\item{ndraws}{number of draws for \code{years = "all"} when the fit has no draws}
 }
 \description{
 Observations, fitted index with its 95\% interval and the 95\% predictive interval (grey), one facet per index.
+With \code{years = "all"} the fitted index (q x biomass) is shown over the full assessment period, also in years
+without observations, as in JABBA's \code{jbplot_cpuefits()}; intervals then come from posterior draws (the NUTS
+draws of the fit, or multivariate normal draws at the mode), and the predictive interval uses the median
+observation SD of each index.
 }

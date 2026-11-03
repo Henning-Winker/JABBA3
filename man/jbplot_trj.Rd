@@ -29,7 +29,7 @@ jbplot_trj(
 
 \item{steps}{for a workflow fit, plot all steps}
 
-\item{refpts}{draw reference points}
+\item{refpts}{draw reference points (with several runs: relative quantities only)}
 
 \item{extra}{named vector of extra reference points (names starting with B go to the biomass panel, F to the F panel,
 on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/Bmsy)}
@@ -49,7 +49,9 @@ on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/
 \item{label.size}{size of the reference point labels}
 
 \item{bthr, blim}{biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
-defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit}
+defaults of WKBMSYSPiCT); drawn on the B/Bmsy panel (and the B panel for a single run); \code{NULL} to omit.
+With several runs, reference points are drawn only on relative quantities (B/Bmsy, F/Fmsy, and Bmsy/K on B/K when
+it is the same in all runs): absolute levels (K, Bmsy, Fmsy, MSY) differ between runs.}
 }
 \description{
 One facet per quantity, the estimate (mode, or posterior median with NUTS) with its 95\% interval, reference points as
