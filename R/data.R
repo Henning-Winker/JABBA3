@@ -22,7 +22,19 @@
 #'   catchability, additional SD and effort creep of the auxiliary series.
 #' @param auxiliary.se optional log-scale SEs of the auxiliary data, same layout as \code{auxiliary} (data.frame input)
 #' @param auxiliary.type type of each auxiliary series (recycled), one of "effort", "f", "ffmsy", "bbmsy", "bk", "z"
-#' @details \code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
+#' @param nseason number of seasons of seasonal inputs (needed with a \code{time} column; with a \code{season} column the
+#'   default is the largest season). Whether the model runs on seasons is set by \code{jb3_model(nseason = )}.
+#' @param index.time timing of annual indices within the year (fraction of the year, recycled over indices; 0 = start of
+#'   the year, as JABBA). Used when the model runs on seasons: the index is matched to the season starting nearest to it.
+#' @details \strong{Seasonal data.} Catch and indices may carry a \code{season} column (1, ..., nseason) or a
+#'   \code{time} column (decimal year as in SPiCT, e.g. 2001.25 for the start of the second quarter) after \code{year}
+#'   (data frames: \code{year, season, catch} or \code{time, catch}). Catch in a season covers that season; years without
+#'   seasonal values may be given annually (rows with season NA). Seasonal index values are observations of the biomass
+#'   at the start of their season (\code{time}: matched to the nearest season start). The annual catch and the annual
+#'   (geometric mean) indices are kept in \code{catch}, \code{I} for the annual model; the seasonal values in
+#'   \code{catch.season} (years x seasons) and \code{iobs} (long table: year, frac, index, obs, se).
+#'
+#'   \strong{Catch-only.} \code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
 #'   (including status priors, \code{jb3_priors(status = )}) and any auxiliary data; \code{jabba3()} runs it with NUTS by
 #'   default.
 #' @return object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
@@ -37,11 +49,14 @@
 #'                auxiliary.type = "effort", stock = "bet")
 #' @export
 jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se = NULL, auxiliary = NULL, auxiliary.se = NULL,
-                     auxiliary.type = "effort"){
+                     auxiliary.type = "effort", nseason = NULL, index.time = 0){
   if(inherits(catch, "jb3catchfill")){ if(is.null(catch.se)) catch.se <- data.frame(year = catch$year, se = catch$se.log)
     catch <- data.frame(year = catch$year, catch = catch$catch) }
   if(inherits(indices, "jb3jointindex") && is.null(se)){ se <- data.frame(year = indices$year, joint = indices$log.se)
     indices <- data.frame(year = indices$year, joint = indices$index) }
+  # seasonal inputs: a "season" or "time" column in catch and/or indices (see Details)
+  sea <- .season_parse(catch, indices, se, nseason, index.time)
+  if(!is.null(sea)){ catch <- sea$catch.annual; indices <- sea$I.annual; se <- sea$SE.annual }
   cy <- .catch_df(catch)
   years <- seq(min(cy$year), max(cy$year))
   if(any(!years %in% cy$year) || any(!is.finite(cy$catch[match(years, cy$year)])))
@@ -54,8 +69,8 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
   aux <- .aux_df(auxiliary, auxiliary.se, auxiliary.type, years)
   if(is.null(indices)){                                   # catch-only
     I <- SE <- matrix(NA_real_, length(years), 0, dimnames = list(years, NULL))
-    return(structure(list(stock = stock, years = years, catch = C, I = I, SE = SE, catch.fleets = cy$fleets, catch.se = cse,
-                          A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"))
+    return(.season_attach(structure(list(stock = stock, years = years, catch = C, I = I, SE = SE, catch.fleets = cy$fleets, catch.se = cse,
+                          A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"), sea, index.time))
   }
   ix <- .index_df(indices, se)
   out_of <- setdiff(ix$I$year, years)
@@ -68,8 +83,8 @@ jb3_data <- function(catch, indices = NULL, se = NULL, stock = "stock", catch.se
   keep <- colSums(!is.na(I)) > 0
   if(!any(keep)) stop("no index observations within the catch years", call. = FALSE)
   if(any(!keep)) warning("indices without observations dropped: ", paste(colnames(I)[!keep], collapse = ", "), call. = FALSE)
-  structure(list(stock = stock, years = years, catch = C, I = I[, keep, drop = FALSE], SE = SE[, keep, drop = FALSE],
-                 catch.fleets = cy$fleets, catch.se = cse, A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data")
+  .season_attach(structure(list(stock = stock, years = years, catch = C, I = I[, keep, drop = FALSE], SE = SE[, keep, drop = FALSE],
+                 catch.fleets = cy$fleets, catch.se = cse, A = aux$A, A.SE = aux$SE, A.type = aux$type), class = "jb3data"), sea, index.time)
 }
 
 .aux_types <- c("effort", "f", "ffmsy", "bbmsy", "bk", "z")
