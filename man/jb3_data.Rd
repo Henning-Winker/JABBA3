@@ -13,7 +13,9 @@ jb3_data(
   auxiliary = NULL,
   auxiliary.se = NULL,
   auxiliary.type = "effort",
-  catch.gaps = c("stop", "estimate")
+  catch.gaps = c("stop", "estimate"),
+  nseason = NULL,
+  index.time = 0
 )
 }
 \arguments{
@@ -45,6 +47,12 @@ catchability, additional SD and effort creep of the auxiliary series.}
 "estimate": the model years span the catch and the indices, and catch in years without catch (gaps, years before the
 first or after the last catch year) is estimated with a random walk on log harvest rate (see \code{\link{jb3_model}()},
 \code{sdf}), as in SPiCT}
+
+\item{nseason}{number of seasons of seasonal inputs (needed with a \code{time} column; with a \code{season} column the
+default is the largest season). Whether the model runs on seasons is set by \code{jb3_model(nseason = )}.}
+
+\item{index.time}{timing of annual indices within the year (fraction of the year, recycled over indices; 0 = start of
+the year, as JABBA). Used when the model runs on seasons: the index is matched to the season starting nearest to it.}
 }
 \value{
 object of class \code{jb3data}: \code{years}, \code{catch}, index matrix \code{I}, SE matrix \code{SE}
@@ -68,7 +76,15 @@ Native inputs follow FLR: \code{catch} as an \code{FLQuant} (or \code{FLQuants} 
   fleets are missing in a year. \code{FLIndices} may hold \code{FLIndexBiomass} objects of different lengths. The years
   used are listed by \code{\link{jb3_align}()}.
 
-\code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
+\strong{Seasonal data.} Catch and indices may carry a \code{season} column (1, ..., nseason) or a
+  \code{time} column (decimal year as in SPiCT, e.g. 2001.25 for the start of the second quarter) after \code{year}
+  (data frames: \code{year, season, catch} or \code{time, catch}). Catch in a season covers that season; years without
+  seasonal values may be given annually (rows with season NA). Seasonal index values are observations of the biomass
+  at the start of their season (\code{time}: matched to the nearest season start). The annual catch and the annual
+  (geometric mean) indices are kept in \code{catch}, \code{I} for the annual model; the seasonal values in
+  \code{catch.season} (years x seasons) and \code{iobs} (long table: year, frac, index, obs, se).
+
+  \strong{Catch-only.} \code{indices = NULL} gives a catch-only data set: the model is then informed by the catch, the priors
   (including status priors, \code{jb3_priors(status = )}) and any auxiliary data; \code{jabba3()} runs it with NUTS by
   default.
 }

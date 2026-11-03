@@ -37,7 +37,11 @@ jb3_model(
   aux.q = NULL,
   aux.sd = NULL,
   aux.se.min = NULL,
-  frw.all = FALSE
+  frw.all = FALSE,
+  nseason = 1,
+  catch.alloc = "F",
+  season.w = NULL,
+  sdb.max = NULL
 )
 }
 \arguments{
@@ -45,7 +49,8 @@ jb3_model(
 
 \item{BmsyK}{Bmsy/K for the Pella-Tomlinson form (0.4 default, as JABBA)}
 
-\item{lag}{production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag}
+\item{lag}{production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag.
+With \code{nseason > 1} the lag may be fractional and is rounded to whole seasons (e.g. 0.75 years = 3 quarters)}
 
 \item{sdb.form}{"const" (default) or "dyn": process error SD sdb_t = sdb x (B/Bmsy)^-k (Tier 2)}
 
@@ -124,6 +129,22 @@ types the observation is q times the model quantity.}
 log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
 (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
 with catch, which tends to shrink it and smooth F through the gaps)}
+
+\item{nseason}{number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
+depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
+removed during that step (an Euler scheme with dt = 1/nseason). Process variance per step is set so that the
+deviations of a year add up to the annual \code{sdb} (with AR(1): step coefficient rho^(1/nseason)); the lag is
+given in years. Annual outputs: biomass at the start of the year, harvest rate = annual catch / mean exploitable
+biomass over the year; seasonal series in \code{fit$ts.season}.}
+
+\item{catch.alloc}{how annual catch is split over the seasons in years without seasonal catch: "F" (default; constant
+harvest fraction within the year, i.e. catch proportional to the exploitable biomass of each season, as SPiCT's
+F x B), "equal" (catch / nseason), or a vector of shares (one per season, e.g. from quarterly landings)}
+
+\item{season.w}{relative production weights of the seasons (rescaled to mean 1; NULL = equal), e.g. a recruitment
+pulse \code{c(0, 3, 1, 0)}}
+
+\item{sdb.max}{optional upper cap on the process error SD sdb (soft bound, as \code{sdi.bound}); NULL = none}
 }
 \value{
 list of class \code{jb3model}

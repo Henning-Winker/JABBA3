@@ -4,7 +4,8 @@
 #'
 #' @param shape "pella" (shape from \code{BmsyK}), "schaefer" (Bmsy/K = 0.5) or "fox" (m = 1.001)
 #' @param BmsyK Bmsy/K for the Pella-Tomlinson form (0.4 default, as JABBA)
-#' @param lag production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag
+#' @param lag production lag in years (Tier 1: age at maturity); production in year t uses the depletion of t - lag.
+#'   With \code{nseason > 1} the lag may be fractional and is rounded to whole seasons (e.g. 0.75 years = 3 quarters)
 #' @param sdb.form "const" (default) or "dyn": process error SD sdb_t = sdb x (B/Bmsy)^-k (Tier 2)
 #' @param sdb.fixed fixed process error SD at Bmsy instead of estimating it (Tier 2 sets the tuned level here)
 #' @param xlim bounds of B/Bmsy in the dynamic SD
@@ -55,6 +56,18 @@
 #'   log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
 #'   (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
 #'   with catch, which tends to shrink it and smooth F through the gaps)
+#' @param nseason number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
+#'   depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
+#'   removed during that step (an Euler scheme with dt = 1/nseason). Process variance per step is set so that the
+#'   deviations of a year add up to the annual \code{sdb} (with AR(1): step coefficient rho^(1/nseason)); the lag is
+#'   given in years. Annual outputs: biomass at the start of the year, harvest rate = annual catch / mean exploitable
+#'   biomass over the year; seasonal series in \code{fit$ts.season}.
+#' @param catch.alloc how annual catch is split over the seasons in years without seasonal catch: "F" (default; constant
+#'   harvest fraction within the year, i.e. catch proportional to the exploitable biomass of each season, as SPiCT's
+#'   F x B), "equal" (catch / nseason), or a vector of shares (one per season, e.g. from quarterly landings)
+#' @param sdb.max optional upper cap on the process error SD sdb (soft bound, as \code{sdi.bound}); NULL = none
+#' @param season.w relative production weights of the seasons (rescaled to mean 1; NULL = equal), e.g. a recruitment
+#'   pulse \code{c(0, 3, 1, 0)}
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
@@ -62,7 +75,12 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
-                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE){
+                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE,
+                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
+  nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
+  if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal", "Fstate"))
+  if(!is.null(season.w) && (length(season.w) != nseason || any(season.w < 0) || sum(season.w) <= 0))
+    stop("season.w: one non-negative weight per season", call. = FALSE)
   param <- match.arg(param)
   if(!(identical(effort.creep, "estimate") || (is.numeric(effort.creep) && length(effort.creep) == 1 && effort.creep > -1)))
     stop("effort.creep must be a number > -1 or \"estimate\"", call. = FALSE)
@@ -70,7 +88,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
   if(shape == "schaefer") BmsyK <- 0.5
   m <- switch(shape, schaefer = 2, fox = 1.001, pella = .m_from_bmsyk(BmsyK))
   if(shape == "fox") BmsyK <- m^(-1/(m - 1))
-  lag <- as.integer(round(lag)); if(lag < 0) stop("lag must be >= 0", call. = FALSE)
+  if(length(lag) != 1 || !is.finite(lag) || lag < 0) stop("lag must be a single number >= 0", call. = FALSE)
+  lag <- if(nseason == 1) as.integer(round(lag)) else round(lag*nseason)/nseason   # seasons: fractional lag in whole steps
   if(inherits(ebsb, "jb3selex")) ebsb <- ebsb$ebsb                       # from jb3_selex()
   if(!is.null(ebsb)){
     if(!is.list(ebsb)) ebsb <- list(ebsb)
@@ -84,7 +103,9 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all), class = "jb3model")
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, nseason = nseason, catch.alloc = catch.alloc,
+                 season.w = season.w, sdb.max = sdb.max),
+            class = "jb3model")
 }
 
 #' @export
