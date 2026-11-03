@@ -40,6 +40,8 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   }
   # priors (K and q on the catch-scaled internal units)
   K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*max(data$catch)
+  km <- priors$K.max %||% c(NA, NA, 0)
+  Kmax.pr <- if(km[3] == 1) c(log(km[1]*max(data$catch)/mucatch), km[2], 1) else c(0, 1, 0)
   q.pr <- if(is.null(priors$q)) matrix(c(1, 1, 0), nq, 3, byrow = TRUE) else {
     x <- priors$q; if(nrow(x) == 1 && nq > 1) x <- x[rep(1, nq), , drop = FALSE]
     if(nrow(x) != nq) stop("q priors: one row per catchability group (", nq, ")", call. = FALSE); x[, 1] <- x[, 1]*mucatch; x }
@@ -61,7 +63,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
-    r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), bk.pr = priors$bkinit, sdb.pr = priors$sdb,
+    r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
     sdb.ig = priors$sdb.type == "igamma", q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
     sdi.pr = priors$sdi,
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,
@@ -108,7 +110,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
 # starting values from a deterministic trajectory at the prior medians
 jb3_inits <- function(dat, jitter = 0){
   N <- dat$N; m <- dat$mu.m
-  K <- dat$K.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.3)); r <- dat$r.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.2))
+  K <- dat$K.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.3)); if(dat$Kmax.pr[3] == 1) K <- min(K, 0.8*exp(dat$Kmax.pr[1])); r <- dat$r.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.2))
   bk <- min(max(dat$bk.pr[1], 0.05), 1.2)
   rem <- function(p) if(dat$eb.rem) .rho_curve(p, dat$ebm[dat$ebcc, ]) else 1
   for(k in 1:15){
@@ -148,6 +150,7 @@ jb3_nll <- function(par, dat){
   K <- exp(logK); r <- exp(logr); q <- exp(logq); bk <- exp(lbk)
   if(r.pr[3] == 1) nll <- nll - dnorm(logr, log(r.pr[1]), r.pr[2], TRUE)
   if(K.pr[3] == 1) nll <- nll - dnorm(logK, log(K.pr[1]), K.pr[2], TRUE)
+  if(Kmax.pr[3] == 1) nll <- nll + 0.5*(smax(logK - Kmax.pr[1], 0, 1e-4)/Kmax.pr[2])^2        # soft upper prior on K
   if(bk.pr[3] == 1) nll <- nll - dnorm(lbk, log(bk.pr[1]), bk.pr[2], TRUE)
   for(j in seq_len(nq)) if(q.pr[j, 3] == 1) nll <- nll - dnorm(logq[j], log(q.pr[j, 1]), q.pr[j, 2], TRUE)
   if(q.uniform) nll <- nll - sum(logq)
