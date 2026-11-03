@@ -99,7 +99,7 @@ jb3cols <- function(n, alpha = 1){
 #'   With several runs, reference points are drawn only on relative quantities (B/Bmsy, F/Fmsy, and Bmsy/K on B/K when
 #'   it is the same in all runs): absolute levels (K, Bmsy, Fmsy, MSY) differ between runs.
 #' @export
-jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"), steps = FALSE, refpts = TRUE, extra = NULL,
+jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Process deviation"), steps = FALSE, refpts = TRUE, extra = NULL,
                        ncol = NULL, colour = "grey45", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
                        drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
   type[type == "B/B0"] <- "B/K"

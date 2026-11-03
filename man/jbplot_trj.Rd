@@ -6,7 +6,7 @@
 \usage{
 jbplot_trj(
   x,
-  type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"),
+  type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Process deviation"),
   steps = FALSE,
   refpts = TRUE,
   extra = NULL,
