@@ -106,7 +106,7 @@ fn
 ## Fit to the indices
 
 ```{r fit-fits, fig.height = 4}
-jbplot_fits(fit)
+jbplot_fits(fit,years="all")
 ```
 
 `jbplot_fits(fit, log = TRUE)` plots on the log scale; the shaded band is the
