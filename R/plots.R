@@ -81,10 +81,10 @@ jb3cols <- function(n, alpha = 1){
 #' around the median, from the draws when the fit has them, otherwise from the lognormal (delta-method) approximation.
 #' Projections from \code{\link{jb3_project}()} are appended after the last year (one colour per scenario, with intervals).
 #' @param x a \code{jabba3} fit, a list of fits, or a workflow fit
-#' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Process deviation",
+#' @param type quantities: any of "B", "F", "B/Bmsy", "F/Fmsy", "B/K" (alias "B/B0"), "Catch", "Catch/MSY", "Process deviation",
 #'   "Process SD", "Surplus production", "EB"
 #' @param steps for a workflow fit, plot all steps
-#' @param refpts draw reference points
+#' @param refpts draw reference points (with several runs: relative quantities only)
 #' @param extra named vector of extra reference points (names starting with B go to the biomass panel, F to the F panel,
 #'   on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/Bmsy)
 #' @param ncol facet columns
@@ -95,16 +95,19 @@ jb3cols <- function(n, alpha = 1){
 #' @param proj optional output of \code{\link{jb3_project}()}, appended after the last year
 #' @param label.size size of the reference point labels
 #' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
-#'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy and B panels; \code{NULL} to omit
+#'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy panel (and the B panel for a single run); \code{NULL} to omit.
+#'   With several runs, reference points are drawn only on relative quantities (B/Bmsy, F/Fmsy, and Bmsy/K on B/K when
+#'   it is the same in all runs): absolute levels (K, Bmsy, Fmsy, MSY) differ between runs.
 #' @export
-jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K"), steps = FALSE, refpts = TRUE, extra = NULL,
+jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Process deviation"), steps = FALSE, refpts = TRUE, extra = NULL,
                        ncol = NULL, colour = "grey45", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
                        drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
   d <- do.call(rbind, lapply(names(fl), function(n){
     t <- if(nested) .nested_ts(fl[[n]], type, probs) else { t <- fl[[n]]$ts[fl[[n]]$ts$quantity %in% type, ]
-      t$lo1 <- t$hi1 <- NA; t }
+      t$lo1 <- t$hi1 <- rep(NA_real_, nrow(t)); t }
+    if("Catch/MSY" %in% type) t <- rbind(t, .catch_msy(fl[[n]], names(t)))
     t$run <- n; t }))
   if(drop.last){ ly <- max(d$year); d <- d[!(d$quantity %in% c("F", "F/Fmsy", "Catch") & d$year == ly), ] }
   d$quantity <- factor(d$quantity, levels = type); d$run <- factor(d$run, levels = names(fl))
@@ -150,12 +153,24 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "B/K")
   if(!any(type %in% c("Process deviation"))) p <- p + ggplot2::expand_limits(y = 0)
   if(refpts){
     f <- fl[[1]]; rp <- f$refpts
-    refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
-                       name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
-                       value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
+    # reference points only on relative quantities: absolute levels (K, Bmsy, Fmsy, MSY) differ between runs and
+    # would be drawn from the first run only. Bmsy/K on the B/K panel only when it is the same in all runs.
+    bmk <- vapply(fl, function(f) if(!is.null(f$refpts) && "BmsyK" %in% rownames(f$refpts)) f$refpts["BmsyK", "est"] else NA, 0)
+    same <- all(is.finite(bmk)) && diff(range(bmk)) < 1e-6
+    single <- length(fl) == 1
+    if(single){                                    # one run: absolute reference points as well
+      refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
+                         name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
+                         value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
+    } else {                                       # several runs: relative reference points only
+      refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "Process deviation"), name = c("Bmsy", "Fmsy", "zero"), value = c(1, 1, 0))
+      if(same) refs <- rbind(refs, data.frame(quantity = "B/K", name = "Bmsy", value = bmk[[1]]))
+    }
+    refs <- rbind(refs, data.frame(quantity = "Catch/MSY", name = "MSY", value = 1))
     lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim) & !names(lim) %in% names(extra)]  # extra overrides
-    if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", "B"), each = length(lim)), name = rep(names(lim), 2),
-                                                   value = c(lim, lim*rp["Bmsy", "est"])))
+    if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", if(single) "B"), each = length(lim)),
+                                                   name = rep(names(lim), 1 + single),
+                                                   value = c(lim, if(single) lim*rp["Bmsy", "est"])))
     if(length(extra)){ nm <- names(extra)
       bq <- if("B/Bmsy" %in% type || !"B" %in% type) "B/Bmsy" else "B"; fq <- if("F/Fmsy" %in% type || !"F" %in% type) "F/Fmsy" else "F"
       refs <- rbind(refs, data.frame(quantity = ifelse(substr(nm, 1, 1) == "F", fq, bq), name = nm, value = unname(extra))) }
@@ -287,16 +302,38 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
     ggplot2::aes(.data$x, .data$y, group = .data$grp), fill = cfill[[l]], colour = NA, alpha = 0.85))
 }
 
+# catch relative to MSY (estimated catch and its interval divided by the MSY estimate of the run)
+.catch_msy <- function(fit, cols){
+  t <- fit$ts[fit$ts$quantity == "Catch", ]
+  if(!nrow(t) || is.null(fit$refpts) || !"MSY" %in% rownames(fit$refpts)) return(NULL)
+  msy <- fit$refpts["MSY", "est"]
+  for(v in intersect(c("est", "lci", "uci", "lo1", "hi1"), names(t))) t[[v]] <- t[[v]]/msy
+  t$quantity <- "Catch/MSY"
+  if(!"lo1" %in% names(t)) t$lo1 <- rep(NA_real_, nrow(t))
+  if(!"hi1" %in% names(t)) t$hi1 <- rep(NA_real_, nrow(t))
+  t[, cols, drop = FALSE]
+}
+
 #' Fits to the abundance indices
 #'
 #' Observations, fitted index with its 95\% interval and the 95\% predictive interval (grey), one facet per index.
+#' With \code{years = "all"} the fitted index (q x biomass) is shown over the full assessment period, also in years
+#' without observations, as in JABBA's \code{jbplot_cpuefits()}; intervals then come from posterior draws (the NUTS
+#' draws of the fit, or multivariate normal draws at the mode), and the predictive interval uses the median
+#' observation SD of each index.
 #' @inheritParams jbplot_trj
 #' @param log log scale
 #' @param ppd draw the predictive interval
+#' @param years "observed" (default): years with observations of each index; "all": the full assessment period
+#' @param ndraws number of draws for \code{years = "all"} when the fit has no draws
 #' @export
-jbplot_fits <- function(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dodgerblue"){
+jbplot_fits <- function(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dodgerblue", years = c("observed", "all"),
+                        ndraws = 1000){
+  years <- match.arg(years)
   fl <- .fitlist(x, steps)
-  d <- do.call(rbind, lapply(names(fl), function(n){ i <- fl[[n]]$index; i$run <- n; i }))
+  d <- do.call(rbind, lapply(names(fl), function(n){
+    i <- if(years == "all" && inherits(fl[[n]], "jabba3")) .index_full(fl[[n]], ndraws) else fl[[n]]$index
+    i$run <- n; i }))
   d$index <- factor(d$index, levels = unique(d$index))
   p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$year))
   if(length(fl) == 1){
@@ -307,10 +344,30 @@ jbplot_fits <- function(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dod
     cols <- stats::setNames(jb3cols(length(fl)), names(fl))
     p <- p + ggplot2::geom_line(ggplot2::aes(y = .data$hat, colour = .data$run), linewidth = 0.7) + ggplot2::scale_colour_manual(values = cols)
   }
-  o <- d[d$run == names(fl)[1], ]
+  o <- d[d$run == names(fl)[1] & is.finite(d$obs), ]
   p <- p + ggplot2::geom_point(data = o, ggplot2::aes(y = .data$obs), shape = 21, fill = "white", size = 1.8) +
     ggplot2::facet_wrap(~index, scales = "free_y") + scale_x_year() + ggplot2::labs(x = "Year", y = "Index") + theme_jabba3()
   if(log) p + ggplot2::scale_y_log10() else p + ggplot2::expand_limits(y = 0)
+}
+
+# fitted index over all years of the assessment: draws of q_i x B_t (x EB/SB factor), median and 95% intervals
+.index_full <- function(fit, ndraws = 1000){
+  dr <- if(length(fit$draws) && !is.null(fit$draws$q)) fit$draws else jb3_draws(fit, ndraws)
+  dat <- fit$setup$dat; yrs <- fit$years; nm <- fit$setup$index.names %||% unique(fit$index$index)
+  obs <- fit$index
+  do.call(rbind, lapply(seq_along(nm), function(i){
+    q <- dr$q[, dat$sets.q[i]]
+    eb <- if(isTRUE(dat$eb.on)) apply(dr$`B/K`, 2, .rho_curve, dat$ebm[dat$ebci[i], ]) else 1
+    I <- q*dr$B*eb
+    qs <- apply(I, 2, stats::quantile, c(0.025, 0.5, 0.975), na.rm = TRUE)
+    o <- obs[obs$index == nm[i], ]
+    sd <- stats::median(o$sd, na.rm = TRUE)
+    # posterior predictive: fitted index draws times lognormal observation error
+    Ip <- I*exp(matrix(stats::rnorm(length(I), 0, sd), nrow(I)))
+    pp <- apply(Ip, 2, stats::quantile, c(0.025, 0.975), na.rm = TRUE)
+    data.frame(index = nm[i], year = yrs, obs = o$obs[match(yrs, o$year)], hat = qs[2, ], lci = qs[1, ], uci = qs[3, ],
+               sd = sd, ppd_lci = pp[1, ], ppd_uci = pp[2, ])
+  }))
 }
 
 .resid <- function(fit, type){
