@@ -5,7 +5,7 @@ utils::globalVariables(c("logK","logr","logq","lbk","logm","logsdb","logsdi","tk
   "sdi.bound","nst","st.type","st.t","st.pr","eb.on","nI","obs_i","obs_t","ebci","sets.q","sets.var","W","SE2","xlim","logIobs"))
 # ggplot2 aesthetics in the NUTS diagnostics
 utils::globalVariables(c("iter","value","chain","bin","count","lag","acf","par","x","y","xmin","xmax","ymin","ymax","v","lt",
-  "flag","what","density","metric","group","rk"))
+  "flag","what","density","metric","group","rk","row","year","p","panel","class","scenario","block"))
 utils::globalVariables(c("stock", "harvest"))
 # variables exposed by RTMB::getAll() in the trend model
 utils::globalVariables(c("y","oi","ot","se2","fe2","nA","census","vw","drift","sdp.pr","logsdp","logsdi","r","x","x1.pr","rb","nb","iid"))

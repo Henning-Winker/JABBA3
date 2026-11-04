@@ -127,8 +127,9 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
   lab[lab == ""] <- vapply(ctrl[lab == ""], .ctrl_label, "")
   lab <- make.unique(lab); names(ctrl) <- lab
   mem <- .fwd_members(x, ndraws)
-  set.seed(seed)
-  out <- lapply(ctrl, function(cc) .rbind_iters(lapply(mem, function(mm) .fwd_core(mm$fit, mm$dr, cc, procerr, hcr))))
+  # common random numbers: every scenario uses the same process-error innovations, so scenarios differ only by their
+  # controls (identical intermediate years, monotone differences between TAC options)
+  out <- lapply(ctrl, function(cc){ set.seed(seed); .rbind_iters(lapply(mem, function(mm) .fwd_core(mm$fit, mm$dr, cc, procerr, hcr))) })
   last <- lapply(ctrl, function(cc) cc[nrow(cc), ])
   sc <- data.frame(type = vapply(last, function(z) switch(z$quant, Fmsy = "F/Fmsy", z$quant), ""),
                    value = vapply(last, function(z) z$value, 0), label = lab, row.names = NULL, stringsAsFactors = FALSE)

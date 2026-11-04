@@ -45,6 +45,53 @@ one reference point only).
 knitr::kable(jb3_kobematrix(pj))
 ```
 
+## Kobe II strategy matrix for TAC options
+
+For ICCAT advice, the Kobe II strategy matrix (K2SM) is built from constant
+catch (TAC) projections. `what = "all"` returns the three matrices of the
+ICCAT tables, (a) $P(F < F_{MSY})$, (b) $P(B > B_{MSY})$ and (c) both, in
+percent with `percent = TRUE`. Intermediate years before the TAC takes effect
+(`imp.years`, default status quo catch) are identical across rows, because all
+scenarios share the same process-error draws.
+
+```{r proj-k2sm-tac}
+pk2 <- jb3_project(fit, catch = seq(40000, 100000, 10000), nyears = 10, imp.years = 1)
+k2 <- jb3_kobematrix(pk2, what = "all", percent = TRUE)
+k2
+```
+
+`jbplot_kobematrix()` shades the matrices as in the ICCAT reports
+(`colours = "kobe"` for red to green):
+
+```{r proj-k2sm-plot, fig.height = 9, fig.width = 8}
+jbplot_kobematrix(pk2)
+```
+
+The IOTC format reports, for catch options relative to a reference catch
+(default the catch in the last assessment year), the probability (%) of
+violating the MSY-based reference points, $P(B < B_{MSY})$ and
+$P(F > F_{MSY})$, and the limit reference points, $P(B < B_{lim})$ and
+$P(F > F_{lim})$ (defaults $B_{lim} = 0.5 B_{MSY}$, $F_{lim} = 1.3 F_{MSY}$),
+3 and 10 years after the last assessment year:
+
+```{r proj-k2sm-iotc, fig.height = 4.5, fig.width = 9}
+cref <- tail(fit$data$catch, 1)
+pio <- jb3_project(fit, catch = cref*c(0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2), nyears = 10)
+kio <- jb3_kobematrix_iotc(pio, ref.catch = cref)
+kio
+jbplot_kobematrix(kio, colours = "kobe")
+```
+
+Both plots take `colours = "grey"` (report tables) or `"kobe"`.
+
+Projections from several models (e.g. alternative production functions, or
+runs with and without the lag) are combined into one matrix with equal or
+given `weights`, as the ICCAT combined matrices:
+
+```{r proj-k2sm-comb, eval = FALSE}
+jb3_kobematrix(list(Fox = pc.fox, Schaefer = pc.sch), what = "all", percent = TRUE)
+```
+
 Constant catch scenarios remain available, e.g. for TAC options:
 
 ```{r proj-c, fig.height = 6}
