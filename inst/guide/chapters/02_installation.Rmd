@@ -2,9 +2,21 @@
 
 ## Required
 
-JABBA3 needs `RTMB`, `ggplot2` and `Matrix`; these are installed with the package:
+JABBA3 needs `RTMB`, `ggplot2` and `Matrix`; these are installed with the package.
+The easiest option is r-universe (no `remotes` needed; the same repositories also provide the FLR packages):
 
 ```{r install, eval = FALSE}
+repos <- c(
+  hw   = "https://henning-winker.r-universe.dev",
+  flr  = "https://flr.r-universe.dev",
+  CRAN = "https://cloud.r-project.org"
+)
+install.packages("JABBA3", repos = repos)
+```
+
+Or the development version from GitHub:
+
+```{r install-github, eval = FALSE}
 install.packages("remotes")
 remotes::install_github("Henning-Winker/JABBA3")
 ```
@@ -21,8 +33,7 @@ remotes::install_github("Henning-Winker/JABBA3")
 
 ```{r install-optional, eval = FALSE}
 install.packages(c("tmbstan", "rstan", "patchwork", "MASS"))
-install.packages(c("FLCore", "ggplotFL", "FLRef"),
-                 repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
+install.packages(c("FLCore", "ggplotFL", "FLRef"), repos = repos)
 remotes::install_github("JABBAmodel/JABBA")
 ```
 

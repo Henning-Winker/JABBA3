@@ -23,10 +23,23 @@ JABBA (the JAGS version) stays available and maintained as the reference.
 
 ## Installation
 
+From r-universe:
+
+```r
+repos <- c(
+  hw   = "https://henning-winker.r-universe.dev",
+  flr  = "https://flr.r-universe.dev",
+  CRAN = "https://cloud.r-project.org"
+)
+install.packages("JABBA3", repos = repos)
+JABBA3::jabba3_info()
+```
+
+or the development version from GitHub:
+
 ```r
 # install.packages("remotes")
 remotes::install_github("Henning-Winker/JABBA3")
-JABBA3::jabba3_info()
 ```
 
 ## Quick start

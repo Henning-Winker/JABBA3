@@ -6,7 +6,8 @@
 # Chunks that the guide shows but does not run (eval = FALSE: installation, JABBA/JAGS comparisons, long runs) are
 # commented out with "## ".
 #
-# Requirements: JABBA3 (remotes::install_github("Henning-Winker/JABBA3")), ggplot2, patchwork; NUTS sections need
+# Requirements: JABBA3 (install.packages("JABBA3", repos = c("https://henning-winker.r-universe.dev",
+# "https://flr.r-universe.dev", "https://cloud.r-project.org")) or remotes::install_github("Henning-Winker/JABBA3")), ggplot2, patchwork; NUTS sections need
 # tmbstan and rstan; FLR sections need FLCore, ggplotFL and FLRef; converter sections need JABBA.
 # Run section by section (RStudio: Ctrl+Enter, or Ctrl+Alt+T for the current chunk); objects are reused across
 # chapters (e.g. bet, d, pr, fit), so run from the top.
@@ -83,9 +84,21 @@ library(ggplot2)
 #' 
 #' ## Required
 #' 
-#' JABBA3 needs `RTMB`, `ggplot2` and `Matrix`; these are installed with the package:
+#' JABBA3 needs `RTMB`, `ggplot2` and `Matrix`; these are installed with the package.
+#' The easiest option is r-universe (no `remotes` needed; the same repositories also provide the FLR packages):
 #' 
 ## ----install, eval = FALSE----------------------------------------------------
+## repos <- c(
+##   hw   = "https://henning-winker.r-universe.dev",
+##   flr  = "https://flr.r-universe.dev",
+##   CRAN = "https://cloud.r-project.org"
+## )
+## install.packages("JABBA3", repos = repos)
+
+#' 
+#' Or the development version from GitHub:
+#' 
+## ----install-github, eval = FALSE---------------------------------------------
 ## install.packages("remotes")
 ## remotes::install_github("Henning-Winker/JABBA3")
 
@@ -102,8 +115,7 @@ library(ggplot2)
 #' 
 ## ----install-optional, eval = FALSE-------------------------------------------
 ## install.packages(c("tmbstan", "rstan", "patchwork", "MASS"))
-## install.packages(c("FLCore", "ggplotFL", "FLRef"),
-##                  repos = c("https://flr.r-universe.dev", "https://cloud.r-project.org"))
+## install.packages(c("FLCore", "ggplotFL", "FLRef"), repos = repos)
 ## remotes::install_github("JABBAmodel/JABBA")
 
 #' 
