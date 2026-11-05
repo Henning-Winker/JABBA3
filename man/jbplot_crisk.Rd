@@ -4,16 +4,38 @@
 \alias{jbplot_crisk}
 \title{Catch risk curves}
 \usage{
-jbplot_crisk(proj, years = NULL, bfrac = 0.5)
+jbplot_crisk(
+  proj,
+  years = NULL,
+  bfrac = 0.5,
+  x = c("value", "ratio"),
+  ref = NULL
+)
 }
 \arguments{
-\item{proj}{output of \code{\link{jb3_project}()} with two or more scenarios}
+\item{proj}{output of \code{\link{jb3_project}()} with two or more constant catch (or F) scenarios}
 
 \item{years}{projection years to show (default: up to 4 spread over the horizon)}
 
-\item{bfrac}{also show P(B < bfrac x Bmsy), e.g. 0.5 for a limit; NULL to omit}
+\item{bfrac}{also show P(B < bfrac x Bmsy), e.g. 0.5 for a limit or \code{c(MSST = 1 - M)} (a name labels the panel);
+NULL to omit}
+
+\item{x}{x-axis: \code{"value"} (catch or F/Fmsy of the scenario) or \code{"ratio"}, relative to the status quo catch
+(or F/Fmsy), i.e. the mean of the last \code{nsq} assessment years used in the projection, as \code{type = "ratio"}
+in JABBA's \code{fw_jabba()}}
+
+\item{ref}{reference for \code{x = "ratio"} (default the status quo of the projection)}
 }
 \description{
-As JABBA's \code{jbplot_Crisk()}: the probability that B < Bmsy (or B < \code{bfrac} x Bmsy) and that F > Fmsy against
-the projected catch (or F/Fmsy) of each scenario, one line per projection year, from \code{\link{jb3_project}()}.
+As JABBA's \code{jbplot_Crisk()} (NOAA-style risk plots): the probability that B < Bmsy, that F > Fmsy and that
+B < \code{bfrac} x Bmsy (e.g. MSST = (1 - M) Bmsy) against the projected catch (or F/Fmsy) of each scenario, one
+line per projection year, from \code{\link{jb3_project}()}.
+}
+\examples{
+\dontrun{
+M <- 0.231
+pr <- jb3_project(fit, scenarios = setNames(lapply(seq(0, 3, 0.25), function(m) c(Csq = m)), seq(0, 3, 0.25)),
+                  nyears = 31, imp.years = 3)
+jbplot_crisk(pr, years = seq(2025, 2050, 5), bfrac = c(MSST = 1 - M), x = "ratio")
+}
 }

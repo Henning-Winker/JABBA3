@@ -19,3 +19,16 @@ test_that("JAGG/JABBA plot set returns ggplots", {
   fs <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox", ebsb = c(0.6, 1.2, 3, 0.1, 1)), osa = FALSE)
   g(jbplot_ebsb_status(fs))
 })
+
+test_that("jbplot_crisk ratio and named bfrac", {
+  data(iccat); bet <- iccat$bet
+  d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+  f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), osa = FALSE)
+  m <- c(0.5, 1, 1.5)
+  pr <- jb3_project(f, scenarios = setNames(lapply(m, function(v) c(Csq = v)), m), nyears = 5, ndraws = 100, imp.years = 1)
+  expect_equal(unname(pr$sq["Csq"]), mean(tail(f$data$catch, 3)))
+  g <- jbplot_crisk(pr, bfrac = c(MSST = 0.7), x = "ratio")
+  expect_s3_class(g, "ggplot"); expect_equal(sort(unique(g$data$x)), m)
+  expect_true("P(B < MSST)" %in% levels(g$data$risk))
+  expect_error(jbplot_crisk(pr, years = 2050))
+})

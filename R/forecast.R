@@ -136,7 +136,7 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
   # TAC year: first year in which a control departs from its first-year (intermediate) setting
   tac <- vapply(ctrl, function(cc){ k <- which(cc$quant != cc$quant[1] | cc$value != cc$value[1]); if(length(k)) cc$year[k[1]] else NA }, 0)
   tac <- if(all(is.na(tac))) ctrl[[1]]$year[1] else min(tac, na.rm = TRUE)
-  .proj_object(x, out, sc, ctrl = ctrl, tac.year = tac, procerr = procerr, hcr = hcr)
+  .proj_object(x, out, sc, ctrl = ctrl, tac.year = tac, procerr = procerr, hcr = hcr, sq = .sq(x, nsq), nsq = nsq)
 }
 
 .proj_object <- function(x, out, sc, ...){

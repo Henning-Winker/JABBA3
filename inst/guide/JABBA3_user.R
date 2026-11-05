@@ -1562,6 +1562,30 @@ jbplot_crisk(pj)
 jbplot_crisk(pc)
 
 #' 
+#' ### U.S. advice: risk plots with MSST
+#' 
+#' Risk plots of this kind support U.S. advice (NOAA, SEDAR assessments), where the
+#' biomass limit is the minimum stock size threshold, e.g.
+#' $MSST = (1 - M) B_{MSY}$ as in the SEDAR great hammerhead assessment. A named
+#' `bfrac` labels the panel, and `x = "ratio"` shows the catch relative to the
+#' current catch (mean of the last three years), as `type = "ratio"` in JABBA's
+#' `fw_jabba()`. Catch scenarios as multiples of the current catch (`Csq`), with
+#' three intermediate years at the current catch and a horizon of about two
+#' generation times:
+#' 
+## ----cmp-crisk-msst, fig.height = 4, fig.width = 9----------------------------
+M <- 0.3                                          # natural mortality (illustrative)
+cr <- seq(0, 2, 0.1)
+pcr <- jb3_project(fit, scenarios = setNames(lapply(cr, function(m) c(Csq = m)), cr),
+                   nyears = 31, imp.years = 3)
+jbplot_crisk(pcr, years = seq(2025, 2045, 5), bfrac = c(MSST = 1 - M), x = "ratio")
+
+#' 
+#' The catch level at which a risk curve crosses a chosen probability (e.g. 0.5,
+#' or a lower risk tolerance) in a given year is the corresponding catch advice.
+#' Runs are compared by plotting each, e.g. with `patchwork::wrap_plots()`.
+
+#' 
 #' # The rebuilding protocol: Atlantic blue marlin
 #' 
 #' Bigeye tuna is the standard example of this guide. This chapter is the more
