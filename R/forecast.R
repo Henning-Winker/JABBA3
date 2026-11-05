@@ -418,7 +418,7 @@ jbplot_hcr <- function(x = NULL, ftgt = 1, btrigger = 0.5, blim = 0.3, bclose = 
   }
   p + ggplot2::coord_cartesian(xlim = c(0, bmax), ylim = c(0, fmax), expand = FALSE) +
     ggplot2::labs(x = expression(B/B[MSY]), y = expression(F/F[MSY]),
-                  subtitle = if(!is.null(x)) "B/Bmsy distribution in the TAC year (blue), median and 90% interval" else NULL) +
+                  subtitle = if(!is.null(x)) sprintf("Projected B/Bmsy at the start of the TAC year %d (assessment to %d)\nDensity, median (point) and 90%% interval (bar), drawn at F_adv", x$year, x$status$year) else NULL) +
     theme_jabba3()
 }
 

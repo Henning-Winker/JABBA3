@@ -182,6 +182,120 @@ Other combinations follow from `jb3_kobematrix()` with `bref` and `fref`
 `risk = TRUE` for the complement, e.g.
 `jb3_kobematrix(pg, what = "all", bref = c(Btrigger = 0.5))`.
 
+## Short-term advice with a hockey-stick HCR
+
+Short-term advice under a harvest control rule (as in the GFCM Type 1
+management procedure with JABBA's `fw_jabba_ctrl()` and `jb_hockeystick()`)
+takes three steps: a forecast with intermediate years at the status quo catch
+followed by $F_{tgt}$, the hockey-stick rule applied to $B/B_{MSY}$ in the first
+implementation (TAC) year to obtain the advised $F_{adv}$, and the forecast of
+the management options. The example continues with the single blue marlin
+model, which is close to $B_{trigger}$.
+
+Forecast controls (`jb3_fwd()`, as `fw_jabba_ctrl()`) are data frames with one
+row per year and `quant` `"Catch"`, `"Fmsy"` (F/F~MSY~), `"F"`, `"Csq"`,
+`"Fsq"` or `"HCR"`; here two intermediate years at the status quo catch (mean
+of the last three years) and two TAC years:
+
+```{r hcr-ctrl}
+y0  <- max(f.bum$years)
+yrs <- y0 + 1:4
+csq <- mean(tail(f.bum$data$catch, 3))
+fsq <- mean(tail(f.bum$ts$est[f.bum$ts$quantity == "F/Fmsy"], 3))
+ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
+ctrl(1, "Fmsy")
+```
+
+`jb3_hcr()` evaluates the rule ($F/F_{MSY} = F_{tgt}$ above $B_{trigger}$,
+decreasing linearly below) on $B/B_{MSY}$ in the TAC year of the $F_{tgt}$
+forecast, either at the median (`Fadv.det`) or, precautionary and the default,
+as the mean over all draws of the rule applied to each draw (`Fadv.pa`):
+
+```{r hcr-fadv}
+hcr <- jb3_hcr(jb3_fwd(f.bum, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.5, blim = 0.3)
+hcr
+```
+
+```{r hcr-plot, fig.height = 4.5, fig.width = 6, fig.cap = "Hockey-stick HCR (black line: F/Fmsy against B/Bmsy) with Blim, Btrigger and Bmsy. The blue density is the projected B/Bmsy at the start of the TAC year: each draw is projected from its terminal-year estimate through the intermediate years at the status quo catch, with process error, so the distribution is wider than the current-state posterior. The point is its median and the horizontal bar its 90% interval, drawn at the height of the advised F (F_adv, precautionary: the rule averaged over all draws)."}
+jbplot_hcr(hcr)
+```
+
+The distribution in the plot is not the current state: it is $B/B_{MSY}$ at the
+start of the TAC year, projected from each draw's terminal-year estimate
+through the intermediate years, and so includes their process error. The rule
+can be evaluated in another forecast year with `year`, e.g.
+`jb3_hcr(fwd, year = y0 + 1)` for the year after the assessment.
+
+### Why $F_{adv}$ is below $F_{tgt}$ when the median is above $B_{trigger}$
+
+`jb3_hcr()` offers two ways of turning the uncertain $B/B_{MSY}$ into one
+advised F:
+
+- **Deterministic** (`uncertainty = FALSE`, `Fadv.det`): the rule is applied
+  once, to the median $B/B_{MSY}$. Here the median is above $B_{trigger}$, so
+  $F_{adv} = F_{tgt}$.
+- **Precautionary** (`uncertainty = TRUE`, the default, `Fadv.pa`; as JABBA's
+  `jb_hockeystick(uncertainty = TRUE)`): the rule is applied to every draw, and
+  the advised F is the mean of the resulting F values,
+  $F_{adv} = \frac{1}{n}\sum_i HCR(B_i/B_{MSY})$. This is an expectation over the
+  draws, not a fractile of $B/B_{MSY}$.
+
+Draws above $B_{trigger}$ get $F_{tgt}$; draws below it get a reduced F,
+$F_{tgt} (B_i/B_{MSY})/B_{trigger}$ (with `bclose = 0`). Because the rule is
+capped at $F_{tgt}$, uncertainty can only pull the mean down: the precautionary
+$F_{adv}$ is never above the deterministic one, and it drops below $F_{tgt}$ as
+soon as a share of the draws falls below $B_{trigger}$, even when the median is
+above it. The decomposition for the blue marlin example:
+
+```{r hcr-explain}
+f.i <- JABBA3:::.hockey(hcr$b, ftgt = 1, btrigger = 0.5, bclose = 0, fmin = 0.001)   # F/Fmsy for each draw
+below <- hcr$b < 0.5
+data.frame(`median B/Bmsy` = median(hcr$b),
+           `P(B < Btrigger)` = mean(below),
+           `mean F, draws below` = mean(f.i[below]),
+           `mean F, draws above` = mean(f.i[!below]),
+           `Fadv.det` = hcr$Fadv.det,
+           `Fadv.pa` = hcr$Fadv.pa, check.names = FALSE)
+```
+
+so $F_{adv} = P(B < B_{trigger}) \times \bar F_{below} + (1 - P(B < B_{trigger})) \times F_{tgt}$.
+The wider the distribution of $B/B_{MSY}$ in the TAC year (larger estimation
+uncertainty, process error, longer intermediate period), the larger the
+precautionary reduction.
+
+The management options, with $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and
+$F = 0$ in the TAC years:
+
+```{r hcr-stf, fig.height = 6, fig.width = 9}
+fc <- list(Fadv = ctrl(hcr$Fadv, "Fmsy"), Ftgt = ctrl(1, "Fmsy"), Fsq = ctrl(fsq, "Fmsy"),
+           Csq = ctrl(csq, "Catch"), F0 = ctrl(0, "Fmsy"))
+stf <- jb3_fwd(f.bum, fc)
+jbplot_projection(stf)
+```
+
+`jb3_fwdtable()` summarises the fishing opportunities in the GFCM format (as
+`FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year, the biomass
+at the start of the following year, its change, and the probabilities of
+being above $B_{lim}$, $B_{pa}$ and $B_{tgt}$:
+
+```{r hcr-table}
+knitr::kable(jb3_fwdtable(stf))
+```
+
+Alternatively, `quant = "HCR"` applies the rule draw by draw in every
+projection year (`value` = $F_{tgt}$, rule settings in `hcr`), e.g. for a
+medium-term projection under the rule:
+
+```{r hcr-drawwise, eval = FALSE}
+hcr.ctrl <- data.frame(year = y0 + 1:10, value = c(csq, csq, rep(1, 8)),
+                       quant = c("Catch", "Catch", rep("HCR", 8)))
+pm <- jb3_fwd(f.bum, list(HCR = hcr.ctrl), hcr = list(btrigger = 0.5))
+jbplot_projection(pm)
+```
+
+For a weighted ensemble, pass a `jb3_ensemble()` instead of the single fit;
+the steps are the same.
+
 Constant catch scenarios remain available, e.g. for TAC options:
 
 ```{r proj-c, fig.height = 6}
