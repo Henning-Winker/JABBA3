@@ -35,45 +35,76 @@ jbplot_summary(runs)
 jabbaplot3(runs, panels = c("B/Bmsy", "F/Fmsy", "Catch", "kobe", "production", "procdev"))
 ```
 
-## Projections on the advice plot
+### Weighted ensemble
 
-`jbplot_advice(fit, proj = )` appends projection scenarios (dashed) to the
-assessment:
+`jb3_ensemble()` combines the runs into one weighted ensemble, as the
+GFCM/ICCAT JABBA ensembles: each run contributes a number of draws
+proportional to its weight, and the joint draws give the ensemble
+trajectories, reference points and status. `jb3_weights()` scores each run on
+diagnostics (convergence, runs tests, RMSE, and optionally hindcast MASE and
+Mohn's rho with `hindcast` and `retro`); `weight = "equal"` gives equal
+weights:
 
-```{r cmp-advice-proj, fig.height = 7, fig.width = 7}
-jbplot_advice(fit, proj = pj)
+```{r cmp-weights}
+w <- jb3_weights(runs)
+w
+ens <- jb3_ensemble(runs, weights = w$weight)
+ens
 ```
+
+The ensemble behaves like a fit in the plots, tables and projections:
+
+```{r cmp-ensemble-w, fig.width = 10, fig.height = 5}
+jbplot_ensemble(ens)
+```
+
+### Ensemble projections
+
+`jb3_project()` (and `jb3_fwd()`, `jb3_hcr()`) runs each member's own model
+(production function, lag, AR(1) process error) on its share of the draws, so
+the projection of the ensemble carries the structural uncertainty between the
+runs. Catch scenarios as multiples of the current catch (`Csq`, mean of the
+last three years), with three intermediate years at the current catch and a
+horizon of about two generation times:
+
+```{r cmp-prjens}
+cr <- seq(0, 1.6, 0.2)
+prjens <- jb3_project(ens, scenarios = setNames(lapply(cr, function(m) c(Csq = m)), paste0(100*cr, "% Csq")),
+                      nyears = 31, imp.years = 3)
+```
+
+```{r cmp-prjens-plot, fig.height = 6, fig.width = 8}
+jbplot_projection(prjens, type = c("B/Bmsy", "Catch"))
+```
+
+Catches above the surplus production deplete the stock in the long term; the
+projected catch is capped at 95% of the biomass, so the catch falls once the
+stock is depleted. The Kobe matrices (`jb3_kobematrix()`) and the HCR
+(`jb3_hcr()`) take the ensemble projection in the same way as a single fit.
 
 ## Risk curves
 
 `jbplot_crisk()` plots, as JABBA's `jbplot_Crisk()`, the probability that
 $B < B_{MSY}$, that $F > F_{MSY}$ and that $B < 0.5 B_{MSY}$ (`bfrac`) against
-the scenario value (F/F~MSY~ or catch), one line per projection year:
-
-```{r cmp-crisk, fig.height = 4}
-jbplot_crisk(pj)
-```
+the scenario value (catch or F/F~MSY~), one line per projection year. It takes
+any projection with several catch or F scenarios, of a single fit (e.g.
+`jbplot_crisk(pj)` for the F/F~MSY~ scenarios of the chapter *Projections*) or
+of an ensemble. The catch level at which a risk curve crosses a chosen
+probability (e.g. 0.5, or a lower risk tolerance) in a given year is the
+corresponding catch advice.
 
 ### U.S. advice: risk plots with MSST
 
 Risk plots of this kind support U.S. advice (NOAA, SEDAR assessments), where the
 biomass limit is the minimum stock size threshold, e.g.
 $MSST = (1 - M) B_{MSY}$ as in the JABBA assessment of great hammerhead for
-SEDAR 77 (SEDAR 2024). A named
-`bfrac` labels the panel, and `x = "ratio"` shows the catch relative to the
-current catch (mean of the last three years), as `type = "ratio"` in JABBA's
-`fw_jabba()`. Catch scenarios as multiples of the current catch (`Csq`), with
-three intermediate years at the current catch and a horizon of about two
-generation times:
+SEDAR 77 (SEDAR 2024). A named `bfrac` labels the panel, and `x = "ratio"`
+shows the catch relative to the current catch, as `type = "ratio"` in JABBA's
+`fw_jabba()`. For the ensemble projection:
 
 ```{r cmp-crisk-msst, fig.height = 4, fig.width = 9}
 M <- 0.3                                          # natural mortality (illustrative)
-cr <- seq(0, 2, 0.1)
-pcr <- jb3_project(fit, scenarios = setNames(lapply(cr, function(m) c(Csq = m)), cr),
-                   nyears = 31, imp.years = 3)
-jbplot_crisk(pcr, years = seq(2025, 2045, 5), bfrac = c(MSST = 1 - M), x = "ratio")
+jbplot_crisk(prjens, years = seq(2025, 2045, 5), bfrac = c(MSST = 1 - M), x = "ratio")
 ```
 
-The catch level at which a risk curve crosses a chosen probability (e.g. 0.5,
-or a lower risk tolerance) in a given year is the corresponding catch advice.
-Runs are compared by plotting each, e.g. with `patchwork::wrap_plots()`.
+MSST can also be drawn on the projection plot, `jbplot_projection(prjens, bthr = c(MSST = 1 - M), blim = NULL)`.
