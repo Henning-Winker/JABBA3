@@ -45,6 +45,143 @@ one reference point only).
 knitr::kable(jb3_kobematrix(pj))
 ```
 
+## Kobe II strategy matrices
+
+The Kobe II strategy matrix (K2SM) gives, by management option (rows) and
+projection year (columns), the probability of meeting reference points.
+`jb3_kobematrix()` computes it from any projection, in the ICCAT format by
+default; `jb3_kobematrix_iotc()`, `jb3_kobematrix_gfcm()` and
+`jb3_kobematrix_ices()` give the IOTC, GFCM and ICES formats, and
+`jbplot_kobematrix()` plots either, shaded in grey as in the report tables
+(`colours = "grey"`, default) or red to green (`colours = "kobe"`). All
+scenarios of a projection share the same process-error draws, so intermediate
+years are identical across rows and the probabilities change monotonically
+with the TAC.
+
+### ICCAT: TAC options
+
+The classic ICCAT matrices (a) $P(F < F_{MSY})$, (b) $P(B > B_{MSY})$ and (c)
+both (the green Kobe quadrant), for constant catches after one intermediate
+year at the status quo catch (`imp.years = 1`):
+
+```{r k2sm-iccat}
+pk2 <- jb3_project(fit, catch = seq(50000, 100000, 5000), nyears = 10, imp.years = 1)
+k2 <- jb3_kobematrix(pk2, what = "all", percent = TRUE)
+k2
+```
+
+```{r k2sm-iccat-plot, fig.height = 10, fig.width = 8}
+jbplot_kobematrix(pk2)
+```
+
+`what = "green"` (default), `"B"` or `"F"` returns one matrix, and
+`percent = FALSE` proportions. Projections from several models (e.g.
+alternative production functions, or runs with and without the lag) are
+combined into one matrix with equal or given `weights`, as the ICCAT combined
+matrices of two base cases:
+
+```{r k2sm-comb, eval = FALSE}
+jb3_kobematrix(list(Fox = pk2.fox, Schaefer = pk2.sch), what = "all", percent = TRUE)
+```
+
+### IOTC: catch relative to the current catch
+
+The IOTC format reports, for catch options relative to a reference catch
+(default the catch in the last assessment year), the probability (%) of
+violating the MSY-based reference points, $P(B < B_{MSY})$ and
+$P(F > F_{MSY})$, and the limit reference points, $P(B < B_{lim})$ and
+$P(F > F_{lim})$ (defaults $B_{lim} = 0.5 B_{MSY}$, $F_{lim} = 1.3 F_{MSY}$;
+`blim`, `flim`), 3 and 10 years after the last assessment year (`years`):
+
+```{r k2sm-iotc}
+cref <- tail(fit$data$catch, 1)
+pio <- jb3_project(fit, catch = cref*seq(0.6, 1.2, 0.1), nyears = 10)
+kio <- jb3_kobematrix_iotc(pio, ref.catch = cref)
+kio
+```
+
+```{r k2sm-iotc-plot, fig.height = 4.5, fig.width = 9}
+jbplot_kobematrix(kio, colours = "kobe")
+```
+
+### F options for GFCM and ICES
+
+GFCM and ICES advice is usually based on F options. Named scenarios
+(`scenarios` in `jb3_project()`) are reported in the order and with the names
+given; each is one named value, with `Catch`, `Fmsy` (F/Fmsy), `F` (harvest
+rate), `Fsq` or `Csq` (multipliers of the status quo).
+
+F options relative to $F_{MSY}$ (`Fmsy = 0.8`) apply $F = 0.8 F_{MSY}$ draw by
+draw, so $P(F < F_{MSY})$ is 0 or 100%. As in the GFCM and ICES forecasts
+(e.g. SPiCT `add.man.scenario(fabs = )`), F options are therefore set as
+absolute harvest rates from the point estimates of $F_{MSY}$ and the current
+F (mean of the last three years), which gives the probability that each option
+is below the uncertain $F_{MSY}$. The examples use Atlantic blue marlin
+(chapter *The rebuilding protocol*), which is below $B_{MSY}$ and overfished,
+with one intermediate year at the status quo catch:
+
+```{r k2sm-fopt-fit}
+bum <- iccat$bum
+d.bum  <- jb3_data(bum$catch, bum$cpue, bum$se, stock = "bum")
+pr.bum <- jb3_priors(d.bum, r = c(0.098, 0.18), K = c(50000, sqrt(log(1 + 2^2))),
+                     bkinit = c(1, sqrt(log(1 + 0.25^2))))
+f.bum <- jabba3(d.bum, pr.bum, jb3_model(shape = "pella", BmsyK = 0.36, rho = 0.75, start = "index"),
+                ndraws = 1000)
+
+rp <- f.bum$refpts
+Fmsy <- rp["Fmsy", "est"]
+Fcur <- mean(tail(f.bum$ts$est[f.bum$ts$quantity == "F"], 3))
+```
+
+#### GFCM: Btgt-Ftgt, Bthr and Blim
+
+`jb3_kobematrix_gfcm()` gives the three matrices of the GFCM advice summary
+sheet: (a) $P(F < F_{tgt}$ and $B > B_{tgt})$, (b) $P(B > B_{thr})$ and (c) the
+risk $P(B < B_{lim})$, with $B_{tgt} = B_{MSY}$, $F_{tgt} = F_{MSY}$,
+$B_{thr} = 0.5 B_{MSY}$ and $B_{lim} = 0.3 B_{MSY}$ by default (`btgt`,
+`ftgt`, `bthr`, `blim`). The F options follow the GFCM summary sheet: 80-120%
+of $F_{cur}$, $F_{tgt}$ and the precautionary $F_{MSY}$ PA (35th percentile
+of $F_{MSY}$):
+
+```{r k2sm-gfcm}
+Fmsy.pa <- exp(qnorm(0.35, log(Fmsy), rp["Fmsy", "se.log"]))
+Ffrac <- c(seq(0.8, 0.95, 0.05), 1, 1.1, 1.2)
+fgfcm <- c(setNames(lapply(Ffrac, function(m) c(F = m*Fcur)),
+                    ifelse(Ffrac == 1, "Fcur", paste0(100*Ffrac, "% Fcur"))),
+           list(Ftgt = c(F = Fmsy), "Fmsy PA" = c(F = Fmsy.pa)))
+pg <- jb3_project(f.bum, scenarios = fgfcm, nyears = 10, imp.years = 1)
+kg <- jb3_kobematrix_gfcm(pg)
+kg
+```
+
+Probabilities are shaded darker (greener) the higher they are, risks darker
+(redder) the higher the risk, on finer classes (`risk.breaks`):
+
+```{r k2sm-gfcm-plot, fig.height = 9, fig.width = 8}
+jbplot_kobematrix(kg, colours = "kobe")
+```
+
+#### ICES: Bpa-Fmsy and Blim
+
+For ICES-type advice, `jb3_kobematrix_ices()` gives (a)
+$P(F < F_{MSY}$ and $B > B_{pa})$ and (b) the risk $P(B < B_{lim})$, to compare
+with the ICES 5% threshold, with the SPM proxies $B_{pa} = 0.5 B_{MSY}$ and
+$B_{lim} = 0.3 B_{MSY}$ (`bpa`, `blim`), e.g. for $F_{cur}$ and 0.7-1.3
+$F_{MSY}$:
+
+```{r k2sm-ices, eval = FALSE}
+mult <- seq(0.7, 1.3, 0.1)
+fices <- c(list(Fcur = c(F = Fcur)),
+           setNames(lapply(mult, function(m) c(F = m*Fmsy)), ifelse(mult == 1, "Fmsy", paste0(mult, "Fmsy"))))
+pices <- jb3_project(f.bum, scenarios = fices, nyears = 10, imp.years = 1)
+jb3_kobematrix_ices(pices)
+```
+
+Other combinations follow from `jb3_kobematrix()` with `bref` and `fref`
+(multiples of $B_{MSY}$ and $F_{MSY}$, optionally named; `NULL` drops one) and
+`risk = TRUE` for the complement, e.g.
+`jb3_kobematrix(pg, what = "all", bref = c(Btrigger = 0.5))`.
+
 Constant catch scenarios remain available, e.g. for TAC options:
 
 ```{r proj-c, fig.height = 6}

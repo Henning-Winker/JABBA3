@@ -14,7 +14,8 @@ jb3_project(
   imp.years = 0,
   imp.catch = NULL,
   imp.fmsy = NULL,
-  nsq = 3
+  nsq = 3,
+  scenarios = NULL
 )
 }
 \arguments{
@@ -43,6 +44,12 @@ and states only);
 \item{imp.fmsy}{alternatively, F/Fmsy in the intermediate years}
 
 \item{nsq}{years for the status quo}
+
+\item{scenarios}{alternatively, a named list of scenarios in the order to report them, each one named value
+\code{c(quant = value)} with quant "Fmsy" (F/Fmsy), "Catch", "F", "Fsq" or "Csq" (multipliers of the status quo F or
+catch), e.g. \code{list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.8Fmsy" = c(Fmsy = 0.8), "TAC 2000" = c(Catch = 2000))};
+the names label the scenarios in plots and tables. Named \code{fmsy} or \code{catch} vectors are labelled by their
+names too.}
 }
 \value{
 list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles), \code{iters}, \code{scenarios},

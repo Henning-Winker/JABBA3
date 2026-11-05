@@ -127,8 +127,9 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
   lab[lab == ""] <- vapply(ctrl[lab == ""], .ctrl_label, "")
   lab <- make.unique(lab); names(ctrl) <- lab
   mem <- .fwd_members(x, ndraws)
-  set.seed(seed)
-  out <- lapply(ctrl, function(cc) .rbind_iters(lapply(mem, function(mm) .fwd_core(mm$fit, mm$dr, cc, procerr, hcr))))
+  # common random numbers: every scenario uses the same process-error innovations, so scenarios differ only by their
+  # controls (identical intermediate years, monotone differences between TAC options)
+  out <- lapply(ctrl, function(cc){ set.seed(seed); .rbind_iters(lapply(mem, function(mm) .fwd_core(mm$fit, mm$dr, cc, procerr, hcr))) })
   last <- lapply(ctrl, function(cc) cc[nrow(cc), ])
   sc <- data.frame(type = vapply(last, function(z) switch(z$quant, Fmsy = "F/Fmsy", z$quant), ""),
                    value = vapply(last, function(z) z$value, 0), label = lab, row.names = NULL, stringsAsFactors = FALSE)
@@ -180,24 +181,45 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
 #' @param imp.catch catch in the intermediate years (default: status quo catch, mean of the last \code{nsq} years)
 #' @param imp.fmsy alternatively, F/Fmsy in the intermediate years
 #' @param nsq years for the status quo
+#' @param scenarios alternatively, a named list of scenarios in the order to report them, each one named value
+#'   \code{c(quant = value)} with quant "Fmsy" (F/Fmsy), "Catch", "F", "Fsq" or "Csq" (multipliers of the status quo F or
+#'   catch), e.g. \code{list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.8Fmsy" = c(Fmsy = 0.8), "TAC 2000" = c(Catch = 2000))};
+#'   the names label the scenarios in plots and tables. Named \code{fmsy} or \code{catch} vectors are labelled by their
+#'   names too.
 #' @return list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles), \code{iters}, \code{scenarios},
 #'   \code{status}, \code{ctrl}, \code{tac.year}
 #' @export
 jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000, procerr = c("ar1", "mean", "none"),
-                        imp.years = 0, imp.catch = NULL, imp.fmsy = NULL, nsq = 3){
+                        imp.years = 0, imp.catch = NULL, imp.fmsy = NULL, nsq = 3, scenarios = NULL){
   procerr <- match.arg(procerr)
-  if(is.null(catch) && is.null(fmsy)) fmsy <- c(0, 0.5, 0.75, 1, 1.25)
-  type <- if(!is.null(fmsy)) "Fmsy" else "Catch"; vals <- if(!is.null(fmsy)) fmsy else catch
+  if(!is.null(scenarios)){
+    # named list of named values, c(quant = value), in the order given
+    if(!is.list(scenarios) || is.null(names(scenarios)) || any(!nzchar(names(scenarios))))
+      stop("scenarios must be a named list, e.g. list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), 'TAC 2000' = c(Catch = 2000))",
+           call. = FALSE)
+    ok <- c("Catch", "Fmsy", "F/Fmsy", "F", "Csq", "Fsq")
+    q <- vapply(scenarios, function(z) if(length(z) == 1 && !is.null(names(z))) names(z) else NA_character_, "")
+    if(anyNA(q) || !all(q %in% ok)) stop("each scenario must be one named value with name in: ", paste(ok, collapse = ", "),
+                                        call. = FALSE)
+    vals <- unname(unlist(scenarios)); types <- q; labs <- names(scenarios)
+  } else {
+    if(is.null(catch) && is.null(fmsy)) fmsy <- c(0, 0.5, 0.75, 1, 1.25)
+    vals <- if(!is.null(fmsy)) fmsy else catch
+    types <- rep(if(!is.null(fmsy)) "Fmsy" else "Catch", length(vals))
+    labs <- if(!is.null(names(vals)) && all(nzchar(names(vals)))) names(vals)
+            else paste(if(types[1] == "Fmsy") "F/Fmsy" else "Catch", "=", signif(vals, 3))
+    vals <- unname(vals)
+  }
   if(imp.years >= nyears) stop("imp.years must be smaller than nyears", call. = FALSE)
   imp <- if(imp.years > 0){
     if(!is.null(imp.fmsy)) data.frame(value = imp.fmsy, quant = "Fmsy")
     else if(!is.null(imp.catch)) data.frame(value = imp.catch, quant = "Catch") else data.frame(value = 1, quant = "Csq")
   }
-  ctrl <- lapply(vals, function(v){
+  ctrl <- Map(function(v, type){
     cc <- data.frame(year = max(fit$years) + seq_len(nyears), value = v, quant = type, stringsAsFactors = FALSE)
     if(imp.years > 0){ cc$value[seq_len(imp.years)] <- imp$value; cc$quant[seq_len(imp.years)] <- imp$quant }
-    cc })
-  names(ctrl) <- paste(if(type == "Fmsy") "F/Fmsy" else "Catch", "=", signif(vals, 3))
+    cc }, vals, types)
+  names(ctrl) <- labs
   jb3_fwd(fit, ctrl, ndraws = ndraws, procerr = procerr, nsq = nsq)
 }
 

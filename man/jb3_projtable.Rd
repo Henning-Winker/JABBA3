@@ -2,12 +2,9 @@
 % Please edit documentation in R/tables.R
 \name{jb3_projtable}
 \alias{jb3_projtable}
-\alias{jb3_kobematrix}
 \title{Projection tables}
 \usage{
 jb3_projtable(proj, years = NULL, digits = 3, blim = 0.3)
-
-jb3_kobematrix(proj, what = c("green", "B", "F"), digits = 2)
 }
 \arguments{
 \item{proj}{output of \code{\link{jb3_project}()}}
@@ -17,8 +14,6 @@ jb3_kobematrix(proj, what = c("green", "B", "F"), digits = 2)
 \item{digits}{rounding}
 
 \item{blim}{limit as a fraction of Bmsy for the risk P(B < Blim) (default 0.3, SPiCT benchmark default; NULL to omit)}
-
-\item{what}{"green" (B >= Bmsy and F <= Fmsy), "B" (B >= Bmsy) or "F" (F <= Fmsy)}
 }
 \value{
 data.frame
