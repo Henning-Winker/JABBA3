@@ -294,8 +294,10 @@ jbplot_projection(stf, bthr = c(Btrigger = bt))
 ```
 
 `jb3_fwdtable()` summarises the fishing opportunities in the GFCM format (as
-`FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year, the biomass
-at the start of the following year, its change, and the probabilities of
+`FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year $y$, the
+biomass response at the start of the following year $y+1$ (start-of-year
+biomass, $B_{y+1} = B_y + P(B_y) - C_y$), its change relative to $B_{y-1}$, and
+the probabilities of
 being above $B_{lim}$, $B_{pa}$ (here $B_{trigger}$, `bthr`) and $B_{tgt}$:
 
 ```{r hcr-table}
