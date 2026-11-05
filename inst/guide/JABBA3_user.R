@@ -1618,8 +1618,10 @@ jbplot_projection(stf, bthr = c(Btrigger = bt))
 
 #' 
 #' `jb3_fwdtable()` summarises the fishing opportunities in the GFCM format (as
-#' `FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year, the biomass
-#' at the start of the following year, its change, and the probabilities of
+#' `FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year $y$, the
+#' biomass response at the start of the following year $y+1$ (start-of-year
+#' biomass, $B_{y+1} = B_y + P(B_y) - C_y$), its change relative to $B_{y-1}$, and
+#' the probabilities of
 #' being above $B_{lim}$, $B_{pa}$ (here $B_{trigger}$, `bthr`) and $B_{tgt}$:
 #' 
 ## ----hcr-table----------------------------------------------------------------
@@ -1707,14 +1709,55 @@ ens
 jbplot_ensemble(ens)
 
 #' 
-#' ### Ensemble projections
+#' ### Short-term advice with the HCR (GFCM)
 #' 
-#' `jb3_project()` (and `jb3_fwd()`, `jb3_hcr()`) runs each member's own model
-#' (production function, lag, AR(1) process error) on its share of the draws, so
-#' the projection of the ensemble carries the structural uncertainty between the
-#' runs. Catch scenarios as multiples of the current catch (`Csq`, mean of the
-#' last three years), with three intermediate years at the current catch and a
-#' horizon of about two generation times:
+#' `jb3_fwd()` and `jb3_hcr()` take the ensemble as they take a single fit
+#' (chapter *Projections*): each member's own model (production function, lag,
+#' AR(1) process error) is projected on its share of the draws, so the forecast
+#' carries the structural uncertainty between the runs. As in the GFCM Type 1
+#' management procedure: two intermediate years at the status quo catch, the
+#' hockey-stick rule ($B_{trigger} = B_{thr} = 0.5 B_{MSY}$) applied to the
+#' ensemble $B/B_{MSY}$ in the TAC year, and the fishing opportunities for
+#' $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and $F = 0$:
+#' 
+## ----cmp-ens-hcr--------------------------------------------------------------
+y0  <- max(ens$years)
+yrs <- y0 + 1:4
+csq <- mean(tail(fit$data$catch, 3))
+fsq <- mean(tail(ens$ts$est[ens$ts$quantity == "F/Fmsy"], 3))
+ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
+hcr.ens <- jb3_hcr(jb3_fwd(ens, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.5, blim = 0.3)
+hcr.ens
+
+#' 
+## ----cmp-ens-hcr-plot, fig.height = 4.5, fig.width = 6------------------------
+jbplot_hcr(hcr.ens)
+
+#' 
+## ----cmp-ens-stf, fig.height = 7, fig.width = 8-------------------------------
+fc.ens <- list(Fadv = ctrl(hcr.ens$Fadv, "Fmsy"), Ftgt = ctrl(1, "Fmsy"), Fsq = ctrl(fsq, "Fmsy"),
+               Csq = ctrl(csq, "Catch"), F0 = ctrl(0, "Fmsy"))
+stf.ens <- jb3_fwd(ens, fc.ens)
+jbplot_projection(stf.ens)
+
+#' 
+#' The fishing opportunities table gives the catch and F in the TAC year $y$ and
+#' the biomass response at the start of the following year $y+1$ (`osa = TRUE`,
+#' the default): the biomass is the start-of-year biomass,
+#' $B_{y+1} = B_y + P(B_y) - C_y$, so the effect of the TAC in $y$ appears in
+#' $B_{y+1}$. The change in biomass is $B_{y+1}$ relative to $B_{y-1}$, the start
+#' of the last intermediate year, as in `FLRef::fwd2type1()`:
+#' 
+## ----cmp-ens-table------------------------------------------------------------
+knitr::kable(jb3_fwdtable(stf.ens))
+
+#' 
+#' ### Long-term TAC projections
+#' 
+#' For the medium- to long-term consequences of TAC levels, catch scenarios as
+#' multiples of the current catch (`Csq`, mean of the last three years), with
+#' three intermediate years at the current catch and a horizon of about two
+#' generation times:
 #' 
 ## ----cmp-prjens---------------------------------------------------------------
 cr <- seq(0, 1.6, 0.2)
@@ -1728,8 +1771,8 @@ jbplot_projection(prjens, type = c("B/Bmsy", "Catch"))
 #' 
 #' Catches above the surplus production deplete the stock in the long term; the
 #' projected catch is capped at 95% of the biomass, so the catch falls once the
-#' stock is depleted. The Kobe matrices (`jb3_kobematrix()`) and the HCR
-#' (`jb3_hcr()`) take the ensemble projection in the same way as a single fit.
+#' stock is depleted. The Kobe matrices take the ensemble projection in the same
+#' way as a single fit, e.g. `jb3_kobematrix(prjens, what = "all", percent = TRUE)`.
 #' 
 #' ## Risk curves
 #' 
