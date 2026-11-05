@@ -67,6 +67,25 @@ k2
 jbplot_kobematrix(pk2)
 ```
 
+The reference points are general (`bref`, `fref` as multiples of $B_{MSY}$
+and $F_{MSY}$, optionally named; `NULL` drops one), e.g. the ICES conditions
+$B > B_{trigger}$ and $F < F_{MSY}$, or the risk $P(B < B_{lim})$ with
+`risk = TRUE`:
+
+```{r proj-k2sm-ices, fig.height = 4, fig.width = 8}
+jb3_kobematrix(pk2, what = "all", percent = TRUE, bref = c(Btrigger = 0.5))
+jbplot_kobematrix(pk2, bref = c(Blim = 0.3), fref = NULL, risk = TRUE, colours = "kobe")
+```
+
+Named runs are reported in the order and with the names given, e.g. F-based
+and catch scenarios together (`Fsq`, `Csq`: multipliers of the status quo):
+
+```{r proj-k2sm-named, fig.height = 7, fig.width = 8}
+pr <- jb3_project(fit, scenarios = list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.7Fmsy" = c(Fmsy = 0.7),
+                                        "0.8Fmsy" = c(Fmsy = 0.8), "Zero catch" = c(Catch = 0)))
+jbplot_kobematrix(pr, colours = "kobe")
+```
+
 The IOTC format reports, for catch options relative to a reference catch
 (default the catch in the last assessment year), the probability (%) of
 violating the MSY-based reference points, $P(B < B_{MSY})$ and

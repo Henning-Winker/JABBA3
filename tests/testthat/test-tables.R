@@ -23,6 +23,18 @@ test_that("tables and F-based projections", {
   expect_true(all(ki[ki$refpt == "B < Blim", -(1:3)] <= ki[ki$refpt == "B < Bmsy", -(1:3)]))
   expect_s3_class(jbplot_kobematrix(ki), "ggplot"); expect_s3_class(jbplot_kobematrix(ki, colours = "kobe"), "ggplot")
   expect_output(print(ki), "limit reference points")
+  kb <- jb3_kobematrix(pk, what = "all", percent = TRUE, bref = c(Btrigger = 0.5))
+  expect_equal(names(kb), c("F<Fmsy", "B>Btrigger", "F<Fmsy & B>Btrigger"))
+  kl <- jb3_kobematrix(pk, percent = TRUE, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)
+  expect_equal(attr(kl, "condition"), "B<Blim")
+  expect_equal(kl[, -1], 100 - jb3_kobematrix(pk, percent = TRUE, bref = c(Blim = 0.3), fref = NULL)[, -1])
+  expect_error(jb3_kobematrix(pk, what = "F", fref = NULL))
+  expect_s3_class(jbplot_kobematrix(pk, bref = c(Blim = 0.3), fref = NULL, risk = TRUE), "ggplot")
+  pr <- jb3_project(f, scenarios = list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.8Fmsy" = c(Fmsy = 0.8), TAC = c(Catch = 6e4)),
+                    nyears = 3, ndraws = 100)
+  kr <- jb3_kobematrix(pr); expect_equal(kr$scenario, c("Fmsy", "Fcur", "0.8Fmsy", "TAC"))
+  expect_equal(jb3_project(f, fmsy = c(a = 1, b = 0.5), nyears = 2, ndraws = 50)$scenarios$label, c("a", "b"))
+  expect_s3_class(jbplot_kobematrix(pr), "ggplot")
   expect_s3_class(jbplot_kobematrix(pk), "ggplot"); expect_s3_class(jbplot_kobematrix(k2, what = "green", colours = "kobe"), "ggplot")
   pc <- jb3_project(f, catch = 1e7, nyears = 3, ndraws = 100)            # catch capped: F stays finite
   expect_true(all(is.finite(pc$iters[[1]]$`F/Fmsy`)))

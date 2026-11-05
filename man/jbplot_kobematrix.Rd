@@ -10,17 +10,21 @@ jbplot_kobematrix(
   years = NULL,
   weights = NULL,
   colours = "grey",
-  breaks = c(0, 50, 60, 70, 80, 90, 100),
+  breaks = NULL,
   size = 3,
   pct = TRUE,
-  ylab = NULL
+  ylab = NULL,
+  bref = 1,
+  fref = 1,
+  risk = FALSE,
+  rows = c("auto", "label", "value")
 )
 }
 \arguments{
 \item{x}{output of \code{\link{jb3_project}()} (or a list of them, combined as in \code{\link{jb3_kobematrix}()}), or of
 \code{jb3_kobematrix(..., what = "all")}}
 
-\item{what}{which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all three)}
+\item{what}{which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all available)}
 
 \item{years}{projection years (default all)}
 
@@ -29,13 +33,17 @@ jbplot_kobematrix(
 \item{colours}{\code{"grey"} (ICCAT report tables), \code{"kobe"} (red to green), or a vector of colours, one per
 probability class}
 
-\item{breaks}{probability classes in percent (default 0, 50, 60, 70, 80, 90, 100)}
+\item{breaks}{probability classes in percent (default 0, 50, 60, 70, 80, 90, 100; with \code{risk = TRUE}
+0, 5, 10, 20, 30, 40, 50, 100, with the colours reversed)}
 
 \item{size}{text size of the cell labels}
 
 \item{pct}{if TRUE (default) cell labels with a percent sign, as in the ICCAT tables}
 
 \item{ylab}{row header (default "Catch (t)" for TAC scenarios)}
+
+\item{bref, fref, risk, rows}{reference points, risk and row labels, passed to \code{\link{jb3_kobematrix}()} when \code{x} is a
+projection}
 }
 \value{
 a ggplot
@@ -49,5 +57,7 @@ B > Bmsy and both, with the probabilities printed in the cells.
 pc <- jb3_project(fit, catch = seq(1000, 3500, 250), nyears = 10)
 jbplot_kobematrix(pc)
 jbplot_kobematrix(pc, what = "green", colours = "kobe")
+jbplot_kobematrix(pc, bref = c(Btrigger = 0.5))                          # ICES conditions
+jbplot_kobematrix(pc, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)   # ICES risk P(B < Blim)
 }
 }

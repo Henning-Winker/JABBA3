@@ -10,6 +10,10 @@ jb3_kobematrix(
   years = NULL,
   percent = FALSE,
   weights = NULL,
+  bref = 1,
+  fref = 1,
+  risk = FALSE,
+  rows = c("auto", "label", "value"),
   digits = 2
 )
 }
@@ -17,8 +21,8 @@ jb3_kobematrix(
 \item{proj}{output of \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}, or a (named) list of them with the same
 scenarios and years, to be combined}
 
-\item{what}{\code{"green"} (F < Fmsy and B > Bmsy), \code{"B"} (B > Bmsy), \code{"F"} (F < Fmsy), or \code{"all"} for
-the three matrices (a, b, c of the ICCAT tables) as a list}
+\item{what}{\code{"green"} (all conditions jointly: F < Fref and B > Bref), \code{"B"} (B > Bref), \code{"F"}
+(F < Fref), or \code{"all"} for the single and joint matrices (a, b, c of the ICCAT tables) as a list}
 
 \item{years}{projection years to show (default all)}
 
@@ -26,12 +30,25 @@ the three matrices (a, b, c of the ICCAT tables) as a list}
 
 \item{weights}{weights for combining a list of projections (default equal)}
 
+\item{bref}{biomass reference point as a multiple of Bmsy (default 1, Bmsy), optionally named, e.g.
+\code{c(Btrigger = 0.5)} or \code{c(Blim = 0.3)}; NULL to drop the biomass condition}
+
+\item{fref}{fishing mortality reference point as a multiple of Fmsy (default 1, Fmsy), optionally named, e.g.
+\code{c(Flim = 1.3)}; NULL to drop the F condition}
+
+\item{risk}{if TRUE, report the probability of not meeting the conditions, e.g. P(B < Blim) or
+P(F > Fmsy or B < Btrigger)}
+
+\item{rows}{row labels: \code{"label"} the scenario names in the order of the projection (e.g. Fmsy, Fcur, 0.8Fmsy,
+from named \code{scenarios}, \code{fmsy} or \code{catch} in \code{jb3_project()}, or a named \code{fwdctrl} list),
+\code{"value"} the TAC or F/Fmsy value; \code{"auto"} (default) uses the names when they were given}
+
 \item{digits}{rounding of probabilities when \code{percent = FALSE}}
 }
 \value{
-a data.frame with the scenario value in the first column (\code{TAC} for constant catch scenarios,
+a data.frame with the scenario in the first column (\code{TAC} for constant catch scenarios,
   \code{F/Fmsy} for F scenarios, otherwise \code{scenario}) and one column per year; for \code{what = "all"} a named list
-  of three such data.frames, of class \code{jb3k2sm}
+  of such data.frames, of class \code{jb3k2sm}
 }
 \description{
 Kobe II strategy matrix (K2SM) in the ICCAT format: the probability, by scenario (rows, e.g. TAC levels) and projection
@@ -40,8 +57,14 @@ alternative models or a JABBA and an SS3 base case, can be combined with equal o
 combined matrices.
 }
 \details{
-Probabilities are the proportions of projection draws in each condition; the conditions are evaluated as
-B/Bmsy >= 1 and F/Fmsy <= 1 (with a small tolerance, so a scenario at exactly Fmsy counts as F <= Fmsy), which for
+The reference points are general: \code{bref} and \code{fref} set the biomass and fishing mortality thresholds as
+multiples of Bmsy and Fmsy, optionally named, so the same matrix gives, for example, the ICES conditions
+B > Btrigger and F < Fmsy (\code{bref = c(Btrigger = 0.5), fref = c(Fmsy = 1)}), or B > Blim alone
+(\code{bref = c(Blim = 0.3), fref = NULL}); with \code{risk = TRUE} the complement is reported, e.g. the ICES risk
+P(B < Blim).
+
+Probabilities are the proportions of projection draws in each condition, evaluated as B/Bmsy >= bref and
+F/Fmsy <= fref (with a small tolerance, so a scenario at exactly the F reference counts as below it), which for
 continuous draws is the same as the strict inequalities of the ICCAT tables.
 }
 \examples{
@@ -49,12 +72,18 @@ continuous draws is the same as the strict inequalities of the ICCAT tables.
 pc <- jb3_project(fit, catch = seq(1000, 3500, 250), nyears = 10)
 jb3_kobematrix(pc, percent = TRUE)                       # P(green)
 k2 <- jb3_kobematrix(pc, what = "all", percent = TRUE)   # ICCAT a), b), c)
-k2$`F<Fmsy`
 jbplot_kobematrix(pc)
+# ICES: B > Btrigger and F < Fmsy; risk P(B < Blim)
+jb3_kobematrix(pc, what = "all", percent = TRUE, bref = c(Btrigger = 0.5))
+jb3_kobematrix(pc, percent = TRUE, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)
+# named runs, in the order given
+pr <- jb3_project(fit, scenarios = list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.7Fmsy" = c(Fmsy = 0.7),
+                                        "0.8Fmsy" = c(Fmsy = 0.8)))
+jb3_kobematrix(pr, what = "all", percent = TRUE)
 # combined matrix of two models, equal weight
 jb3_kobematrix(list(base = pc1, alt = pc2), what = "all", percent = TRUE)
 }
 }
 \seealso{
-\code{\link{jbplot_kobematrix}()}, \code{\link{jb3_projtable}()}
+\code{\link{jbplot_kobematrix}()}, \code{\link{jb3_kobematrix_iotc}()}, \code{\link{jb3_projtable}()}
 }

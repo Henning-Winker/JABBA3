@@ -123,35 +123,57 @@ jb3_projtable <- function(proj, years = NULL, digits = 3, blim = 0.3){
 #' alternative models or a JABBA and an SS3 base case, can be combined with equal or given weights, as in the ICCAT
 #' combined matrices.
 #'
-#' Probabilities are the proportions of projection draws in each condition; the conditions are evaluated as
-#' B/Bmsy >= 1 and F/Fmsy <= 1 (with a small tolerance, so a scenario at exactly Fmsy counts as F <= Fmsy), which for
+#' The reference points are general: \code{bref} and \code{fref} set the biomass and fishing mortality thresholds as
+#' multiples of Bmsy and Fmsy, optionally named, so the same matrix gives, for example, the ICES conditions
+#' B > Btrigger and F < Fmsy (\code{bref = c(Btrigger = 0.5), fref = c(Fmsy = 1)}), or B > Blim alone
+#' (\code{bref = c(Blim = 0.3), fref = NULL}); with \code{risk = TRUE} the complement is reported, e.g. the ICES risk
+#' P(B < Blim).
+#'
+#' Probabilities are the proportions of projection draws in each condition, evaluated as B/Bmsy >= bref and
+#' F/Fmsy <= fref (with a small tolerance, so a scenario at exactly the F reference counts as below it), which for
 #' continuous draws is the same as the strict inequalities of the ICCAT tables.
 #' @param proj output of \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}, or a (named) list of them with the same
 #'   scenarios and years, to be combined
-#' @param what \code{"green"} (F < Fmsy and B > Bmsy), \code{"B"} (B > Bmsy), \code{"F"} (F < Fmsy), or \code{"all"} for
-#'   the three matrices (a, b, c of the ICCAT tables) as a list
+#' @param what \code{"green"} (all conditions jointly: F < Fref and B > Bref), \code{"B"} (B > Bref), \code{"F"}
+#'   (F < Fref), or \code{"all"} for the single and joint matrices (a, b, c of the ICCAT tables) as a list
 #' @param years projection years to show (default all)
 #' @param percent if TRUE, probabilities in percent, rounded to integers (ICCAT style)
 #' @param weights weights for combining a list of projections (default equal)
+#' @param bref biomass reference point as a multiple of Bmsy (default 1, Bmsy), optionally named, e.g.
+#'   \code{c(Btrigger = 0.5)} or \code{c(Blim = 0.3)}; NULL to drop the biomass condition
+#' @param fref fishing mortality reference point as a multiple of Fmsy (default 1, Fmsy), optionally named, e.g.
+#'   \code{c(Flim = 1.3)}; NULL to drop the F condition
+#' @param risk if TRUE, report the probability of not meeting the conditions, e.g. P(B < Blim) or
+#'   P(F > Fmsy or B < Btrigger)
+#' @param rows row labels: \code{"label"} the scenario names in the order of the projection (e.g. Fmsy, Fcur, 0.8Fmsy,
+#'   from named \code{scenarios}, \code{fmsy} or \code{catch} in \code{jb3_project()}, or a named \code{fwdctrl} list),
+#'   \code{"value"} the TAC or F/Fmsy value; \code{"auto"} (default) uses the names when they were given
 #' @param digits rounding of probabilities when \code{percent = FALSE}
-#' @return a data.frame with the scenario value in the first column (\code{TAC} for constant catch scenarios,
+#' @return a data.frame with the scenario in the first column (\code{TAC} for constant catch scenarios,
 #'   \code{F/Fmsy} for F scenarios, otherwise \code{scenario}) and one column per year; for \code{what = "all"} a named list
-#'   of three such data.frames, of class \code{jb3k2sm}
-#' @seealso \code{\link{jbplot_kobematrix}()}, \code{\link{jb3_projtable}()}
+#'   of such data.frames, of class \code{jb3k2sm}
+#' @seealso \code{\link{jbplot_kobematrix}()}, \code{\link{jb3_kobematrix_iotc}()}, \code{\link{jb3_projtable}()}
 #' @examples
 #' \dontrun{
 #' pc <- jb3_project(fit, catch = seq(1000, 3500, 250), nyears = 10)
 #' jb3_kobematrix(pc, percent = TRUE)                       # P(green)
 #' k2 <- jb3_kobematrix(pc, what = "all", percent = TRUE)   # ICCAT a), b), c)
-#' k2$`F<Fmsy`
 #' jbplot_kobematrix(pc)
+#' # ICES: B > Btrigger and F < Fmsy; risk P(B < Blim)
+#' jb3_kobematrix(pc, what = "all", percent = TRUE, bref = c(Btrigger = 0.5))
+#' jb3_kobematrix(pc, percent = TRUE, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)
+#' # named runs, in the order given
+#' pr <- jb3_project(fit, scenarios = list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.7Fmsy" = c(Fmsy = 0.7),
+#'                                         "0.8Fmsy" = c(Fmsy = 0.8)))
+#' jb3_kobematrix(pr, what = "all", percent = TRUE)
 #' # combined matrix of two models, equal weight
 #' jb3_kobematrix(list(base = pc1, alt = pc2), what = "all", percent = TRUE)
 #' }
 #' @export
 jb3_kobematrix <- function(proj, what = c("green", "B", "F", "all"), years = NULL, percent = FALSE, weights = NULL,
-                           digits = 2){
+                           bref = 1, fref = 1, risk = FALSE, rows = c("auto", "label", "value"), digits = 2){
   what <- match.arg(what)
+  if(is.null(bref) && is.null(fref)) stop("at least one of bref and fref is needed", call. = FALSE)
   pl <- if(inherits(proj, "jb3proj")) list(proj) else proj
   if(!all(vapply(pl, inherits, TRUE, "jb3proj"))) stop("proj must be a jb3_project() output or a list of them", call. = FALSE)
   p1 <- pl[[1]]; yrs <- p1$iters[[1]]$years; sc <- p1$scenarios
@@ -165,31 +187,58 @@ jb3_kobematrix <- function(proj, what = c("green", "B", "F", "all"), years = NUL
   if(is.null(years)) years <- yrs
   j <- match(years, yrs)
   if(anyNA(j)) stop("years not in the projection: ", paste(years[is.na(j)], collapse = ", "), call. = FALSE)
+  # conditions and their labels
+  bl <- .k2ref(bref, "B"); fl <- .k2ref(fref, "F")
+  types <- c(if(!is.null(fref)) "F", if(!is.null(bref)) "B", if(!is.null(bref) && !is.null(fref)) "green")
+  if(what == "green" && length(types) == 1) what <- types
+  if(!(what %in% c(types, "all"))) stop("what = '", what, "' needs ", if(what == "B") "bref" else "fref", call. = FALSE)
+  cond <- function(w) if(!risk) switch(w, F = paste0("F<", fl), B = paste0("B>", bl), green = paste0("F<", fl, " & B>", bl))
+                      else switch(w, F = paste0("F>", fl), B = paste0("B<", bl), green = paste0("F>", fl, " | B<", bl))
   # first column: the scenario value
   type <- unique(sc$type)
-  key <- if(identical(type, "Catch")) "TAC" else if(identical(type, "F/Fmsy")) "F/Fmsy" else "scenario"
-  lab <- if(key == "scenario") sc$label else sc$value
+  rows <- match.arg(rows)
+  auto <- grepl("^(Catch|F/Fmsy|F|HCR Ftgt) = ", sc$label)                     # labels generated by jb3_project()/jb3_fwd()
+  if(rows == "auto") rows <- if(all(auto) && length(type) == 1 && type %in% c("Catch", "F/Fmsy")) "value" else "label"
+  if(rows == "value" && !(length(type) == 1 && type %in% c("Catch", "F/Fmsy"))) rows <- "label"
+  key <- if(rows == "label") "scenario" else if(identical(type, "Catch")) "TAC" else "F/Fmsy"
+  lab <- if(rows == "label") sc$label else sc$value
+  if(is.numeric(lab) && key == "TAC" && all(abs(lab - round(lab)) < 1e-8) && max(abs(lab)) < .Machine$integer.max)
+    lab <- as.integer(round(lab))
   one <- function(w){
     m <- Reduce(`+`, Map(function(p, wt) wt*t(vapply(p$iters, function(it){
-      b <- it$`B/Bmsy`[, j, drop = FALSE]; h <- it$`F/Fmsy`[, j, drop = FALSE]
-      colMeans(switch(w, green = b >= 1 & h <= 1 + 1e-8, B = b >= 1, F = h <= 1 + 1e-8))
+      b <- it$`B/Bmsy`[, j, drop = FALSE] >= (bref %||% 0); h <- it$`F/Fmsy`[, j, drop = FALSE] <= (fref %||% Inf) + 1e-8
+      colMeans(switch(w, green = b & h, B = b, F = h))
     }, numeric(length(j)))), pl, weights))
     m <- matrix(m, nrow = nrow(sc))
+    if(risk) m <- 1 - m
     m <- if(percent) round(100*m) else round(m, digits)
     out <- data.frame(lab, m, check.names = FALSE, stringsAsFactors = FALSE)
     names(out) <- c(key, years); rownames(out) <- NULL
+    attr(out, "condition") <- cond(w)
     out
   }
   if(what != "all") return(one(what))
-  structure(list(`F<Fmsy` = one("F"), `B>Bmsy` = one("B"), `F<Fmsy & B>Bmsy` = one("green")),
-            class = c("jb3k2sm", "list"), percent = percent)
+  out <- lapply(types, one); names(out) <- vapply(types, cond, "")
+  structure(out, class = c("jb3k2sm", "list"), percent = percent, types = types, risk = risk)
+}
+
+# label of a reference point: its name, "Bmsy" for 1, otherwise "0.5Bmsy"
+.k2ref <- function(x, q){
+  if(is.null(x)) return(NULL)
+  if(length(x) != 1 || !is.numeric(x) || x <= 0) stop(q, "ref must be a single positive number (multiple of ", q, "msy)", call. = FALSE)
+  if(!is.null(names(x)) && nzchar(names(x))) names(x) else if(x == 1) paste0(q, "msy") else paste0(signif(x, 3), q, "msy")
+}
+
+.k2title <- function(cond){
+  z <- gsub("([<>])", " \\1 ", cond); z <- gsub(" & ", " and ", z, fixed = TRUE); gsub(" | ", " or ", z, fixed = TRUE)
 }
 
 #' @export
 print.jb3k2sm <- function(x, ...){
-  ttl <- c(`F<Fmsy` = "a) Probability that F < Fmsy", `B>Bmsy` = "b) Probability that B > Bmsy",
-           `F<Fmsy & B>Bmsy` = "c) Probability that F < Fmsy and B > Bmsy")
-  for(n in names(x)){ cat(ttl[n], if(isTRUE(attr(x, "percent"))) "(%)", "\n"); print(x[[n]], row.names = FALSE); cat("\n") }
+  for(i in seq_along(x)){
+    cat(letters[i], ") Probability that ", .k2title(names(x)[i]), if(isTRUE(attr(x, "percent"))) " (%)", "\n", sep = "")
+    print(x[[i]], row.names = FALSE); cat("\n")
+  }
   invisible(x)
 }
 
@@ -201,12 +250,15 @@ print.jb3k2sm <- function(x, ...){
 #' B > Bmsy and both, with the probabilities printed in the cells.
 #' @param x output of \code{\link{jb3_project}()} (or a list of them, combined as in \code{\link{jb3_kobematrix}()}), or of
 #'   \code{jb3_kobematrix(..., what = "all")}
-#' @param what which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all three)
+#' @param what which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all available)
 #' @param years projection years (default all)
 #' @param weights weights for combining a list of projections
 #' @param colours \code{"grey"} (ICCAT report tables), \code{"kobe"} (red to green), or a vector of colours, one per
 #'   probability class
-#' @param breaks probability classes in percent (default 0, 50, 60, 70, 80, 90, 100)
+#' @param breaks probability classes in percent (default 0, 50, 60, 70, 80, 90, 100; with \code{risk = TRUE}
+#'   0, 5, 10, 20, 30, 40, 50, 100, with the colours reversed)
+#' @param bref,fref,risk,rows reference points, risk and row labels, passed to \code{\link{jb3_kobematrix}()} when \code{x} is a
+#'   projection
 #' @param size text size of the cell labels
 #' @param pct if TRUE (default) cell labels with a percent sign, as in the ICCAT tables
 #' @param ylab row header (default "Catch (t)" for TAC scenarios)
@@ -216,16 +268,23 @@ print.jb3k2sm <- function(x, ...){
 #' pc <- jb3_project(fit, catch = seq(1000, 3500, 250), nyears = 10)
 #' jbplot_kobematrix(pc)
 #' jbplot_kobematrix(pc, what = "green", colours = "kobe")
+#' jbplot_kobematrix(pc, bref = c(Btrigger = 0.5))                          # ICES conditions
+#' jbplot_kobematrix(pc, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)   # ICES risk P(B < Blim)
 #' }
 #' @export
 jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weights = NULL, colours = "grey",
-                              breaks = c(0, 50, 60, 70, 80, 90, 100), size = 3, pct = TRUE, ylab = NULL){
+                              breaks = NULL, size = 3, pct = TRUE, ylab = NULL, bref = 1, fref = 1, risk = FALSE,
+                              rows = c("auto", "label", "value")){
   if(inherits(x, "jb3k2iotc")) return(.plot_k2iotc(x, colours = colours, size = size))
   what <- match.arg(what, c("F", "B", "green"), several.ok = TRUE)
-  k2 <- if(inherits(x, "jb3k2sm")) x else jb3_kobematrix(x, what = "all", years = years, percent = TRUE, weights = weights)
+  k2 <- if(inherits(x, "jb3k2sm")) x else jb3_kobematrix(x, what = "all", years = years, percent = TRUE, weights = weights,
+                                                         bref = bref, fref = fref, risk = risk, rows = rows)
   if(!isTRUE(attr(k2, "percent"))) k2[] <- lapply(k2, function(d){ d[-1] <- lapply(d[-1], function(v) round(100*v)); d })
-  nm <- c(F = "F<Fmsy", B = "B>Bmsy", green = "F<Fmsy & B>Bmsy")[what]
-  ttl <- c(`F<Fmsy` = "P(F < Fmsy)", `B>Bmsy` = "P(B > Bmsy)", `F<Fmsy & B>Bmsy` = "P(F < Fmsy and B > Bmsy)")
+  rk <- isTRUE(attr(k2, "risk"))
+  if(is.null(breaks)) breaks <- if(rk) c(0, 5, 10, 20, 30, 40, 50, 100) else c(0, 50, 60, 70, 80, 90, 100)
+  nm <- names(k2)[attr(k2, "types") %in% what]
+  if(!length(nm)) stop("none of 'what' is in the matrix", call. = FALSE)
+  ttl <- stats::setNames(paste0("P(", .k2title(names(k2)), ")"), names(k2))
   key <- names(k2[[1]])[1]
   df <- do.call(rbind, lapply(nm, function(n){
     d <- k2[[n]]; yr <- names(d)[-1]
@@ -239,8 +298,9 @@ jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weig
   df$class <- cut(df$p, breaks = breaks, include.lowest = TRUE, right = FALSE)
   levels(df$class) <- paste0(breaks[-length(breaks)], "-", breaks[-1], "%")
   df$class <- factor(df$class, levels = levels(df$class))
+  kc <- c("#d7191c", "#fdae61", "#ffffbf", "#a6d96a", "#1a9641"); if(rk) kc <- rev(kc)
   pal <- if(identical(colours, "grey")) grDevices::grey(seq(1, 0.35, length.out = nb))
-         else if(identical(colours, "kobe")) grDevices::colorRampPalette(c("#d7191c", "#fdae61", "#ffffbf", "#a6d96a", "#1a9641"))(nb)
+         else if(identical(colours, "kobe")) grDevices::colorRampPalette(kc)(nb)
          else rep_len(colours, nb)
   names(pal) <- levels(df$class)
   dark <- if(identical(colours, "grey")) names(pal)[seq_len(nb) > 0.6*nb] else character(0)
@@ -251,7 +311,7 @@ jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weig
     ggplot2::scale_fill_manual(values = pal, drop = FALSE, name = NULL) +
     ggplot2::facet_wrap(~panel, ncol = 1) +
     ggplot2::scale_x_discrete(position = "top", expand = c(0, 0)) + ggplot2::scale_y_discrete(expand = c(0, 0)) +
-    ggplot2::labs(x = NULL, y = ylab %||% if(key == "TAC") "Catch (t)" else key) +
+    ggplot2::labs(x = NULL, y = ylab %||% switch(key, TAC = "Catch (t)", scenario = NULL, key)) +
     ggplot2::theme_bw() +
     ggplot2::theme(panel.grid = ggplot2::element_blank(), strip.background = ggplot2::element_blank(),
                    strip.text = ggplot2::element_text(hjust = 0, face = "bold"), legend.position = "right")
