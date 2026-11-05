@@ -62,26 +62,37 @@ projection year (columns), the probability of meeting reference points.
 `jb3_kobematrix()` computes it from any projection, in the ICCAT format by
 default; `jb3_kobematrix_iotc()`, `jb3_kobematrix_gfcm()` and
 `jb3_kobematrix_ices()` give the IOTC, GFCM and ICES formats, and
-`jbplot_kobematrix()` plots either, shaded in grey as in the report tables
+`jbplot_kobematrix()` plots them, shaded in grey as in the report tables
 (`colours = "grey"`, default) or red to green (`colours = "kobe"`). All
 scenarios of a projection share the same process-error draws, so intermediate
 years are identical across rows and the probabilities change monotonically
-with the TAC.
+with the option. Each matrix below is computed from the projection plotted
+just before it.
 
-### ICCAT: TAC options
+### Catch (TAC) options: ICCAT and IOTC
 
-The classic ICCAT matrices (a) $P(F < F_{MSY})$, (b) $P(B > B_{MSY})$ and (c)
-both (the green Kobe quadrant), for constant catches after one intermediate
-year at the status quo catch (`imp.years = 1`):
+Constant catches of 60-130% of the catch in the last assessment year, after
+one intermediate year at the status quo catch (`imp.years = 1`):
+
+```{r k2sm-tac}
+cref <- tail(fit$data$catch, 1)
+pt <- jb3_project(fit, catch = round(cref*seq(0.6, 1.3, 0.1), -2), nyears = 10, imp.years = 1)
+```
+
+```{r k2sm-tac-plot, fig.height = 7, fig.width = 8}
+jbplot_projection(pt)
+```
+
+The ICCAT matrices (a) $P(F < F_{MSY})$, (b) $P(B > B_{MSY})$ and (c) both
+(the green Kobe quadrant):
 
 ```{r k2sm-iccat}
-pk2 <- jb3_project(fit, catch = seq(50000, 100000, 5000), nyears = 10, imp.years = 1)
-k2 <- jb3_kobematrix(pk2, what = "all", percent = TRUE)
+k2 <- jb3_kobematrix(pt, what = "all", percent = TRUE)
 k2
 ```
 
-```{r k2sm-iccat-plot, fig.height = 10, fig.width = 8}
-jbplot_kobematrix(pk2)
+```{r k2sm-iccat-plot, fig.height = 8, fig.width = 8}
+jbplot_kobematrix(pt)
 ```
 
 `what = "green"` (default), `"B"` or `"F"` returns one matrix, and
@@ -91,76 +102,68 @@ combined into one matrix with equal or given `weights`, as the ICCAT combined
 matrices of two base cases:
 
 ```{r k2sm-comb, eval = FALSE}
-jb3_kobematrix(list(Fox = pk2.fox, Schaefer = pk2.sch), what = "all", percent = TRUE)
+jb3_kobematrix(list(Fox = pt.fox, Schaefer = pt.sch), what = "all", percent = TRUE)
 ```
 
-### IOTC: catch relative to the current catch
-
-The IOTC format reports, for catch options relative to a reference catch
-(default the catch in the last assessment year), the probability (%) of
-violating the MSY-based reference points, $P(B < B_{MSY})$ and
-$P(F > F_{MSY})$, and the limit reference points, $P(B < B_{lim})$ and
-$P(F > F_{lim})$ (defaults $B_{lim} = 0.5 B_{MSY}$, $F_{lim} = 1.3 F_{MSY}$;
-`blim`, `flim`), 3 and 10 years after the last assessment year (`years`):
+The IOTC format from the same projection: catch options relative to the
+reference catch, and the probability (%) of violating the MSY-based reference
+points, $P(B < B_{MSY})$ and $P(F > F_{MSY})$, and the limit reference points,
+$P(B < B_{lim})$ and $P(F > F_{lim})$ (defaults $B_{lim} = 0.5 B_{MSY}$,
+$F_{lim} = 1.3 F_{MSY}$; `blim`, `flim`), 3 and 10 years after the last
+assessment year (`years`):
 
 ```{r k2sm-iotc}
-cref <- tail(fit$data$catch, 1)
-pio <- jb3_project(fit, catch = cref*seq(0.6, 1.2, 0.1), nyears = 10)
-kio <- jb3_kobematrix_iotc(pio, ref.catch = cref)
+kio <- jb3_kobematrix_iotc(pt, ref.catch = cref)
 kio
 ```
 
-```{r k2sm-iotc-plot, fig.height = 4.5, fig.width = 9}
+```{r k2sm-iotc-plot, fig.height = 4.5, fig.width = 10}
 jbplot_kobematrix(kio, colours = "kobe")
 ```
 
-### F options for GFCM and ICES
+### F options: GFCM and ICES
 
 GFCM and ICES advice is usually based on F options. Named scenarios
 (`scenarios` in `jb3_project()`) are reported in the order and with the names
-given; each is one named value, with `Catch`, `Fmsy` (F/Fmsy), `F` (harvest
+given; each is one named value, with `Catch`, `Fmsy` (F/F~MSY~), `F` (harvest
 rate), `Fsq` or `Csq` (multipliers of the status quo).
 
 F options relative to $F_{MSY}$ (`Fmsy = 0.8`) apply $F = 0.8 F_{MSY}$ draw by
 draw, so $P(F < F_{MSY})$ is 0 or 100%. As in the GFCM and ICES forecasts
-(e.g. SPiCT `add.man.scenario(fabs = )`), F options are therefore set as
-absolute harvest rates from the point estimates of $F_{MSY}$ and the current
-F (mean of the last three years), which gives the probability that each option
-is below the uncertain $F_{MSY}$. The examples use Atlantic blue marlin
-(chapter *The rebuilding protocol*), which is below $B_{MSY}$ and overfished,
-with one intermediate year at the status quo catch:
+(e.g. SPiCT `add.man.scenario(fabs = )`), the F options are therefore set as
+absolute harvest rates from the point estimates of $F_{MSY}$ and the current F
+(mean of the last three years): $F = 0$, 0.5-2 $F_{tgt}$ ($F_{tgt} = F_{MSY}$),
+$F_{cur}$, and the precautionary $F_{MSY}$ PA (35th percentile of $F_{MSY}$):
 
-```{r k2sm-fopt-fit}
-bum <- iccat$bum
-d.bum  <- jb3_data(bum$catch, bum$cpue, bum$se, stock = "bum")
-pr.bum <- jb3_priors(d.bum, r = c(0.098, 0.18), K = c(50000, sqrt(log(1 + 2^2))),
-                     bkinit = c(1, sqrt(log(1 + 0.25^2))))
-f.bum <- jabba3(d.bum, pr.bum, jb3_model(shape = "pella", BmsyK = 0.36, rho = 0.75, start = "index"),
-                ndraws = 1000)
-
-rp <- f.bum$refpts
+```{r k2sm-fopt}
+rp <- fit$refpts
 Fmsy <- rp["Fmsy", "est"]
-Fcur <- mean(tail(f.bum$ts$est[f.bum$ts$quantity == "F"], 3))
+Fcur <- mean(tail(fit$ts$est[fit$ts$quantity == "F"], 3))
+Fmsy.pa <- exp(qnorm(0.35, log(Fmsy), rp["Fmsy", "se.log"]))
+mult <- c(0, 0.5, 0.75, 1, 1.25, 1.5, 2)
+fopt <- c(setNames(lapply(mult, function(m) c(F = m*Fmsy)),
+                   c("F0", "0.5Ftgt", "0.75Ftgt", "Ftgt", "1.25Ftgt", "1.5Ftgt", "2Ftgt")),
+          list(Fcur = c(F = Fcur), "Fmsy PA" = c(F = Fmsy.pa)))
+pf <- jb3_project(fit, scenarios = fopt, nyears = 10, imp.years = 1)
 ```
 
-#### GFCM: Btgt-Ftgt, Bthr and Blim
+```{r k2sm-fopt-plot, fig.height = 7, fig.width = 8}
+jbplot_projection(pf)
+```
+
+With absolute F options, $P(F < F_{MSY})$ is the probability that the option
+is below the uncertain $F_{MSY}$: 50% for $F_{tgt}$, so the joint probability
+of the green quadrant cannot exceed 50% at $F_{tgt}$, even where the median
+biomass is above $B_{MSY}$.
 
 `jb3_kobematrix_gfcm()` gives the three matrices of the GFCM advice summary
 sheet: (a) $P(F < F_{tgt}$ and $B > B_{tgt})$, (b) $P(B > B_{thr})$ and (c) the
 risk $P(B < B_{lim})$, with $B_{tgt} = B_{MSY}$, $F_{tgt} = F_{MSY}$,
 $B_{thr} = 0.5 B_{MSY}$ and $B_{lim} = 0.3 B_{MSY}$ by default (`btgt`,
-`ftgt`, `bthr`, `blim`). The F options follow the GFCM summary sheet: 80-120%
-of $F_{cur}$, $F_{tgt}$ and the precautionary $F_{MSY}$ PA (35th percentile
-of $F_{MSY}$):
+`ftgt`, `bthr`, `blim`):
 
 ```{r k2sm-gfcm}
-Fmsy.pa <- exp(qnorm(0.35, log(Fmsy), rp["Fmsy", "se.log"]))
-Ffrac <- c(seq(0.8, 0.95, 0.05), 1, 1.1, 1.2)
-fgfcm <- c(setNames(lapply(Ffrac, function(m) c(F = m*Fcur)),
-                    ifelse(Ffrac == 1, "Fcur", paste0(100*Ffrac, "% Fcur"))),
-           list(Ftgt = c(F = Fmsy), "Fmsy PA" = c(F = Fmsy.pa)))
-pg <- jb3_project(f.bum, scenarios = fgfcm, nyears = 10, imp.years = 1)
-kg <- jb3_kobematrix_gfcm(pg)
+kg <- jb3_kobematrix_gfcm(pf)
 kg
 ```
 
@@ -171,26 +174,19 @@ Probabilities are shaded darker (greener) the higher they are, risks darker
 jbplot_kobematrix(kg, colours = "kobe")
 ```
 
-#### ICES: Bpa-Fmsy and Blim
-
 For ICES-type advice, `jb3_kobematrix_ices()` gives (a)
 $P(F < F_{MSY}$ and $B > B_{pa})$ and (b) the risk $P(B < B_{lim})$, to compare
 with the ICES 5% threshold, with the SPM proxies $B_{pa} = 0.5 B_{MSY}$ and
-$B_{lim} = 0.3 B_{MSY}$ (`bpa`, `blim`), e.g. for $F_{cur}$ and 0.7-1.3
-$F_{MSY}$:
+$B_{lim} = 0.3 B_{MSY}$ (`bpa`, `blim`):
 
 ```{r k2sm-ices, eval = FALSE}
-mult <- seq(0.7, 1.3, 0.1)
-fices <- c(list(Fcur = c(F = Fcur)),
-           setNames(lapply(mult, function(m) c(F = m*Fmsy)), ifelse(mult == 1, "Fmsy", paste0(mult, "Fmsy"))))
-pices <- jb3_project(f.bum, scenarios = fices, nyears = 10, imp.years = 1)
-jb3_kobematrix_ices(pices)
+jb3_kobematrix_ices(pf)
 ```
 
 Other combinations follow from `jb3_kobematrix()` with `bref` and `fref`
 (multiples of $B_{MSY}$ and $F_{MSY}$, optionally named; `NULL` drops one) and
 `risk = TRUE` for the complement, e.g.
-`jb3_kobematrix(pg, what = "all", bref = c(Btrigger = 0.5))`.
+`jb3_kobematrix(pf, what = "all", bref = c(Btrigger = 0.5))`.
 
 ## Short-term advice with a hockey-stick HCR
 
@@ -199,8 +195,7 @@ management procedure with JABBA's `fw_jabba_ctrl()` and `jb_hockeystick()`)
 takes three steps: a forecast with intermediate years at the status quo catch
 followed by $F_{tgt}$, the hockey-stick rule applied to $B/B_{MSY}$ in the first
 implementation (TAC) year to obtain the advised $F_{adv}$, and the forecast of
-the management options. The example continues with the single blue marlin
-model, which is close to $B_{trigger}$.
+the management options.
 
 Forecast controls (`jb3_fwd()`, as `fw_jabba_ctrl()`) are data frames with one
 row per year and `quant` `"Catch"`, `"Fmsy"` (F/F~MSY~), `"F"`, `"Csq"`,
@@ -208,21 +203,22 @@ row per year and `quant` `"Catch"`, `"Fmsy"` (F/F~MSY~), `"F"`, `"Csq"`,
 of the last three years) and two TAC years:
 
 ```{r hcr-ctrl}
-y0  <- max(f.bum$years)
+y0  <- max(fit$years)
 yrs <- y0 + 1:4
-csq <- mean(tail(f.bum$data$catch, 3))
-fsq <- mean(tail(f.bum$ts$est[f.bum$ts$quantity == "F/Fmsy"], 3))
+csq <- mean(tail(fit$data$catch, 3))
+fsq <- mean(tail(fit$ts$est[fit$ts$quantity == "F/Fmsy"], 3))
 ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
 ctrl(1, "Fmsy")
 ```
 
 `jb3_hcr()` evaluates the rule ($F/F_{MSY} = F_{tgt}$ above $B_{trigger}$,
 decreasing linearly below) on $B/B_{MSY}$ in the TAC year of the $F_{tgt}$
-forecast, either at the median (`Fadv.det`) or, precautionary and the default,
-as the mean over all draws of the rule applied to each draw (`Fadv.pa`):
+forecast. Bigeye is well above the GFCM default $B_{trigger} = 0.5 B_{MSY}$,
+where the rule hardly changes F; to illustrate the rule, the example uses
+$B_{trigger} = 0.8 B_{MSY}$:
 
 ```{r hcr-fadv}
-hcr <- jb3_hcr(jb3_fwd(f.bum, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.5, blim = 0.3)
+hcr <- jb3_hcr(jb3_fwd(fit, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.8, blim = 0.3)
 hcr
 ```
 
@@ -255,11 +251,12 @@ $F_{tgt} (B_i/B_{MSY})/B_{trigger}$ (with `bclose = 0`). Because the rule is
 capped at $F_{tgt}$, uncertainty can only pull the mean down: the precautionary
 $F_{adv}$ is never above the deterministic one, and it drops below $F_{tgt}$ as
 soon as a share of the draws falls below $B_{trigger}$, even when the median is
-above it. The decomposition for the blue marlin example:
+above it. The decomposition:
 
 ```{r hcr-explain}
-f.i <- JABBA3:::.hockey(hcr$b, ftgt = 1, btrigger = 0.5, bclose = 0, fmin = 0.001)   # F/Fmsy for each draw
-below <- hcr$b < 0.5
+bt <- 0.8
+f.i <- JABBA3:::.hockey(hcr$b, ftgt = 1, btrigger = bt, bclose = 0, fmin = 0.001)   # F/Fmsy for each draw
+below <- hcr$b < bt
 data.frame(`median B/Bmsy` = median(hcr$b),
            `P(B < Btrigger)` = mean(below),
            `mean F, draws below` = mean(f.i[below]),
@@ -271,25 +268,29 @@ data.frame(`median B/Bmsy` = median(hcr$b),
 so $F_{adv} = P(B < B_{trigger}) \times \bar F_{below} + (1 - P(B < B_{trigger})) \times F_{tgt}$.
 The wider the distribution of $B/B_{MSY}$ in the TAC year (larger estimation
 uncertainty, process error, longer intermediate period), the larger the
-precautionary reduction.
+precautionary reduction. With $B_{trigger} = 0.5 B_{MSY}$ only a few draws are
+below the trigger and $F_{adv}$ stays close to $F_{tgt}$
+(`jb3_hcr(..., btrigger = 0.5)$Fadv`).
 
-The management options, with $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and
-$F = 0$ in the TAC years:
+### Management options
 
-```{r hcr-stf, fig.height = 6, fig.width = 9}
+The options with $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and $F = 0$ in the TAC
+years, with $B_{trigger}$ marked on the biomass panel:
+
+```{r hcr-stf, fig.height = 7, fig.width = 8}
 fc <- list(Fadv = ctrl(hcr$Fadv, "Fmsy"), Ftgt = ctrl(1, "Fmsy"), Fsq = ctrl(fsq, "Fmsy"),
            Csq = ctrl(csq, "Catch"), F0 = ctrl(0, "Fmsy"))
-stf <- jb3_fwd(f.bum, fc)
-jbplot_projection(stf)
+stf <- jb3_fwd(fit, fc)
+jbplot_projection(stf, bthr = c(Btrigger = bt))
 ```
 
 `jb3_fwdtable()` summarises the fishing opportunities in the GFCM format (as
 `FLRef::fwd2type1()`): the catch and $F/F_{tgt}$ in the TAC year, the biomass
 at the start of the following year, its change, and the probabilities of
-being above $B_{lim}$, $B_{pa}$ and $B_{tgt}$:
+being above $B_{lim}$, $B_{pa}$ (here $B_{trigger}$, `bthr`) and $B_{tgt}$:
 
 ```{r hcr-table}
-knitr::kable(jb3_fwdtable(stf))
+knitr::kable(jb3_fwdtable(stf, bthr = bt))
 ```
 
 Alternatively, `quant = "HCR"` applies the rule draw by draw in every
@@ -299,8 +300,8 @@ medium-term projection under the rule:
 ```{r hcr-drawwise, eval = FALSE}
 hcr.ctrl <- data.frame(year = y0 + 1:10, value = c(csq, csq, rep(1, 8)),
                        quant = c("Catch", "Catch", rep("HCR", 8)))
-pm <- jb3_fwd(f.bum, list(HCR = hcr.ctrl), hcr = list(btrigger = 0.5))
-jbplot_projection(pm)
+pm <- jb3_fwd(fit, list(HCR = hcr.ctrl), hcr = list(btrigger = bt))
+jbplot_projection(pm, bthr = c(Btrigger = bt))
 ```
 
 For a weighted ensemble, pass a `jb3_ensemble()` instead of the single fit;
