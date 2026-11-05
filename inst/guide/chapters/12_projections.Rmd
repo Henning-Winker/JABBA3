@@ -226,8 +226,43 @@ through the intermediate years, and so includes their process error. The rule
 can be evaluated in another forecast year with `year`, e.g.
 `jb3_hcr(fwd, year = y0 + 1)` for the year after the assessment.
 
-The median $B/B_{MSY}$ is above $B_{trigger}$, so the deterministic rule gives
-$F_{tgt}$, but the draws below $B_{trigger}$ reduce the precautionary $F_{adv}$.
+### Why $F_{adv}$ is below $F_{tgt}$ when the median is above $B_{trigger}$
+
+`jb3_hcr()` offers two ways of turning the uncertain $B/B_{MSY}$ into one
+advised F:
+
+- **Deterministic** (`uncertainty = FALSE`, `Fadv.det`): the rule is applied
+  once, to the median $B/B_{MSY}$. Here the median is above $B_{trigger}$, so
+  $F_{adv} = F_{tgt}$.
+- **Precautionary** (`uncertainty = TRUE`, the default, `Fadv.pa`; as JABBA's
+  `jb_hockeystick(uncertainty = TRUE)`): the rule is applied to every draw, and
+  the advised F is the mean of the resulting F values,
+  $F_{adv} = \frac{1}{n}\sum_i HCR(B_i/B_{MSY})$. This is an expectation over the
+  draws, not a fractile of $B/B_{MSY}$.
+
+Draws above $B_{trigger}$ get $F_{tgt}$; draws below it get a reduced F,
+$F_{tgt} (B_i/B_{MSY})/B_{trigger}$ (with `bclose = 0`). Because the rule is
+capped at $F_{tgt}$, uncertainty can only pull the mean down: the precautionary
+$F_{adv}$ is never above the deterministic one, and it drops below $F_{tgt}$ as
+soon as a share of the draws falls below $B_{trigger}$, even when the median is
+above it. The decomposition for the blue marlin example:
+
+```{r hcr-explain}
+f.i <- JABBA3:::.hockey(hcr$b, ftgt = 1, btrigger = 0.5, bclose = 0, fmin = 0.001)   # F/Fmsy for each draw
+below <- hcr$b < 0.5
+data.frame(`median B/Bmsy` = median(hcr$b),
+           `P(B < Btrigger)` = mean(below),
+           `mean F, draws below` = mean(f.i[below]),
+           `mean F, draws above` = mean(f.i[!below]),
+           `Fadv.det` = hcr$Fadv.det,
+           `Fadv.pa` = hcr$Fadv.pa, check.names = FALSE)
+```
+
+so $F_{adv} = P(B < B_{trigger}) \times \bar F_{below} + (1 - P(B < B_{trigger})) \times F_{tgt}$.
+The wider the distribution of $B/B_{MSY}$ in the TAC year (larger estimation
+uncertainty, process error, longer intermediate period), the larger the
+precautionary reduction.
+
 The management options, with $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and
 $F = 0$ in the TAC years:
 
