@@ -25,6 +25,16 @@ report the risk $P(B < B_{lim})$ with $B_{lim} = 0.3 B_{MSY}$ by default.
 jbplot_projection(pj)
 ```
 
+`jbplot_projection()` draws $B_{MSY}$ and $F_{MSY}$ (green), MSY on the catch
+panel, a biomass threshold `bthr` (orange, default $0.5 B_{MSY}$) and limit
+`blim` (red, default $0.3 B_{MSY}$). A name sets the label, e.g.
+`bthr = c(Bpa = 0.5)` (ICES) or `bthr = c(MSST = 1 - M)` (U.S.), `NULL` omits
+one, and `extra` adds further lines, e.g. `extra = c(Flim = 1.3)`:
+
+```{r proj-plot-refpts, fig.height = 6}
+jbplot_projection(pj, bthr = c(MSST = 1 - 0.2), blim = NULL, extra = c(Flim = 1.3))
+```
+
 ## Projection tables
 
 `jb3_projtable()` gives a catch options table in the style of an ICES advice

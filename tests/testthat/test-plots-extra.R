@@ -32,3 +32,16 @@ test_that("jbplot_crisk ratio and named bfrac", {
   expect_true("P(B < MSST)" %in% levels(g$data$risk))
   expect_error(jbplot_crisk(pr, years = 2050))
 })
+
+test_that("jbplot_projection reference points", {
+  data(iccat); bet <- iccat$bet
+  d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+  f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), osa = FALSE)
+  pj <- jb3_project(f, fmsy = c(0.5, 1), nyears = 3, ndraws = 100)
+  lab <- function(g) unlist(lapply(g$layers, function(l) if(inherits(l$geom, "GeomLabel")) as.character(l$data$name)))
+  expect_true(all(c("Bmsy", "Fmsy", "MSY", "Bthr", "Blim") %in% lab(jbplot_projection(pj))))
+  g <- jbplot_projection(pj, bthr = c(MSST = 0.8), blim = NULL, extra = c(Flim = 1.3))
+  expect_true(all(c("MSST", "Flim") %in% lab(g))); expect_false("Blim" %in% lab(g))
+  expect_null(lab(jbplot_projection(pj, refpts = FALSE)))
+  expect_s3_class(jbplot_projection(pj, type = c("B", "F")), "ggplot")
+})

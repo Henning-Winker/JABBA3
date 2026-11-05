@@ -4,15 +4,56 @@
 \alias{jbplot_projection}
 \title{Projection plot}
 \usage{
-jbplot_projection(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyears = 15)
+jbplot_projection(
+  proj,
+  type = c("B/Bmsy", "F/Fmsy", "Catch"),
+  nyears = 15,
+  refpts = TRUE,
+  bthr = 0.5,
+  blim = 0.3,
+  extra = NULL,
+  label.size = 2.5
+)
 }
 \arguments{
-\item{proj}{output of \code{\link{jb3_project}()}}
+\item{proj}{output of \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}}
 
-\item{type}{quantities}
+\item{type}{panels: any of "B/Bmsy", "F/Fmsy", "Catch", "B", "F"}
 
-\item{nyears}{assessment years to show before the projection}
+\item{nyears}{number of assessment years shown before the projection}
+
+\item{refpts}{draw the reference points (FALSE for none)}
+
+\item{bthr}{biomass threshold as a fraction of Bmsy (default 0.5, orange), optionally named (Bthr, Bpa, MSST, ...);
+\code{NULL} to omit}
+
+\item{blim}{biomass limit as a fraction of Bmsy (default 0.3, red), optionally named; \code{NULL} to omit}
+
+\item{extra}{further reference points as a named vector relative to Bmsy (names starting with "B") or Fmsy (names
+starting with "F"), e.g. \code{c(Flim = 1.3)}; names Blim/Flim are drawn red, Bpa/Fpa/Bthr/MSST orange, others green}
+
+\item{label.size}{size of the reference point labels (0 for lines without labels)}
+}
+\value{
+a ggplot
 }
 \description{
-Projection plot
+Trajectories of the last assessment years (grey: median and 95\% interval) and of each projection scenario (coloured:
+median and 95\% interval), from \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}. Dotted vertical lines mark the
+last assessment year and, with intermediate years, the last intermediate year before the TAC year.
+}
+\details{
+Reference points are drawn as labelled dashed lines: Bmsy and Fmsy (dark green) on the B/Bmsy and F/Fmsy panels, a
+biomass threshold \code{bthr} (orange) and limit \code{blim} (red) on the B/Bmsy panel, and MSY on the catch panel.
+A name sets the label, e.g. \code{bthr = c(Bpa = 0.5)} (ICES), \code{bthr = c(Bthr = 0.5)} (GFCM) or
+\code{bthr = c(MSST = 1 - M)} (U.S. minimum stock size threshold); further lines can be added with \code{extra}.
+}
+\examples{
+\dontrun{
+pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25))
+jbplot_projection(pj)                                      # Bthr = 0.5, Blim = 0.3 Bmsy
+jbplot_projection(pj, bthr = c(Bpa = 0.5), blim = c(Blim = 0.3))
+jbplot_projection(pj, bthr = c(MSST = 1 - 0.2), blim = NULL)  # U.S.: MSST = (1 - M) Bmsy
+jbplot_projection(pj, extra = c(Flim = 1.3))
+}
 }

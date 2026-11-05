@@ -43,7 +43,7 @@ jb3cols <- function(n, alpha = 1){
   data.frame(stock = exp(s$value[ib] + z[, 1]), harvest = exp(s$value[ih] + z[, 2]))
 }
 
-.ref_colour <- function(x) ifelse(x %in% c("Blim", "Flim"), "red", ifelse(x %in% c("Bpa", "Fpa", "Bthr"), "darkorange",
+.ref_colour <- function(x) ifelse(x %in% c("Blim", "Flim"), "red", ifelse(x %in% c("Bpa", "Fpa", "Bthr", "MSST", "Bmsst"), "darkorange",
                                   ifelse(x %in% c("B0", "K", "Btrigger"), "blue", "darkgreen")))
 
 .geom_refpts <- function(refs, years, size = 2.5){
@@ -669,11 +669,37 @@ jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL, indices = NU
 }
 
 #' Projection plot
-#' @param proj output of \code{\link{jb3_project}()}
-#' @param type quantities
-#' @param nyears assessment years to show before the projection
+#'
+#' Trajectories of the last assessment years (grey: median and 95\% interval) and of each projection scenario (coloured:
+#' median and 95\% interval), from \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}. Dotted vertical lines mark the
+#' last assessment year and, with intermediate years, the last intermediate year before the TAC year.
+#'
+#' Reference points are drawn as labelled dashed lines: Bmsy and Fmsy (dark green) on the B/Bmsy and F/Fmsy panels, a
+#' biomass threshold \code{bthr} (orange) and limit \code{blim} (red) on the B/Bmsy panel, and MSY on the catch panel.
+#' A name sets the label, e.g. \code{bthr = c(Bpa = 0.5)} (ICES), \code{bthr = c(Bthr = 0.5)} (GFCM) or
+#' \code{bthr = c(MSST = 1 - M)} (U.S. minimum stock size threshold); further lines can be added with \code{extra}.
+#' @param proj output of \code{\link{jb3_project}()} or \code{\link{jb3_fwd}()}
+#' @param type panels: any of "B/Bmsy", "F/Fmsy", "Catch", "B", "F"
+#' @param nyears number of assessment years shown before the projection
+#' @param refpts draw the reference points (FALSE for none)
+#' @param bthr biomass threshold as a fraction of Bmsy (default 0.5, orange), optionally named (Bthr, Bpa, MSST, ...);
+#'   \code{NULL} to omit
+#' @param blim biomass limit as a fraction of Bmsy (default 0.3, red), optionally named; \code{NULL} to omit
+#' @param extra further reference points as a named vector relative to Bmsy (names starting with "B") or Fmsy (names
+#'   starting with "F"), e.g. \code{c(Flim = 1.3)}; names Blim/Flim are drawn red, Bpa/Fpa/Bthr/MSST orange, others green
+#' @param label.size size of the reference point labels (0 for lines without labels)
+#' @return a ggplot
+#' @examples
+#' \dontrun{
+#' pj <- jb3_project(fit, fmsy = c(0, 0.5, 0.75, 1, 1.25))
+#' jbplot_projection(pj)                                      # Bthr = 0.5, Blim = 0.3 Bmsy
+#' jbplot_projection(pj, bthr = c(Bpa = 0.5), blim = c(Blim = 0.3))
+#' jbplot_projection(pj, bthr = c(MSST = 1 - 0.2), blim = NULL)  # U.S.: MSST = (1 - M) Bmsy
+#' jbplot_projection(pj, extra = c(Flim = 1.3))
+#' }
 #' @export
-jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyears = 15){
+jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyears = 15, refpts = TRUE, bthr = 0.5,
+                              blim = 0.3, extra = NULL, label.size = 2.5){
   ft <- proj$fit.ts; y0 <- max(ft$year)
   ft <- ft[ft$quantity %in% type & ft$year > y0 - nyears, ]
   pr <- proj$ts[proj$ts$quantity %in% type, ]
@@ -684,18 +710,33 @@ jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyear
   pr$uci <- pmin(pr$uci, 3*mx[nrow(ft) + seq_len(nrow(pr))])        # guard against exploding intervals
   pr$scenario <- factor(pr$scenario, levels = sc)
   ft$quantity <- factor(ft$quantity, levels = type); pr$quantity <- factor(pr$quantity, levels = type)
-  ggplot2::ggplot(mapping = ggplot2::aes(.data$year, .data$est)) +
+  p <- ggplot2::ggplot(mapping = ggplot2::aes(.data$year, .data$est)) +
     ggplot2::geom_ribbon(data = ft, ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "grey80") +
     ggplot2::geom_line(data = ft, linewidth = 0.7) +
     ggplot2::geom_ribbon(data = pr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci, fill = .data$scenario), alpha = 0.1) +
     ggplot2::geom_line(data = pr, ggplot2::aes(colour = .data$scenario), linewidth = 0.7) +
     ggplot2::scale_colour_manual(values = cols) + ggplot2::scale_fill_manual(values = cols) +
-    ggplot2::geom_hline(data = data.frame(quantity = factor(intersect(type, c("B/Bmsy", "F/Fmsy")), levels = type)), ggplot2::aes(yintercept = 1), linetype = 2) +
     ggplot2::geom_vline(xintercept = c(y0, if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) proj$tac.year - 1), linetype = 3) +
     ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = 1) + ggplot2::expand_limits(y = 0) + scale_x_year() +
-    ggplot2::labs(x = "Year", y = NULL,
+    ggplot2::labs(x = "Year", y = NULL, colour = NULL, fill = NULL,
                   caption = if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) paste("dotted: last assessment year and last intermediate year; TAC year", proj$tac.year)) +
     theme_jabba3()
+  if(!refpts) return(p)
+  rp <- proj$refpts
+  nm1 <- function(x, d) if(!is.null(names(x)) && nzchar(names(x)[1])) names(x)[1] else d
+  refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy"), name = c("Bmsy", "Fmsy"), value = c(1, 1))
+  if(!is.null(rp) && "MSY" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "Catch", name = "MSY", value = rp$est[rp$par == "MSY"]))
+  if(!is.null(rp) && "Bmsy" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "B", name = "Bmsy", value = rp$est[rp$par == "Bmsy"]))
+  if(!is.null(rp) && "Fmsy" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "F", name = "Fmsy", value = rp$est[rp$par == "Fmsy"]))
+  lim <- c(if(!is.null(bthr)) stats::setNames(unname(bthr[1]), nm1(bthr, "Bthr")),
+           if(!is.null(blim)) stats::setNames(unname(blim[1]), nm1(blim, "Blim")), extra)
+  if(length(lim)){
+    isF <- substr(names(lim), 1, 1) == "F"
+    refs <- rbind(refs, data.frame(quantity = ifelse(isF, "F/Fmsy", "B/Bmsy"), name = names(lim), value = unname(lim)))
+  }
+  refs <- refs[refs$quantity %in% type, ]
+  refs$quantity <- factor(refs$quantity, levels = type)
+  p + .geom_refpts(refs, c(y0 - nyears + 1, max(pr$year)), label.size)
 }
 
 #' Catch: observed and estimated
