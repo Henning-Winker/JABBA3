@@ -41,6 +41,8 @@ Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesia
 
 Sherley, R.B. et al. (2020). *Ecology and Evolution* (JARA census model applied to absolute abundance indices). doi:10.1002/ece3.6554
 
+SEDAR (2024). SEDAR 77 Stock Assessment Report: HMS Hammerhead Sharks. SEDAR, North Charleston, SC. <https://sedarweb.org/documents/sedar-77-hms-hammerhead-sharks-final-stock-assessment-report/>
+
 Thorson, J.T. (2020). Predicting recruitment density dependence and intrinsic
 growth rate for all fishes worldwide using a data-integrated life-history model.
 *Fish and Fisheries* 21(2): 237-251.

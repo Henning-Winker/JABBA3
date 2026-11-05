@@ -281,31 +281,57 @@ jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joi
 
 #' Catch risk curves
 #'
-#' As JABBA's \code{jbplot_Crisk()}: the probability that B < Bmsy (or B < \code{bfrac} x Bmsy) and that F > Fmsy against
-#' the projected catch (or F/Fmsy) of each scenario, one line per projection year, from \code{\link{jb3_project}()}.
-#' @param proj output of \code{\link{jb3_project}()} with two or more scenarios
+#' As JABBA's \code{jbplot_Crisk()} (NOAA-style risk plots): the probability that B < Bmsy, that F > Fmsy and that
+#' B < \code{bfrac} x Bmsy (e.g. MSST = (1 - M) Bmsy) against the projected catch (or F/Fmsy) of each scenario, one
+#' line per projection year, from \code{\link{jb3_project}()}.
+#' @param proj output of \code{\link{jb3_project}()} with two or more constant catch (or F) scenarios
 #' @param years projection years to show (default: up to 4 spread over the horizon)
-#' @param bfrac also show P(B < bfrac x Bmsy), e.g. 0.5 for a limit; NULL to omit
+#' @param bfrac also show P(B < bfrac x Bmsy), e.g. 0.5 for a limit or \code{c(MSST = 1 - M)} (a name labels the panel);
+#'   NULL to omit
+#' @param x x-axis: \code{"value"} (catch or F/Fmsy of the scenario) or \code{"ratio"}, relative to the status quo catch
+#'   (or F/Fmsy), i.e. the mean of the last \code{nsq} assessment years used in the projection, as \code{type = "ratio"}
+#'   in JABBA's \code{fw_jabba()}
+#' @param ref reference for \code{x = "ratio"} (default the status quo of the projection)
+#' @examples
+#' \dontrun{
+#' M <- 0.231
+#' pr <- jb3_project(fit, scenarios = setNames(lapply(seq(0, 3, 0.25), function(m) c(Csq = m)), seq(0, 3, 0.25)),
+#'                   nyears = 31, imp.years = 3)
+#' jbplot_crisk(pr, years = seq(2025, 2050, 5), bfrac = c(MSST = 1 - M), x = "ratio")
+#' }
 #' @export
-jbplot_crisk <- function(proj, years = NULL, bfrac = 0.5){
+jbplot_crisk <- function(proj, years = NULL, bfrac = 0.5, x = c("value", "ratio"), ref = NULL){
+  x <- match.arg(x)
   it <- proj$iters; sc <- proj$scenarios
+  type <- unique(sc$type)
+  if(length(type) > 1) stop("jbplot_crisk() needs scenarios of one type (catch or F/Fmsy)", call. = FALSE)
   py <- it[[1]]$years
   years <- years %||% unique(py[unique(round(seq(1, length(py), length.out = min(4, length(py)))))])
+  if(anyNA(match(years, py))) stop("years not in the projection: ", paste(setdiff(years, py), collapse = ", "), call. = FALSE)
+  xv <- sc$value
+  if(x == "ratio"){
+    ref <- ref %||% (if(type == "Catch") proj$sq[["Csq"]] else proj$sq[["Fsq"]])
+    if(is.null(ref)) stop("no status quo stored in the projection; give ref", call. = FALSE)
+    xv <- xv/ref
+  }
+  blab <- if(!is.null(bfrac)){
+    if(!is.null(names(bfrac)) && nzchar(names(bfrac))) sprintf("P(B < %s)", names(bfrac)) else sprintf("P(B < %s Bmsy)", signif(bfrac, 3))
+  }
   d <- do.call(rbind, lapply(seq_along(it), function(s) do.call(rbind, lapply(years, function(y){ j <- match(y, it[[s]]$years)
     bb <- it[[s]]$`B/Bmsy`[, j]; ff <- it[[s]]$`F/Fmsy`[, j]
-    out <- data.frame(x = sc$value[s], year = y, risk = c("P(B < Bmsy)", "P(F > Fmsy)"),
-                      p = c(mean(bb < 1, na.rm = TRUE), mean(ff > 1, na.rm = TRUE)))
-    if(!is.null(bfrac)) out <- rbind(out, data.frame(x = sc$value[s], year = y, risk = sprintf("P(B < %s Bmsy)", bfrac),
-                                                     p = mean(bb < bfrac, na.rm = TRUE)))
+    out <- data.frame(x = xv[s], year = y, risk = c("P(B < Bmsy)", "P(F > Fmsy)"),
+                      p = c(mean(bb < 1, na.rm = TRUE), mean(ff > 1 + 1e-8, na.rm = TRUE)))
+    if(!is.null(bfrac)) out <- rbind(out, data.frame(x = xv[s], year = y, risk = blab, p = mean(bb < unname(bfrac), na.rm = TRUE)))
     out }))))
   d$risk <- factor(d$risk, unique(d$risk)); d$year <- factor(d$year)
   ny <- length(years)
+  xl <- if(type == "Catch") (if(x == "ratio") "Catch / current catch" else "Catch") else (if(x == "ratio") "F / current F" else "F/Fmsy")
   ggplot2::ggplot(d, ggplot2::aes(.data$x, .data$p, colour = .data$year)) +
     ggplot2::geom_hline(yintercept = 0.5, linetype = 2, colour = "grey50") +
     ggplot2::geom_line(linewidth = 0.7) + ggplot2::geom_point(size = 1.6) +
     ggplot2::scale_colour_manual(values = jb3cols(max(ny, 2))[seq_len(ny)]) +
     ggplot2::facet_wrap(~risk) + ggplot2::coord_cartesian(ylim = c(0, 1)) +
-    ggplot2::labs(x = if(sc$type[1] == "Catch") "Catch" else "F/Fmsy", y = "Probability", subtitle = paste(proj$run, "- risk by projection year")) +
+    ggplot2::labs(x = xl, y = "Probability", colour = NULL, subtitle = paste(proj$run, "- risk by projection year")) +
     theme_jabba3() + ggplot2::theme(legend.position = "bottom")
 }
 
