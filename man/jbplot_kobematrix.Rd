@@ -17,12 +17,14 @@ jbplot_kobematrix(
   bref = 1,
   fref = 1,
   risk = FALSE,
-  rows = c("auto", "label", "value")
+  rows = c("auto", "label", "value"),
+  risk.breaks = c(0, 5, 10, 20, 30, 40, 50, 100)
 )
 }
 \arguments{
 \item{x}{output of \code{\link{jb3_project}()} (or a list of them, combined as in \code{\link{jb3_kobematrix}()}), or of
-\code{jb3_kobematrix(..., what = "all")}}
+\code{jb3_kobematrix(..., what = "all")}, \code{\link{jb3_kobematrix_gfcm}()} or \code{\link{jb3_kobematrix_iotc}()};
+probability and risk matrices together are shaded separately (needs patchwork)}
 
 \item{what}{which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all available)}
 
@@ -33,8 +35,7 @@ jbplot_kobematrix(
 \item{colours}{\code{"grey"} (ICCAT report tables), \code{"kobe"} (red to green), or a vector of colours, one per
 probability class}
 
-\item{breaks}{probability classes in percent (default 0, 50, 60, 70, 80, 90, 100; with \code{risk = TRUE}
-0, 5, 10, 20, 30, 40, 50, 100, with the colours reversed)}
+\item{breaks}{probability classes in percent (default 0, 50, 60, 70, 80, 90, 100)}
 
 \item{size}{text size of the cell labels}
 
@@ -44,6 +45,8 @@ probability class}
 
 \item{bref, fref, risk, rows}{reference points, risk and row labels, passed to \code{\link{jb3_kobematrix}()} when \code{x} is a
 projection}
+
+\item{risk.breaks}{risk classes in percent for risk matrices (e.g. P(B < Blim)), shaded in reverse}
 }
 \value{
 a ggplot

@@ -35,6 +35,11 @@ test_that("tables and F-based projections", {
   kr <- jb3_kobematrix(pr); expect_equal(kr$scenario, c("Fmsy", "Fcur", "0.8Fmsy", "TAC"))
   expect_equal(jb3_project(f, fmsy = c(a = 1, b = 0.5), nyears = 2, ndraws = 50)$scenarios$label, c("a", "b"))
   expect_s3_class(jbplot_kobematrix(pr), "ggplot")
+  kg <- jb3_kobematrix_gfcm(pk); expect_equal(names(kg), c("F<Ftgt & B>Btgt", "B>Bthr", "B<Blim"))
+  ke <- jb3_kobematrix_ices(pk); expect_equal(names(ke), c("F<Fmsy & B>Bpa", "B<Blim"))
+  expect_equal(ke$`B<Blim`, kg$`B<Blim`); expect_output(print(kg), "c\\) Probability that B < Blim")
+  skip_if_not_installed("patchwork")
+  expect_s3_class(jbplot_kobematrix(kg), "patchwork"); expect_s3_class(jbplot_kobematrix(ke, colours = "kobe"), "patchwork")
   expect_s3_class(jbplot_kobematrix(pk), "ggplot"); expect_s3_class(jbplot_kobematrix(k2, what = "green", colours = "kobe"), "ggplot")
   pc <- jb3_project(f, catch = 1e7, nyears = 3, ndraws = 100)            # catch capped: F stays finite
   expect_true(all(is.finite(pc$iters[[1]]$`F/Fmsy`)))

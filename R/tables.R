@@ -222,6 +222,49 @@ jb3_kobematrix <- function(proj, what = c("green", "B", "F", "all"), years = NUL
   structure(out, class = c("jb3k2sm", "list"), percent = percent, types = types, risk = risk)
 }
 
+#' Kobe II strategy matrix, GFCM format
+#'
+#' Three matrices for the GFCM advice summary sheet, by scenario (rows) and projection year (columns): (a) the probability
+#' of being in the green Kobe quadrant, F < Ftgt and B > Btgt, (b) the probability that B > Bthr, and (c) the risk
+#' P(B < Blim). Reference points are multiples of Bmsy and Fmsy; the defaults are the GFCM and ICES defaults for surplus
+#' production models (Btgt = Bmsy, Ftgt = Fmsy, Bthr = 0.5 Bmsy, Blim = 0.3 Bmsy).
+#' @inheritParams jb3_kobematrix
+#' @param btgt,ftgt,bthr,blim reference points relative to Bmsy and Fmsy
+#' @return a list of class \code{jb3k2sm} with three data.frames, for \code{print()} and \code{\link{jbplot_kobematrix}()}
+#' @examples
+#' \dontrun{
+#' k3 <- jb3_kobematrix_gfcm(pf)
+#' k3
+#' jbplot_kobematrix(k3, colours = "kobe")
+#' }
+#' @export
+jb3_kobematrix_gfcm <- function(proj, years = NULL, btgt = 1, ftgt = 1, bthr = 0.5, blim = 0.3, percent = TRUE,
+                                weights = NULL, rows = c("auto", "label", "value"), digits = 2){
+  rows <- match.arg(rows)
+  a <- list(proj = proj, years = years, percent = percent, weights = weights, rows = rows, digits = digits)
+  out <- list(do.call(jb3_kobematrix, c(a, list(what = "green", bref = c(Btgt = btgt), fref = c(Ftgt = ftgt)))),
+              do.call(jb3_kobematrix, c(a, list(what = "B", bref = c(Bthr = bthr), fref = NULL))),
+              do.call(jb3_kobematrix, c(a, list(what = "B", bref = c(Blim = blim), fref = NULL, risk = TRUE))))
+  names(out) <- vapply(out, attr, "", "condition")
+  structure(out, class = c("jb3k2sm", "list"), percent = percent, types = c("green", "B", "B"),
+            riskv = c(FALSE, FALSE, TRUE))
+}
+
+#' @rdname jb3_kobematrix_gfcm
+#' @description \code{jb3_kobematrix_ices()}: two matrices for ICES-type advice, (a) the probability that F < Fmsy and
+#'   B > Bpa, and (b) the risk P(B < Blim), with Bpa = 0.5 Bmsy and Blim = 0.3 Bmsy by default (SPM proxies).
+#' @param fmsy,bpa F and biomass reference points of the ICES matrix (relative to Fmsy and Bmsy)
+#' @export
+jb3_kobematrix_ices <- function(proj, years = NULL, fmsy = 1, bpa = 0.5, blim = 0.3, percent = TRUE,
+                                weights = NULL, rows = c("auto", "label", "value"), digits = 2){
+  rows <- match.arg(rows)
+  a <- list(proj = proj, years = years, percent = percent, weights = weights, rows = rows, digits = digits)
+  out <- list(do.call(jb3_kobematrix, c(a, list(what = "green", bref = c(Bpa = bpa), fref = c(Fmsy = fmsy)))),
+              do.call(jb3_kobematrix, c(a, list(what = "B", bref = c(Blim = blim), fref = NULL, risk = TRUE))))
+  names(out) <- vapply(out, attr, "", "condition")
+  structure(out, class = c("jb3k2sm", "list"), percent = percent, types = c("green", "B"), riskv = c(FALSE, TRUE))
+}
+
 # label of a reference point: its name, "Bmsy" for 1, otherwise "0.5Bmsy"
 .k2ref <- function(x, q){
   if(is.null(x)) return(NULL)
@@ -249,14 +292,15 @@ print.jb3k2sm <- function(x, ...){
 #' Shaded Kobe II strategy matrices (ICCAT style): probabilities by scenario (rows) and year (columns) for F < Fmsy,
 #' B > Bmsy and both, with the probabilities printed in the cells.
 #' @param x output of \code{\link{jb3_project}()} (or a list of them, combined as in \code{\link{jb3_kobematrix}()}), or of
-#'   \code{jb3_kobematrix(..., what = "all")}
+#'   \code{jb3_kobematrix(..., what = "all")}, \code{\link{jb3_kobematrix_gfcm}()} or \code{\link{jb3_kobematrix_iotc}()};
+#'   probability and risk matrices together are shaded separately (needs patchwork)
 #' @param what which matrices: any of \code{"F"}, \code{"B"}, \code{"green"} (default all available)
 #' @param years projection years (default all)
 #' @param weights weights for combining a list of projections
 #' @param colours \code{"grey"} (ICCAT report tables), \code{"kobe"} (red to green), or a vector of colours, one per
 #'   probability class
-#' @param breaks probability classes in percent (default 0, 50, 60, 70, 80, 90, 100; with \code{risk = TRUE}
-#'   0, 5, 10, 20, 30, 40, 50, 100, with the colours reversed)
+#' @param breaks probability classes in percent (default 0, 50, 60, 70, 80, 90, 100)
+#' @param risk.breaks risk classes in percent for risk matrices (e.g. P(B < Blim)), shaded in reverse
 #' @param bref,fref,risk,rows reference points, risk and row labels, passed to \code{\link{jb3_kobematrix}()} when \code{x} is a
 #'   projection
 #' @param size text size of the cell labels
@@ -274,18 +318,31 @@ print.jb3k2sm <- function(x, ...){
 #' @export
 jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weights = NULL, colours = "grey",
                               breaks = NULL, size = 3, pct = TRUE, ylab = NULL, bref = 1, fref = 1, risk = FALSE,
-                              rows = c("auto", "label", "value")){
+                              rows = c("auto", "label", "value"), risk.breaks = c(0, 5, 10, 20, 30, 40, 50, 100)){
   if(inherits(x, "jb3k2iotc")) return(.plot_k2iotc(x, colours = colours, size = size))
   what <- match.arg(what, c("F", "B", "green"), several.ok = TRUE)
   k2 <- if(inherits(x, "jb3k2sm")) x else jb3_kobematrix(x, what = "all", years = years, percent = TRUE, weights = weights,
                                                          bref = bref, fref = fref, risk = risk, rows = rows)
   if(!isTRUE(attr(k2, "percent"))) k2[] <- lapply(k2, function(d){ d[-1] <- lapply(d[-1], function(v) round(100*v)); d })
-  rk <- isTRUE(attr(k2, "risk"))
-  if(is.null(breaks)) breaks <- if(rk) c(0, 5, 10, 20, 30, 40, 50, 100) else c(0, 50, 60, 70, 80, 90, 100)
-  nm <- names(k2)[attr(k2, "types") %in% what]
-  if(!length(nm)) stop("none of 'what' is in the matrix", call. = FALSE)
-  ttl <- stats::setNames(paste0("P(", .k2title(names(k2)), ")"), names(k2))
+  rkv <- attr(k2, "riskv") %||% rep(isTRUE(attr(k2, "risk")), length(k2))
+  sel <- attr(k2, "types") %in% what
+  if(!any(sel)) stop("none of 'what' is in the matrix", call. = FALSE)
   key <- names(k2[[1]])[1]
+  yl <- ylab %||% switch(key, TAC = "Catch (t)", scenario = NULL, key)
+  grp <- unique(rkv[sel])
+  pp <- lapply(grp, function(rk){
+    nm <- names(k2)[sel & rkv == rk]
+    .k2panel(k2, nm, rk = rk, colours = colours, size = size, pct = pct, ylab = yl,
+             breaks = if(rk) risk.breaks else breaks %||% c(0, 50, 60, 70, 80, 90, 100))
+  })
+  if(length(pp) == 1) return(pp[[1]])
+  if(!requireNamespace("patchwork", quietly = TRUE)) stop("probability and risk matrices together need patchwork", call. = FALSE)
+  h <- vapply(grp, function(rk) sum(sel & rkv == rk), 0)
+  patchwork::wrap_plots(pp, ncol = 1, heights = h)
+}
+
+.k2panel <- function(k2, nm, rk, colours, size, pct, ylab, breaks){
+  ttl <- stats::setNames(paste0("P(", .k2title(names(k2)), ")"), names(k2))
   df <- do.call(rbind, lapply(nm, function(n){
     d <- k2[[n]]; yr <- names(d)[-1]
     data.frame(row = rep(.k2lab(d[[1]]), length(yr)), year = rep(yr, each = nrow(d)), p = unlist(d[-1]),
@@ -299,19 +356,20 @@ jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weig
   levels(df$class) <- paste0(breaks[-length(breaks)], "-", breaks[-1], "%")
   df$class <- factor(df$class, levels = levels(df$class))
   kc <- c("#d7191c", "#fdae61", "#ffffbf", "#a6d96a", "#1a9641"); if(rk) kc <- rev(kc)
-  pal <- if(identical(colours, "grey")) grDevices::grey(seq(1, 0.35, length.out = nb))
+  gr <- grDevices::grey(seq(1, 0.35, length.out = nb))          # grey: darker = higher probability (or higher risk)
+  pal <- if(identical(colours, "grey")) gr
          else if(identical(colours, "kobe")) grDevices::colorRampPalette(kc)(nb)
          else rep_len(colours, nb)
   names(pal) <- levels(df$class)
-  dark <- if(identical(colours, "grey")) names(pal)[seq_len(nb) > 0.6*nb] else character(0)
+  dark <- if(identical(colours, "grey")) names(pal)[grDevices::col2rgb(gr)[1, ] < 0.6*255] else character(0)
   ggplot2::ggplot(df, ggplot2::aes(x = year, y = row)) +
     ggplot2::geom_tile(ggplot2::aes(fill = class), colour = "grey60") +
     ggplot2::geom_text(ggplot2::aes(label = paste0(p, if(pct) "%"), colour = class %in% dark), size = size, show.legend = FALSE) +
     ggplot2::scale_colour_manual(values = c(`FALSE` = "black", `TRUE` = "white"), guide = "none") +
-    ggplot2::scale_fill_manual(values = pal, drop = FALSE, name = NULL) +
+    ggplot2::scale_fill_manual(values = pal, drop = FALSE, name = if(rk) "Risk" else NULL) +
     ggplot2::facet_wrap(~panel, ncol = 1) +
     ggplot2::scale_x_discrete(position = "top", expand = c(0, 0)) + ggplot2::scale_y_discrete(expand = c(0, 0)) +
-    ggplot2::labs(x = NULL, y = ylab %||% switch(key, TAC = "Catch (t)", scenario = NULL, key)) +
+    ggplot2::labs(x = NULL, y = ylab) +
     ggplot2::theme_bw() +
     ggplot2::theme(panel.grid = ggplot2::element_blank(), strip.background = ggplot2::element_blank(),
                    strip.text = ggplot2::element_text(hjust = 0, face = "bold"), legend.position = "right")
