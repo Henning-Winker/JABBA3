@@ -1528,9 +1528,15 @@ hcr <- jb3_hcr(jb3_fwd(f.bum, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger 
 hcr
 
 #' 
-## ----hcr-plot, fig.height = 4.5, fig.width = 6--------------------------------
+## ----hcr-plot, fig.height = 4.5, fig.width = 6, fig.cap = "Hockey-stick HCR (black line: F/Fmsy against B/Bmsy) with Blim, Btrigger and Bmsy. The blue density is the projected B/Bmsy at the start of the TAC year: each draw is projected from its terminal-year estimate through the intermediate years at the status quo catch, with process error, so the distribution is wider than the current-state posterior. The point is its median and the horizontal bar its 90% interval, drawn at the height of the advised F (F_adv, precautionary: the rule averaged over all draws)."----
 jbplot_hcr(hcr)
 
+#' 
+#' The distribution in the plot is not the current state: it is $B/B_{MSY}$ at the
+#' start of the TAC year, projected from each draw's terminal-year estimate
+#' through the intermediate years, and so includes their process error. The rule
+#' can be evaluated in another forecast year with `year`, e.g.
+#' `jb3_hcr(fwd, year = y0 + 1)` for the year after the assessment.
 #' 
 #' The median $B/B_{MSY}$ is above $B_{trigger}$, so the deterministic rule gives
 #' $F_{tgt}$, but the draws below $B_{trigger}$ reduce the precautionary $F_{adv}$.
