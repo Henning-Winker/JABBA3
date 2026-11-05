@@ -35,6 +35,15 @@ one, and `extra` adds further lines, e.g. `extra = c(Flim = 1.3)`:
 jbplot_projection(pj, bthr = c(MSST = 1 - 0.2), blim = NULL, extra = c(Flim = 1.3))
 ```
 
+## Projections on the advice plot
+
+`jbplot_advice(fit, proj = )` appends the projection scenarios (dashed) to the
+assessment advice plot:
+
+```{r proj-advice, fig.height = 7, fig.width = 7}
+jbplot_advice(fit, proj = pj)
+```
+
 ## Projection tables
 
 `jb3_projtable()` gives a catch options table in the style of an ICES advice
