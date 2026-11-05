@@ -58,7 +58,8 @@ jbplot_crisk(pj)
 
 Risk plots of this kind support U.S. advice (NOAA, SEDAR assessments), where the
 biomass limit is the minimum stock size threshold, e.g.
-$MSST = (1 - M) B_{MSY}$ as in the SEDAR great hammerhead assessment. A named
+$MSST = (1 - M) B_{MSY}$ as in the JABBA assessment of great hammerhead for
+SEDAR 77 (SEDAR 2024). A named
 `bfrac` labels the panel, and `x = "ratio"` shows the catch relative to the
 current catch (mean of the last three years), as `type = "ratio"` in JABBA's
 `fw_jabba()`. Catch scenarios as multiples of the current catch (`Csq`), with
