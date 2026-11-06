@@ -8,12 +8,14 @@ jb3_selex(
   lhpar,
   selpar,
   sel.type = "length",
+  units = "biomass",
   h = NULL,
   CVL = 0.1,
   sex_ratio = NULL,
   amin = 0,
   amax = NULL,
-  Fgrid = NULL
+  Fgrid = NULL,
+  fit.range = c(0.1, 0.9)
 )
 }
 \arguments{
@@ -26,6 +28,9 @@ lsd, rsd; normal: mode, sd; binormal; bidsnormal)}
 \item{sel.type}{"length" (default) or "age", per fleet; age-based selectivity uses the JABBA 5-parameter form
 (\code{\link{jb3_sel5}()}), which can also be used at length (parameters SL50, SL95, SLdesc, CVdesc, Smin)}
 
+\item{units}{"biomass" (default) or "numbers", per fleet (recycled): units of the exploitable stock, i.e. of the
+index mapped with this curve}
+
 \item{h}{steepness (default \code{lhpar$s}, else 0.7)}
 
 \item{CVL}{coefficient of variation of length at age (0: selectivity at the mean length)}
@@ -35,25 +40,43 @@ lsd, rsd; normal: mode, sd; binormal; bidsnormal)}
 \item{amin, amax}{age range}
 
 \item{Fgrid}{grid of F (default: from 0 until SB/SB0 < 0.02)}
+
+\item{fit.range}{range of SB/SB0 over which the curve is fitted (default 0.1-0.9, as JABBA-Select)}
 }
 \value{
 object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for
-  \code{jb3_model(ebsb = )}), \code{curves} (equilibrium EB/SB by fleet), \code{at.len} and \code{at.age}
-  (selectivity and maturity), \code{leslie} (r and GT)
+  \code{jb3_model(ebsb = )}), \code{curves} (equilibrium ratio by fleet, column \code{EB_SB}, with \code{units}),
+  \code{units}, \code{at.len} and \code{at.age} (selectivity and maturity), \code{leslie} (r and GT)
 }
 \description{
-Computes, for each fleet (selectivity), the equilibrium ratio of exploitable to spawning biomass EB/SB as a function of
-spawning-biomass depletion P = SB/SB0 over a grid of F, and fits the saturating curve
+Computes, for each fleet (selectivity), the equilibrium ratio of the exploitable stock to spawning biomass as a
+function of spawning-biomass depletion P = SB/SB0 over a grid of F, and fits the saturating curve
 \eqn{EB/SB(P) = u_1 + (u_2 - u_1)(1 - e^{-u_3(P - P_1)})/(1 - e^{-u_3(P_2 - P_1)})} used by
-\code{\link{jb3_model}(ebsb = )} (as \code{JABBA::make_ebsb()} and \code{fit_ebsb()}). Biology at age comes from an
-FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length, M, steepness \code{s}); selectivity is
-defined at length with the FLicc functions and parameters (\code{selpar} on the length scale, e.g. from
-\code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the length-at-age distribution
-(coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension \code{sex = c("F", "M")}): both sexes
-contribute to EB and SB with \code{sex_ratio}.
+\code{\link{jb3_model}(ebsb = )} (as \code{JABBA::make_ebsb()} and \code{fit_ebsb()}). The exploitable stock is
+measured in weight (\code{units = "biomass"}, EB/SB, for catches and indices in weight) or in numbers
+(\code{units = "numbers"}, exploitable numbers per unit SB, EN/SB, for indices in numbers, as \code{I.unit = 0} in
+JABBA-Select). Because fishing shifts the exploitable stock towards smaller fish, EN/SB rises more steeply with
+depletion than EB/SB, so an index in numbers declines less than one in weight; mapping it with the weight curve
+makes the model optimistic. The curve is fitted over \code{fit.range} of SB/SB0 (as JABBA-Select) and is constant
+outside it. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
+M, steepness \code{s}); selectivity is defined at length with the FLicc functions and parameters (\code{selpar} on
+the length scale, e.g. from \code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the
+length-at-age distribution (coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension
+\code{sex = c("F", "M")}): both sexes contribute to EB and SB with \code{sex_ratio}.
+}
+\details{
+A fleet whose catch is in weight and whose index is in numbers needs two curves from the same selectivity: give the
+selectivity twice with different names and units, e.g. \code{selpar = list(LL = s, LL.N = s)},
+\code{units = c("biomass", "numbers")}, then \code{jb3_model(ebsb = sx, ebsb.index = "LL.N", ebsb.catch = "LL")}.
 }
 \examples{
 lh <- c(linf = 55.7, k = 0.08, M = 0.162, L50 = 31.2, a = 0.0047, b = 3.15, s = 0.75)
 sx <- jb3_selex(lh, list(Gillnet = c(mode = 32, lsd = 4, rsd = 15), Trawl = c(SL50 = 22, SL95 = 28)))
 sx$ebsb
+# catch in weight and an index in numbers from the same trawl selectivity
+tr <- c(SL50 = 22, SL95 = 28)
+sx2 <- jb3_selex(lh, list(Trawl = tr, Trawl.N = tr), units = c("biomass", "numbers"))
+}
+\seealso{
+\code{\link{jb3_asem_prior}()} for the matching productivity prior
 }
