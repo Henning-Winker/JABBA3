@@ -183,3 +183,36 @@ ggplot(bk, aes(year, est)) +
   geom_vline(xintercept = kobsim$sel.change - 0.5, linetype = 2) +
   labs(x = "Year", y = "SB/SB0", subtitle = "JABBA3 Selex (black, 95% CI) and operating model (red)") + theme_jabba3()
 ```
+
+### Example: an index in numbers (bigeye)
+
+The bigeye indices are the 2018 joint longline index, standardised in numbers
+of fish (Hoyle et al. 2019). Like JABBA in the 2018 assessment, the examples in
+this guide treat them as an index of exploitable biomass. With Selex, the same
+data can be fitted with the index mapped in weight and in numbers. The biology
+below is approximate (von Bertalanffy growth instead of the Richards curve of
+the 2018 assessment, M = 0.35 at all ages, maturity at age 3, steepness 0.8),
+and the longline selectivity is illustrative, so the example contrasts the two
+units rather than providing an assessment:
+
+```{r model-bet-numbers}
+Lb  <- function(a) 217.3*(1 - exp(-0.18*(a + 0.709)))
+lhb <- c(linf = 217.3, k = 0.18, t0 = -0.709, a = 2.396e-5, b = 2.9774, M = 0.35, s = 0.8,
+         L50 = (Lb(2) + Lb(3))/2, L95 = Lb(3), amax = 15)
+llb <- c(SL50 = 100, SL95 = 125)                                  # illustrative longline selectivity (cm)
+sxb <- jb3_selex(lhb, list(LL = llb, LL.N = llb), units = c("biomass", "numbers"))
+prb <- jb3_asem_prior(lhb, llb, M.cv = 0.2, h.sd = 0.08, nsim = 300)
+db  <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+fb  <- lapply(c(weight = "LL", numbers = "LL.N"), function(u)
+  jabba3(db, jb3_priors(db, r = prb$r, K = c(8*max(db$catch), 1)),
+         jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = u, ebsb.catch = "LL"), osa = FALSE))
+t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quantity) }))
+```
+
+Selectivity is close to maturity here, so the weight curve is nearly flat and
+the Selex fit with the index in weight is close to standard JABBA3. Read as
+numbers, however, the index declines less than the biomass, so mapping it as
+numbers implies a more depleted stock (lower B/B~MSY~, higher F/F~MSY~). The
+2018 assessment combined across models gave B/B~MSY~ = 0.59--0.82 and
+F/F~MSY~ = 1.21--1.63 for 2017 (ICCAT 2018).

@@ -157,8 +157,9 @@ jbplot_selex(sxn)
 mod.n <- jb3_model(BmsyK = 0.33, ebsb = sxn, ebsb.index = "LL.N", ebsb.catch = "LL")
 ```
 
-Curves are fitted over SB/SB0 = 0.1--0.9 (`fit.range`, as JABBA-Select) and are
-constant outside this range.
+Curves are fitted to the equilibrium over SB/SB0 = 0.1--0.9 (`fit.range`, as
+JABBA-Select) and extend smoothly to the state bounds (`P.lim = c(0.02, 1.3)`),
+so that the likelihood has no kink where the states may lie.
 
 ## The productivity prior from the age-structured equilibrium
 

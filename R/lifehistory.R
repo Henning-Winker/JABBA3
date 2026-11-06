@@ -215,8 +215,8 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 #' (\code{units = "numbers"}, exploitable numbers per unit SB, EN/SB, for indices in numbers, as \code{I.unit = 0} in
 #' JABBA-Select). Because fishing shifts the exploitable stock towards smaller fish, EN/SB rises more steeply with
 #' depletion than EB/SB, so an index in numbers declines less than one in weight; mapping it with the weight curve
-#' makes the model optimistic. The curve is fitted over \code{fit.range} of SB/SB0 (as JABBA-Select) and is constant
-#' outside it. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
+#' makes the model optimistic. The curve is fitted to the equilibrium over \code{fit.range} of SB/SB0 (as JABBA-Select)
+#' and extends smoothly to \code{P.lim}. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
 #' M, steepness \code{s}); selectivity is defined at length with the FLicc functions and parameters (\code{selpar} on
 #' the length scale, e.g. from \code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the
 #' length-at-age distribution (coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension
@@ -239,6 +239,9 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 #' @param amin,amax age range
 #' @param Fgrid grid of F (default: from 0 until SB/SB0 < 0.02)
 #' @param fit.range range of SB/SB0 over which the curve is fitted (default 0.1-0.9, as JABBA-Select)
+#' @param P.lim end points \eqn{(P_1, P_2)} of the curve, beyond which it is held constant; the default matches the state
+#'   bounds of \code{jb3_model(P.bound = )}, so that the curve is smooth over all states the model can reach (a kink
+#'   inside that range can stall the gradient-based optimiser)
 #' @return object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for
 #'   \code{jb3_model(ebsb = )}), \code{curves} (equilibrium ratio by fleet, column \code{EB_SB}, with \code{units}),
 #'   \code{units}, \code{at.len} and \code{at.age} (selectivity and maturity), \code{leslie} (r and GT)
@@ -252,7 +255,7 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 #' sx2 <- jb3_selex(lh, list(Trawl = tr, Trawl.N = tr), units = c("biomass", "numbers"))
 #' @export
 jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h = NULL, CVL = 0.1, sex_ratio = NULL,
-                      amin = 0, amax = NULL, Fgrid = NULL, fit.range = c(0.1, 0.9)){
+                      amin = 0, amax = NULL, Fgrid = NULL, fit.range = c(0.1, 0.9), P.lim = c(0.02, 1.3)){
   ss <- .selex_setup(lhpar, selpar, sel.type, CVL, sex_ratio, amin, amax)
   bio <- ss$bio; sela <- ss$sela; sr <- ss$sr; sexes <- ss$sexes; st <- ss$st; sf <- ss$sf; sel <- ss$sel
   h <- h %||% bio[[1]]$h
@@ -270,7 +273,7 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
   ebsb <- lapply(stats::setNames(names(sel), names(sel)), function(f){
     d <- curves[curves$fleet == f & curves$P >= fit.range[1] & curves$P <= fit.range[2], ]
     if(nrow(d) < 5) stop("fewer than 5 equilibrium points in fit.range for ", f, call. = FALSE)
-    P1 <- min(d$P); P2 <- max(d$P)
+    P1 <- P.lim[1]; P2 <- P.lim[2]                       # curve end points = state bounds: smooth over all reachable states
     fit <- try(stats::nls(EB_SB ~ u1 + (u2 - u1)*(1 - exp(-u3*(P - P1)))/(1 - exp(-u3*(P2 - P1))), data = d,
                           start = list(u1 = d$EB_SB[1], u2 = d$EB_SB[nrow(d)], u3 = 3),
                           control = stats::nls.control(maxiter = 200, warnOnly = TRUE)), silent = TRUE)
