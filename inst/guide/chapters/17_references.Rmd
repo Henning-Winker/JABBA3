@@ -12,7 +12,7 @@ Conn, P.B. (2010). Hierarchical analysis of multiple noisy abundance indices. *C
 
 Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment models. *Canadian Journal of Fisheries and Aquatic Sciences*, 68, 1124-1138.
 
-Hoyle, S.D., et al. (2019). Joint longline CPUE indices for Atlantic bigeye tuna. *Collective Volume of Scientific Papers ICCAT*, document SCRS/2018/058. \[Title to verify.\]
+Hoyle, S.D., Huang, J.H.-W., Kim, D.N., Lee, M.K., Matsumoto, T. and Walter, J. (2019). Collaborative study of bigeye tuna CPUE from multiple Atlantic Ocean longline fleets in 2018. *Collective Volume of Scientific Papers ICCAT* 75(7): 2033-2080 (SCRS/2018/058).
 
 ICCAT (2018). Report of the 2018 ICCAT bigeye tuna stock assessment meeting. International Commission for the Conservation of Atlantic Tunas, Madrid. <https://www.iccat.int/Documents/Meetings/Docs/2018/REPORTS/2018_BET_SA_ENG.pdf>
 

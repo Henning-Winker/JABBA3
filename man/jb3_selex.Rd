@@ -15,7 +15,8 @@ jb3_selex(
   amin = 0,
   amax = NULL,
   Fgrid = NULL,
-  fit.range = c(0.1, 0.9)
+  fit.range = c(0.1, 0.9),
+  P.lim = c(0.02, 1.3)
 )
 }
 \arguments{
@@ -42,6 +43,10 @@ index mapped with this curve}
 \item{Fgrid}{grid of F (default: from 0 until SB/SB0 < 0.02)}
 
 \item{fit.range}{range of SB/SB0 over which the curve is fitted (default 0.1-0.9, as JABBA-Select)}
+
+\item{P.lim}{end points \eqn{(P_1, P_2)} of the curve, beyond which it is held constant; the default matches the state
+bounds of \code{jb3_model(P.bound = )}, so that the curve is smooth over all states the model can reach (a kink
+inside that range can stall the gradient-based optimiser)}
 }
 \value{
 object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for
@@ -57,8 +62,8 @@ measured in weight (\code{units = "biomass"}, EB/SB, for catches and indices in 
 (\code{units = "numbers"}, exploitable numbers per unit SB, EN/SB, for indices in numbers, as \code{I.unit = 0} in
 JABBA-Select). Because fishing shifts the exploitable stock towards smaller fish, EN/SB rises more steeply with
 depletion than EB/SB, so an index in numbers declines less than one in weight; mapping it with the weight curve
-makes the model optimistic. The curve is fitted over \code{fit.range} of SB/SB0 (as JABBA-Select) and is constant
-outside it. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
+makes the model optimistic. The curve is fitted to the equilibrium over \code{fit.range} of SB/SB0 (as JABBA-Select)
+and extends smoothly to \code{P.lim}. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
 M, steepness \code{s}); selectivity is defined at length with the FLicc functions and parameters (\code{selpar} on
 the length scale, e.g. from \code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the
 length-at-age distribution (coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension

@@ -186,8 +186,8 @@ ggplot(bk, aes(year, est)) +
 
 ### Example: an index in numbers (bigeye)
 
-The bigeye indices are the 2018 joint longline index, standardised in numbers
-of fish (Hoyle et al. 2019). Like JABBA in the 2018 assessment, the examples in
+The bigeye indices are the 2018 joint longline index, standardised as catch in
+number per hook (Hoyle et al. 2019). Like JABBA in the 2018 assessment, the examples in
 this guide treat them as an index of exploitable biomass. With Selex, the same
 data can be fitted with the index mapped in weight and in numbers. The biology
 below is approximate (von Bertalanffy growth instead of the Richards curve of
