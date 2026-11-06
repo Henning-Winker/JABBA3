@@ -262,6 +262,25 @@ jbplot_data(x$catch, x$indices, stock = "bet")
 #' `jbcatch2flq()` and `jbidx2FLIndices()` convert the catch and the indices
 #' separately.
 #' 
+#' ## Series of different lengths
+#' 
+#' The series do not have to cover the same years: `jb3_data()` aligns them by year
+#' to the catch years. The bigeye input is also shipped as FLR objects in their
+#' original lengths (catch 1950-2017; indices 1959-1978 and 1979-2017), with the
+#' standard errors still to be filled in `index.var`:
+#' 
+## ----data-flr-lengths---------------------------------------------------------
+inp <- readRDS(system.file("extdata", "flr_betinp.rds", package = "JABBA3"))
+for(i in seq_along(inp$indices)) index.var(inp$indices[[i]])[] <- 0.2   # SE = 0.2
+d.inp <- jb3_data(inp$catch, inp$indices, stock = "bet")
+jb3_align(d.inp)
+
+#' 
+#' Index years before the first (or after the last) catch year, and gaps in the
+#' catch, are kept with `jb3_data(..., catch.gaps = "estimate")`: the catch in those
+#' years is then estimated with a random walk on the log harvest rate (as in SPiCT),
+#' while the years with catch stay catch-conditioned.
+#' 
 #' ## Check 1: the data
 #' 
 #' `jbplot_data()` shows the catch and the indices. Look for:
@@ -621,7 +640,7 @@ jbplot_priorpost(fit)
 #' | posterior equal to the prior | the data carry no information on that parameter | report it; sensitivity runs over the prior |
 #' | posterior at the edge of the prior | prior-data conflict | revisit the prior; check the data and the model |
 #' 
-#' # Life history: r prior, generation time and Selex inputs
+#' # Life history: r prior and generation time
 #' 
 #' JABBA3 takes life-history information in the format of FLicc (length-based
 #' assessment with `fiticc()`): `lhpar`, an `FLPar` with growth, natural
@@ -633,8 +652,9 @@ jbplot_priorpost(fit)
 #'   Leslie matrix (`jb3_leslie()`);
 #' - the r prior for the chosen production-function shape (`jb3_fmsy2r()`);
 #' - guidance for the AR(1) persistence $\rho$ from GT (`jb3_rho_gt()`);
-#' - the EB/SB curves for the Selex (spawning-biomass) model from length or age
-#'   selectivity (`jb3_selex()`), with `jbplot_selex()`.
+#' - for the Selex (spawning-biomass) model, the EB/SB curves from length or age
+#'   selectivity (`jb3_selex()`) and the r prior from the age-structured
+#'   equilibrium (`jb3_asem_prior()`): see the chapter *Special feature: Selex*.
 #' 
 #' FLicc itself is not needed: its selectivity functions are included.
 #' 
@@ -687,8 +707,13 @@ jb3_leslie(ple4, h = 0.7)[c("r", "gt")]
 #' The Leslie $r$ is the per-capita growth at low biomass. In the Pella-Tomlinson
 #' form of JABBA3 this equals $r/(m-1)$, while $F_{MSY} = r/m$: using the Leslie
 #' $r$ directly is only consistent for the Schaefer model. Matching the prior on
-#' $F_{MSY}$ (from an age-structured equilibrium, or $r_{Leslie}/2$ as the
-#' Schaefer equivalent) keeps it consistent across shapes:
+#' $F_{MSY}$ keeps it consistent across shapes. $r_{Leslie}/2$ is only a crude
+#' Schaefer-equivalent fallback for when nothing but life history is available: it
+#' ignores selectivity and the stock-recruitment curve beyond its slope and can be
+#' wrong by a factor of two (for South Atlantic albacore it gives about half the
+#' harvest rate at MSY of the age-structured equilibrium). Whenever the biology and
+#' selectivity of an age-structured model are available, use
+#' `jb3_asem_prior()` (chapter *Special feature: Selex*) instead:
 #' 
 ## ----lh-fmsy2r----------------------------------------------------------------
 r.les <- jb3_leslie(lhpar)[["r"]]
@@ -709,67 +734,6 @@ jb3_r2fmsy(0.2, BmsyK = 0.4)                       # and back
 gt <- jb3_leslie(lhpar)[["gt"]]
 c(GT = gt, rho = jb3_rho_gt(gt))
 
-#' 
-#' ## Selex inputs from length selectivity
-#' 
-#' With the Selex model (`jb3_model(ebsb = )`) the state is spawning biomass and the
-#' indices and removals are mapped through the equilibrium ratio of exploitable
-#' to spawning biomass, EB/SB, as a function of SB/SB0. `jb3_selex()` computes this
-#' curve for each fleet from `lhpar` and length-based selectivity, over a grid of F
-#' with Beverton-Holt recruitment, and fits the saturating curve
-#' $c(u_1, u_2, u_3, P_1, P_2)$. Selectivity parameters use the FLicc names and
-#' functions (logistic: `SL50`, `SL95`; `dsnormal`: `mode`, `lsd`, `rsd`; `normal`;
-#' `binormal`; `bidsnormal`), here as an `FLPars` as returned by
-#' `FLicc::selpars_flicc(fit)`; selectivity at length is converted to age by
-#' integrating over the length-at-age distribution (`CVL = 0.1`).
-#' 
-## ----lh-selex-----------------------------------------------------------------
-selpar <- FLPars(Gillnet = FLPar(mode = 32, lsd = 4, rsd = 15),
-                 Longline = FLPar(SL50 = 28, SL95 = 36))
-sx <- jb3_selex(lh2, selpar)
-sx
-
-#' 
-## ----lh-selex-plot, fig.height = 4.5, fig.width = 10--------------------------
-jbplot_selex(sx)
-
-#' 
-#' The JABBA 5-parameter selectivity (JABBA-Select; `jb3_sel5()`: `SL50`, `SL95`,
-#' then a descending limb from `SLdesc` with coefficient of variation `CVdesc`
-#' towards a minimum `Smin`) can be used at length, alongside the FLicc functions:
-#' 
-## ----lh-sel5-len, fig.height = 4.5, fig.width = 10----------------------------
-sx5 <- jb3_selex(lhpar, list(Logistic = c(SL50 = 28, SL95 = 36),
-                             Dome5 = c(SL50 = 25, SL95 = 32, SLdesc = 42, CVdesc = 0.15, Smin = 0.1)))
-jbplot_selex(sx5)
-
-#' 
-#' or at age (`sel.type = "age"`; parameters in years):
-#' 
-## ----lh-sel5-age, fig.height = 4.5, fig.width = 10----------------------------
-sxa <- jb3_selex(lhpar, list(Age5 = c(SL50 = 4, SL95 = 6, SLdesc = 15, CVdesc = 0.2, Smin = 0.2)),
-                 sel.type = "age")
-jbplot_selex(sxa, at = "age")
-
-#' 
-#' ## A Selex fit
-#' 
-#' The output of `jb3_selex()` goes straight into `jb3_model(ebsb = )`; with
-#' several fleets, `ebsb.index` and `ebsb.catch` assign the curves to the indices
-#' and the removals. For bigeye tuna, with illustrative life-history and longline
-#' selectivity parameters:
-#' 
-## ----lh-selex-fit, fig.height = 4.5, fig.width = 10---------------------------
-lh.bet <- FLPar(linf = 190, k = 0.2, M = 0.35, L50 = 105, a = 2.4e-5, b = 2.98, s = 0.8)
-sx.bet <- jb3_selex(lh.bet, list(LL = c(SL50 = 80, SL95 = 110)))
-c(jb3_leslie(lh.bet)[c("r", "gt")], rho = jb3_rho_gt(jb3_leslie(lh.bet)[["gt"]]))
-fsx <- jabba3(d, pr, jb3_model(shape = "fox", ebsb = sx.bet), osa = FALSE)
-jbplot_ebsb_status(fsx)
-
-#' 
-#' > Check that the selectivity is plausible against the length compositions
-#' > (e.g. with an FLicc fit) before using the curve: it determines how the
-#' > exploitable-biomass indices map onto the spawning-biomass state.
 #' 
 #' # Model options
 #' 
@@ -901,24 +865,11 @@ fsp$pars[grep("sdi", rownames(fsp$pars)), c("est", "lci", "uci")]
 #' 
 #' ## Selex (spawning biomass as the state)
 #' 
-#' With `ebsb` the state is spawning biomass and the indices and removals are
-#' mapped to it through the equilibrium ratio of exploitable to spawning biomass,
-#' a function of depletion given as a curve `c(u1, u2, u3, P1, P2)` (or a named
-#' list of curves, one per selectivity), assigned to indices with `ebsb.index`
-#' and to the removals with `ebsb.catch`. The priors are then on the
-#' spawning-biomass scale. The curves come from an age-structured equilibrium
-#' analysis (e.g. FLBRP) or from a JABBA Selex setup via `jbinput2jabba3()`.
-#' Selex is a special case for stocks where the fishery selects well below
-#' maturity and is not covered further here.
-#' 
-#' `jbplot_ebsb_status()` shows the spawning biomass status (the state) with the
-#' exploitable biomass status implied by each curve, EB/EB~MSY~ = (SB/SB~MSY~)
-#' $\times$ $\rho$(SB/K)/$\rho$(SB~MSY~/K). With an illustrative curve:
-#' 
-## ----model-selex, fig.height = 4----------------------------------------------
-fsel <- jabba3(d, pr, jb3_model(shape = "fox", ebsb = c(0.6, 1.2, 3, 0.1, 1)), osa = FALSE)
-jbplot_ebsb_status(fsel)
-
+#' With `ebsb` the state is spawning biomass, and the indices and removals are
+#' mapped to it through equilibrium EB/SB curves (`ebsb.index`, `ebsb.catch`).
+#' The Selex model, the curves for indices in weight and in numbers, the r prior
+#' from the age-structured equilibrium and two worked examples are in the chapter
+#' *Special feature: Selex*.
 #' 
 #' # Fitting
 #' 
@@ -1028,7 +979,7 @@ fn
 #' ## Fit to the indices
 #' 
 ## ----fit-fits, fig.height = 4-------------------------------------------------
-jbplot_fits(fit)
+jbplot_fits(fit,years="all")
 
 #' 
 #' `jbplot_fits(fit, log = TRUE)` plots on the log scale; the shaded band is the
@@ -1367,7 +1318,6 @@ jbplot_projection(pj, bthr = c(MSST = 1 - 0.2), blim = NULL, extra = c(Flim = 1.
 ## ----proj-advice, fig.height = 7, fig.width = 7-------------------------------
 jbplot_advice(fit, proj = pj)
 
-
 #' 
 #' ## Projection tables
 #' 
@@ -1388,6 +1338,7 @@ knitr::kable(jb3_projtable(pj, years = c(2018, 2022, 2027)))
 ## ----proj-k2sm----------------------------------------------------------------
 knitr::kable(jb3_kobematrix(pj))
 
+#' 
 #' ## Kobe II strategy matrices
 #' 
 #' The Kobe II strategy matrix (K2SM) gives, by management option (rows) and
@@ -1800,7 +1751,6 @@ jbplot_crisk(prjens, years = seq(2025, 2045, 5), bfrac = c(MSST = 1 - M), x = "r
 
 #' 
 #' MSST can also be drawn on the projection plot, `jbplot_projection(prjens, bthr = c(MSST = 1 - M), blim = NULL)`.
-
 #' 
 #' # The rebuilding protocol: Atlantic blue marlin
 #' 
@@ -1975,7 +1925,7 @@ patchwork::wrap_plots(
 bum.pc <- lapply(bum.runs[c("2018 base", "+ lag + AR(1)")], jb3_project,
                  catch = c(1500, 2000, 2500), nyears = 10)
 lapply(bum.pc, function(p) knitr::kable(jb3_kobematrix(p)[, c(1, 2, 4, 6, 11)],
-                                        caption = "P(green) by year"))
+       caption = "P(green) by year"))
 
 #' 
 ## ----bum-proj-plot, fig.height = 4.5, fig.width = 10, eval = TRUE-------------
@@ -2145,7 +2095,7 @@ jbplot_indexcor(tr.C)
 jAB <- jb3_jointindex(tr.AB, name = "A + B"); jC <- jb3_jointindex(tr.C, name = "C")
 reg <- rbind(data.frame(jAB, region = "A + B"), data.frame(jC, region = "C"))
 reg <- do.call(rbind, lapply(split(reg, reg$region), function(z){ m <- mean(z$index, na.rm = TRUE)
-z$index <- z$index/m; z$lci <- z$lci/m; z$uci <- z$uci/m; z }))
+  z$index <- z$index/m; z$lci <- z$lci/m; z$uci <- z$uci/m; z }))
 ggplot2::ggplot(reg, ggplot2::aes(year, index, colour = region, fill = region)) +
   ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), alpha = 0.15, colour = NA) +
   ggplot2::geom_line() + ggplot2::geom_point(size = 0.8) +
@@ -2427,8 +2377,8 @@ knitr::kable(pt[pt$Parameter %in% c("K", "r", "MSY", "qA.effort", "sdA.effort", 
 #' 
 ## ----co-status, fig.height = 3.5, fig.width = 9-------------------------------
 stat <- do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]; ly <- as.character(max(f$years))
-rbind(data.frame(run = n, quantity = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
-      data.frame(run = n, quantity = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
+  rbind(data.frame(run = n, quantity = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
+        data.frame(run = n, quantity = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
 stat$run <- factor(stat$run, rev(names(co.runs)))
 ggplot2::ggplot(stat, ggplot2::aes(value, run)) + ggplot2::geom_vline(xintercept = 1, linetype = 2) +
   ggplot2::geom_boxplot(outlier.size = 0.3, fill = "grey85") + ggplot2::scale_x_log10() +
@@ -2440,8 +2390,8 @@ ggplot2::ggplot(stat, ggplot2::aes(value, run)) + ggplot2::geom_vline(xintercept
 #' 
 ## ----co-prob------------------------------------------------------------------
 knitr::kable(do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]
-data.frame(run = n, `P(B<Bmsy)` = mean(f$draws$`B/Bmsy`[, "2017"] < 1), `P(F>Fmsy)` = mean(f$draws$`F/Fmsy`[, "2017"] > 1),
-           check.names = FALSE) })), digits = 2)
+  data.frame(run = n, `P(B<Bmsy)` = mean(f$draws$`B/Bmsy`[, "2017"] < 1), `P(F>Fmsy)` = mean(f$draws$`F/Fmsy`[, "2017"] > 1),
+             check.names = FALSE) })), digits = 2)
 
 #' 
 #' Prior against posterior for the full assessment (catch + effort + index), with
@@ -2598,6 +2548,215 @@ co.time <- round(as.numeric(difftime(Sys.time(), co.t0, units = "mins")), 1)
 #' 
 #' > The NUTS runs of this chapter took `r co.time` minutes in total (three
 #' > chains of 4000 iterations each, run in parallel).
+#' 
+#' # Special feature: Selex
+#' 
+#' Standard JABBA3, like JABBA, models the exploitable biomass (EB) that the
+#' fishery and the indices see. Where the fishery selects fish before maturity,
+#' or selectivity changes over time, EB and spawning biomass (SB) diverge, and
+#' an SPM on EB gives biased status relative to the SB-based reference points of
+#' advice. The Selex model (JABBA-Select; Winker et al. 2020) takes SB as the
+#' state and maps the indices and removals to it through the equilibrium ratio of
+#' the exploitable stock to SB as a function of depletion. This chapter covers
+#' 
+#' - the Selex model and the EB/SB curves from life history and length-based
+#'   selectivity (`jb3_selex()`);
+#' - a change in selectivity, with the r prior from the age-structured
+#'   equilibrium (`jb3_asem_prior()`): the simulated KOBsim data of JABBA-Select,
+#'   with the truth;
+#' - indices in numbers: the bigeye joint longline index.
+#' 
+#' ## The Selex model
+#' 
+#' With `ebsb` the state is spawning biomass and the indices and removals are
+#' mapped to it through the equilibrium ratio of exploitable to spawning biomass,
+#' a function of depletion given as a curve `c(u1, u2, u3, P1, P2)` (or a named
+#' list of curves, one per selectivity), assigned to indices with `ebsb.index`
+#' and to the removals with `ebsb.catch`. The priors are then on the
+#' spawning-biomass scale. The curves come from an age-structured equilibrium
+#' analysis (e.g. FLBRP) or from a JABBA Selex setup via `jbinput2jabba3()`.
+#' `jb3_selex()` computes the curves from life history and length-based
+#' selectivity, and `jb3_asem_prior()` the matching r prior (KOBsim example
+#' below).
+#' 
+#' `jbplot_ebsb_status()` shows the spawning biomass status (the state) with the
+#' exploitable biomass status implied by each curve, EB/EB~MSY~ = (SB/SB~MSY~)
+#' $\times$ $\rho$(SB/K)/$\rho$(SB~MSY~/K). With an illustrative curve:
+#' 
+## ----model-selex, fig.height = 4----------------------------------------------
+fsel <- jabba3(d, pr, jb3_model(shape = "fox", ebsb = c(0.6, 1.2, 3, 0.1, 1)), osa = FALSE)
+jbplot_ebsb_status(fsel)
+
+#' 
+#' ## EB/SB curves from length selectivity
+#' 
+#' With the Selex model (`jb3_model(ebsb = )`) the state is spawning biomass and the
+#' indices and removals are mapped through the equilibrium ratio of exploitable
+#' to spawning biomass, EB/SB, as a function of SB/SB0. `jb3_selex()` computes this
+#' curve for each fleet from `lhpar` and length-based selectivity, over a grid of F
+#' with Beverton-Holt recruitment, and fits the saturating curve
+#' $c(u_1, u_2, u_3, P_1, P_2)$. Selectivity parameters use the FLicc names and
+#' functions (logistic: `SL50`, `SL95`; `dsnormal`: `mode`, `lsd`, `rsd`; `normal`;
+#' `binormal`; `bidsnormal`), here as an `FLPars` as returned by
+#' `FLicc::selpars_flicc(fit)`; selectivity at length is converted to age by
+#' integrating over the length-at-age distribution (`CVL = 0.1`). Curves are
+#' fitted to the equilibrium over SB/SB0 = 0.1--0.9 (`fit.range`, as JABBA-Select)
+#' and extend smoothly to the state bounds (`P.lim = c(0.02, 1.3)`), so that the
+#' likelihood has no kink where the states may lie.
+#' 
+## ----lh-selex-----------------------------------------------------------------
+selpar <- FLPars(Gillnet = FLPar(mode = 32, lsd = 4, rsd = 15),
+                 Longline = FLPar(SL50 = 28, SL95 = 36))
+sx <- jb3_selex(lh2, selpar)
+sx
+
+#' 
+## ----lh-selex-plot, fig.height = 4.5, fig.width = 10--------------------------
+jbplot_selex(sx)
+
+#' 
+#' The JABBA 5-parameter selectivity (JABBA-Select; `jb3_sel5()`: `SL50`, `SL95`,
+#' then a descending limb from `SLdesc` with coefficient of variation `CVdesc`
+#' towards a minimum `Smin`) can be used at length, alongside the FLicc functions:
+#' 
+## ----lh-sel5-len, fig.height = 4.5, fig.width = 10----------------------------
+sx5 <- jb3_selex(lhpar, list(Logistic = c(SL50 = 28, SL95 = 36),
+                             Dome5 = c(SL50 = 25, SL95 = 32, SLdesc = 42, CVdesc = 0.15, Smin = 0.1)))
+jbplot_selex(sx5)
+
+#' 
+#' or at age (`sel.type = "age"`; parameters in years):
+#' 
+## ----lh-sel5-age, fig.height = 4.5, fig.width = 10----------------------------
+sxa <- jb3_selex(lhpar, list(Age5 = c(SL50 = 4, SL95 = 6, SLdesc = 15, CVdesc = 0.2, Smin = 0.2)),
+                 sel.type = "age")
+jbplot_selex(sxa, at = "age")
+
+#' 
+#' ## Example: a change in selectivity (KOBsim)
+#' 
+#' `kobsim` is the simulated silver kob data set of the JABBA-Select example
+#' (Winker et al. 2020): an age-structured operating model run for 40 years, in
+#' which the minimum size limit was raised in year 26 (length at 50% selectivity
+#' 300 → 500 mm). Both indices are split at the change (`A1.S1`, `A1.S2`, `A2.S1`,
+#' `A2.S2`) and share one catchability per index, so that the jump in exploitable
+#' biomass relative to spawning biomass is carried by the EB/SB curves rather than
+#' by a new catchability. The removal curve changes with the selectivity
+#' (`ebsb.catch` by year; reference points and projections use the curve of the
+#' last year).
+#' 
+## ----model-kobsim, fig.height = 4.5, fig.width = 10---------------------------
+data(kobsim)
+sxk <- jb3_selex(kobsim$lhpar, kobsim$selpar)                   # EB/SB curves for S1 and S2
+jbplot_selex(sxk)
+
+#' 
+#' **The r prior from the age-structured equilibrium.** $r_{Leslie}/2$ ignores
+#' selectivity and the stock-recruitment curve beyond its slope (Chapter 5b).
+#' `jb3_asem_prior()` generates the r prior as the ASEM prior of JABBA-Select: a
+#' Monte Carlo over M and steepness through the age-structured equilibrium with the
+#' fishery's selectivity gives, for each draw, $F_{MSY}$, the harvest rate at MSY
+#' and the production-function shape. The harvest rate that r must match depends
+#' on the model:
+#' 
+#' - standard JABBA3 (`state = "EB"`): $K = EB_0$, $B_{MSY}/K = EB_{MSY}/EB_0$ and
+#'   $r = m\,MSY/EB_{MSY}$;
+#' - Selex (`state = "SB"`) with catch removed through the EB/SB curve (the
+#'   default, `ebsb.removal = TRUE`): $K = SB_0$, $B_{MSY}/K = SB_{MSY}/SB_0$ and
+#'   $r = m\,MSY/EB_{MSY}$;
+#' - Selex with catch removed from SB directly (`ebsb.removal = FALSE`, as
+#'   JABBA-Select v1; `removal = "SB"`): $r = m\,MSY/SB_{MSY}$.
+#' 
+#' Here with the current selectivity (`catch = "S2"`):
+#' 
+## ----model-kobsim-prior-------------------------------------------------------
+prk <- jb3_asem_prior(kobsim$lhpar, kobsim$selpar, catch = "S2", M.cv = 0.25, h.sd = 0.08, nsim = 300)
+prk
+
+#' 
+#' The r prior is conditional on the shape fixed at the median $B_{MSY}/K$
+#' (`jb3_model(BmsyK = prk$BmsyK)`). To estimate the shape, `prk$m` can be used as
+#' the m prior (independent of r in JABBA3; JABBA-Select v1 used the correlated
+#' prior `prk$lmvn` on $\log(H_{MSY}, m)$).
+#' 
+## ----model-kobsim-fit---------------------------------------------------------
+dk  <- jb3_data(kobsim$catch, kobsim$cpue, kobsim$se, stock = "kobsim")
+eck <- ifelse(dk$years < kobsim$sel.change, "S1", "S2")         # removal curve by year
+mk  <- jb3_model(BmsyK = prk$BmsyK, sets.q = c(1, 1, 2, 2), ebsb = sxk,
+                 ebsb.index = c("S1", "S2", "S1", "S2"), ebsb.catch = eck)
+fk  <- jabba3(dk, jb3_priors(dk, r = prk$r, K = c(8*max(dk$catch), 1)), mk, osa = FALSE)
+
+#' 
+#' The estimated spawning-biomass depletion against the operating-model truth:
+#' 
+## ----model-kobsim-truth, fig.height = 4, fig.width = 7------------------------
+bkk <- fk$ts[fk$ts$quantity == "B/K", ]
+ggplot2::ggplot(bkk, ggplot2::aes(year, est)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), fill = "grey80") + ggplot2::geom_line() +
+  ggplot2::geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
+  ggplot2::geom_vline(xintercept = kobsim$sel.change - 0.5, linetype = 2) +
+  ggplot2::labs(x = "Year", y = "SB/SB0", subtitle = "JABBA3 Selex (black, 95% CI) and operating model (red)") + theme_jabba3()
+
+#' 
+#' ## Example: an index in numbers (bigeye)
+#' 
+#' Many indices, in particular tuna longline CPUE, are in numbers. Because fishing
+#' shifts the exploitable stock towards smaller fish, exploitable numbers per unit
+#' SB rise more steeply with depletion than exploitable biomass, so an index in
+#' numbers declines less than one in weight, even when selectivity equals maturity
+#' and the EB/SB curve is flat. Mapped with the weight curve, the model reads this
+#' as less depletion and becomes optimistic. `jb3_selex(units = "numbers")` gives
+#' the curve of exploitable numbers to SB (EN/SB; `I.unit = 0` in JABBA-Select). A
+#' fleet with catch in weight and an index in numbers needs both curves from the
+#' same selectivity: the index is mapped with the numbers curve (`ebsb.index`) and
+#' the catch with the weight curve (`ebsb.catch`).
+#' 
+#' The bigeye indices are the 2018 joint longline index, standardised as catch in
+#' number per hook (Hoyle et al. 2019). Like JABBA in the 2018 assessment, the
+#' other examples in this guide treat them as an index of exploitable biomass. The
+#' biology below is approximate (von Bertalanffy growth instead of the Richards
+#' curve of the 2018 assessment, M = 0.35 at all ages, maturity at age 3, steepness
+#' 0.8), and the longline selectivity is illustrative, so the example contrasts the
+#' two units rather than providing an assessment:
+#' 
+## ----model-bet-curves, fig.height = 4.5, fig.width = 10-----------------------
+Lb  <- function(a) 217.3*(1 - exp(-0.18*(a + 0.709)))
+lhb <- c(linf = 217.3, k = 0.18, t0 = -0.709, a = 2.396e-5, b = 2.9774, M = 0.35, s = 0.8,
+         L50 = (Lb(2) + Lb(3))/2, L95 = Lb(3), amax = 15)
+llb <- c(SL50 = 100, SL95 = 125)                                  # illustrative longline selectivity (cm)
+sxb <- jb3_selex(lhb, list(LL = llb, LL.N = llb), units = c("biomass", "numbers"))
+sxb
+jbplot_selex(sxb)
+
+#' 
+#' The same data fitted with standard JABBA3, and with Selex with the index mapped
+#' in weight and in numbers (r priors from the equilibrium for each model):
+#' 
+## ----model-bet-numbers--------------------------------------------------------
+prb  <- jb3_asem_prior(lhb, llb, M.cv = 0.2, h.sd = 0.08, nsim = 300)
+prbE <- jb3_asem_prior(lhb, llb, state = "EB", M.cv = 0.2, h.sd = 0.08, nsim = 300)
+db   <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+Kb   <- c(8*max(db$catch), 1)
+fb <- list(
+  standard        = jabba3(db, jb3_priors(db, r = prbE$r, K = Kb), jb3_model(BmsyK = prbE$BmsyK), osa = FALSE),
+  selex.weight    = jabba3(db, jb3_priors(db, r = prb$r, K = Kb),
+                           jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL", ebsb.catch = "LL"), osa = FALSE),
+  selex.numbers   = jabba3(db, jb3_priors(db, r = prb$r, K = Kb),
+                           jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL.N", ebsb.catch = "LL"), osa = FALSE))
+t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quantity) }))
+
+#' 
+#' Selectivity is close to maturity here, so the weight curve is nearly flat and
+#' the Selex fit with the index in weight is close to standard JABBA3. Read as
+#' numbers, however, the index declines less than the biomass, so mapping it as
+#' numbers implies a more depleted stock (lower B/B~MSY~, higher F/F~MSY~). The
+#' 2018 assessment combined across models gave B/B~MSY~ = 0.59--0.82 and
+#' F/F~MSY~ = 1.21--1.63 for 2017 (ICCAT 2018).
+#' 
+#' > Check that the selectivity is plausible against the length compositions
+#' > (e.g. with an FLicc fit) before using the curve: it determines how the
+#' > exploitable-biomass indices map onto the spawning-biomass state.
 #' 
 #' # FLR outputs
 #' 
@@ -2789,7 +2948,7 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' | Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
 #' | FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
 #' | Life history | `jb3_leslie()`, `jb3_fmsy2r()`, `jb3_r2fmsy()`, `jb3_rho_gt()`, `jb3_rho_table()`, `jb3_selex()`, `jb3_sel5()`, `jbplot_selex()` |
-#' | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_nuts_diags()` |
+#' | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_kobematrix_iotc()`, `jb3_kobematrix_gfcm()`, `jb3_kobematrix_ices()`, `jbplot_kobematrix()`, `jb3_nuts_diags()` |
 #' | FLR outputs | `jb3_flqs()`, `jb3_flpar()` |
 #' | Converters | `jbdat2flr()`, `jbcatch2flq()`, `jbidx2FLIndices()`, `flr2jbdat()`, `jbinput2jabba3()`, `spictinp2jabba3()` |
 #' | Graphics: data | `jbplot_data()`, `jbplot_indices()` |
@@ -2819,6 +2978,10 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' 
 #' Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment models. *Canadian Journal of Fisheries and Aquatic Sciences*, 68, 1124-1138.
 #' 
+#' Hoyle, S.D., Huang, J.H.-W., Kim, D.N., Lee, M.K., Matsumoto, T. and Walter, J. (2019). Collaborative study of bigeye tuna CPUE from multiple Atlantic Ocean longline fleets in 2018. *Collective Volume of Scientific Papers ICCAT* 75(7): 2033-2080 (SCRS/2018/058).
+#' 
+#' ICCAT (2018). Report of the 2018 ICCAT bigeye tuna stock assessment meeting. International Commission for the Conservation of Atlantic Tunas, Madrid. <https://www.iccat.int/Documents/Meetings/Docs/2018/REPORTS/2018_BET_SA_ENG.pdf>
+#' 
 #' Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R. (2025).
 #' Transforming data and capacity-limited stock assessment: achieving risk
 #' equivalence with hierarchical assessment frameworks and auxiliary data.
@@ -2846,6 +3009,8 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' 
 #' Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesian workflow in cognitive science. *Psychological Methods*, 26, 103-126. Preprint: <https://arxiv.org/abs/1904.12765>
 #' 
+#' SEDAR (2024). SEDAR 77 Stock Assessment Report: HMS Hammerhead Sharks. SEDAR, North Charleston, SC. <https://sedarweb.org/documents/sedar-77-hms-hammerhead-sharks-final-stock-assessment-report/>
+#' 
 #' Sherley, R.B. et al. (2020). *Ecology and Evolution* (JARA census model applied to absolute abundance indices). doi:10.1002/ece3.6554
 #' 
 #' Thorson, J.T. (2020). Predicting recruitment density dependence and intrinsic
@@ -2868,5 +3033,7 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' Winker, H., Carvalho, F. and Kapur, M. (2018). JABBA: Just Another Bayesian
 #' Biomass Assessment. *Fisheries Research* 204: 275-288.
 #' 
+#' Winker, H., Carvalho, F., Thorson, J.T., Kell, L.T., Parker, D., Kapur, M., Sharma, R., Booth, A.J. and Kerwath, S.E. (2020). JABBA-Select: incorporating life history and fisheries' selectivity into surplus production models. *Fisheries Research* 222: 105355.
+#' 
 #' Winker, H., Thorson, J.T., Fairweather, T., Leslie, R. and Durholtz, D. (2017). Towards improving precision in South African demersal trawl survey indices using geostatistical GLMMs. MARAM/IWS/2017/Hake/BG8. University of Cape Town.
-#'
+#' 
