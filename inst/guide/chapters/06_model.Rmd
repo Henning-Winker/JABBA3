@@ -176,8 +176,8 @@ fk  <- jabba3(dk, jb3_priors(dk, r = prk$r, K = c(8*max(dk$catch), 1)), mk, osa 
 The estimated spawning-biomass depletion against the operating-model truth:
 
 ```{r model-kobsim-truth, fig.height = 4, fig.width = 7}
-bk <- fk$ts[fk$ts$quantity == "B/K", ]
-ggplot(bk, aes(year, est)) +
+bkk <- fk$ts[fk$ts$quantity == "B/K", ]
+ggplot(bkk, aes(year, est)) +
   geom_ribbon(aes(ymin = lci, ymax = uci), fill = "grey80") + geom_line() +
   geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
   geom_vline(xintercept = kobsim$sel.change - 0.5, linetype = 2) +

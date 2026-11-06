@@ -178,15 +178,15 @@ model:
   JABBA-Select v1; `removal = "SB"`): $r = m\,MSY/SB_{MSY}$.
 
 ```{r lh-asem-prior}
-pr <- jb3_asem_prior(alb, ll, M.cv = 0.3, h.sd = 0.064, nsim = 500)
-pr
-mod.alb <- jb3_model(BmsyK = pr$BmsyK, ebsb = sxn, ebsb.index = "LL.N", ebsb.catch = "LL")
-# jb3_priors(data, r = pr$r)
+pr.alb <- jb3_asem_prior(alb, ll, M.cv = 0.3, h.sd = 0.064, nsim = 500)
+pr.alb
+mod.alb <- jb3_model(BmsyK = pr.alb$BmsyK, ebsb = sxn, ebsb.index = "LL.N", ebsb.catch = "LL")
+# jb3_priors(data, r = pr.alb$r)
 ```
 
 The r prior is conditional on the shape fixed at the median $B_{MSY}/K$. To
-estimate the shape, `pr$m` can be used as the m prior (independent of r in
-JABBA3; JABBA-Select v1 used the correlated prior `pr$lmvn` on
+estimate the shape, `pr.alb$m` can be used as the m prior (independent of r in
+JABBA3; JABBA-Select v1 used the correlated prior `pr.alb$lmvn` on
 $\log(H_{MSY}, m)$).
 
 
