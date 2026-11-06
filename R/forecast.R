@@ -12,7 +12,7 @@
   d <- fit$setup$dat; N <- d$N; nd <- nrow(dr$B); ny <- nrow(ctrl)
   pp <- dr$pars; K <- pp$K; r <- pp$r; m <- pp$m; BmsyK <- pp$Bmsy/pp$K; Hmsy <- pp$Fmsy; sdb <- pp$sdb; kd <- pp$kdyn
   rho <- fit$report$rho %||% 0; D <- dr$`Process deviation`[, N]
-  rem <- function(p) if(d$eb.rem) .rho_curve(p, d$ebm[d$ebcc, ]) else 1
+  rem <- function(p) if(d$eb.rem) .rho_curve(p, d$ebm[d$ebcc[N], ]) else 1   # projections: current selectivity
   sdf <- function(x) if(d$dyn) sdb*pmin(pmax(x, d$xlim[1]), d$xlim[2])^(-kd) else sdb
   hc <- utils::modifyList(list(btrigger = 0.5, bclose = 0, fmin = 0.001), hcr)
   P <- cbind(dr$`B/K`, matrix(NA, nd, ny)); Cm <- Hm <- matrix(NA, nd, ny)

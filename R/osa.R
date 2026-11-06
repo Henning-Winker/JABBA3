@@ -15,7 +15,7 @@ jb3_osa <- function(fit, np = 5000, seed = 1){
   d <- fit$setup$dat; rep <- fit$report; N <- d$N
   rho <- rep$rho; K <- rep$K; r <- rep$r; m <- rep$m; BmsyK <- rep$BmsyK; sdb <- rep$sdb; kd <- rep$kdyn
   C <- rep$estC; lq <- log(rep$q); sdi <- rep$sdi
-  rem <- function(p) if(d$eb.rem) .rho_curve(p, d$ebm[d$ebcc, ]) else 1
+  rem <- function(p, t = 1) if(d$eb.rem) .rho_curve(p, d$ebm[d$ebcc[t], ]) else 1
   sdf <- function(x) if(d$dyn) sdb*pmin(pmax(x, d$xlim[1]), d$xlim[2])^(-kd) else rep(sdb, length(x))
   v1 <- if(d$stI > 1) 1e-4 else sdf(rep$bk/BmsyK)[1]^2
   LP <- matrix(NA, np, N); LP[, 1] <- stats::rnorm(np, log(rep$bk), sqrt(v1))
@@ -32,7 +32,7 @@ jb3_osa <- function(fit, np = 5000, seed = 1){
     if(1/sum(w^2) < np/2){ id <- sample.int(np, np, TRUE, prob = w); LP <- LP[id, , drop = FALSE]; D <- D[id]; w <- rep(1/np, np); P <- exp(LP[, t]) }
     if(t < N){
       Pl <- exp(LP[, d$lagidx[t]])
-      pm <- log(pmax(P + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C[t]/(K*rem(P)), 0.001))
+      pm <- log(pmax(P + r/(m - 1)*Pl*(1 - Pl^(m - 1)) - C[t]/(K*rem(P, t)), 0.001))
       v <- if(t + 1 < d$stI) rep(1e-4, np) else sdf(P/BmsyK)^2
       mu1 <- pm - if(d$biascor) 0.5*v else 0
       D <- if(isTRUE(d$rw) && t > 1) stats::rnorm(np, D, d$rw.scale*sqrt(v)) else if(t == 1 || rho == 0) stats::rnorm(np, 0, sqrt(v)) else stats::rnorm(np, rho*D, sqrt(v*(1 - rho^2)))

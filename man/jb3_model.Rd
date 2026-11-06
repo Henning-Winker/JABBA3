@@ -90,7 +90,9 @@ is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)}
 
 \item{ebsb.index}{curve per index (number or name; 0 = spawning-biomass index); default curve 1 for all}
 
-\item{ebsb.catch}{curve for the removals (default 1)}
+\item{ebsb.catch}{curve for the removals: one curve (name or position; default 1), or one per year (named by year or
+in the order of the model years) for a change in selectivity over time; reference points and projections use the
+curve of the last year}
 
 \item{ebsb.removal}{catch removes C / (EB/SB) from spawning biomass (default TRUE)}
 

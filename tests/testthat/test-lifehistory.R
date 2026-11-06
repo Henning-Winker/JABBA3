@@ -66,3 +66,17 @@ test_that("jb3_selex numbers curves and jb3_asem_prior", {
   expect_equal(jb3_asem_prior(lh, s1, state = "EB")$draws$Hmsy, jb3_asem_prior(lh, s1)$draws$Hmsy)
   expect_output(print(p1), "r prior")
 })
+
+test_that("Selex with a removal curve by year on kobsim", {
+  data(kobsim)
+  sx <- jb3_selex(kobsim$lhpar, kobsim$selpar)
+  pr <- jb3_asem_prior(kobsim$lhpar, kobsim$selpar, catch = "S2")
+  d <- jb3_data(kobsim$catch, kobsim$cpue, kobsim$se)
+  ec <- ifelse(d$years < kobsim$sel.change, "S1", "S2")
+  m <- jb3_model(BmsyK = pr$BmsyK, sets.q = c(1, 1, 2, 2), ebsb = sx, ebsb.index = c("S1", "S2", "S1", "S2"), ebsb.catch = ec)
+  f <- jabba3(d, jb3_priors(d, r = c(pr$r[1], 0.3), K = c(8*max(d$catch), 1)), m, osa = FALSE)
+  expect_equal(f$convergence$tier, "ok")
+  bk <- f$ts$est[f$ts$quantity == "B/K"]
+  expect_lt(abs(log(tail(bk, 1)) - log(tail(kobsim$truth$SB, 1)/kobsim$SB0)), 0.25)
+  expect_error(jb3_model(ebsb = sx, ebsb.catch = c("S1", "S2")) |> (\(mm) jabba3(d, jb3_priors(d), mm, osa = FALSE))(), "one curve per model year")
+})
