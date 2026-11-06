@@ -24,5 +24,11 @@ fit (Fox, both JPN longline indices; script \code{data-raw/bet_hypothetical.R}):
   \item{\code{bet$ffmsy_hyp}}{hypothetical F/Fmsy index, data.frame(year, ffmsy, se), 1990-2009 only (a period of high
     exploitation): F/Fmsy_t x lognormal noise (SD 0.3), se = 0.3}
 }
+The bigeye indices (\code{JR2_early}, \code{JR2_late}) are the 2018 joint longline index, standardised in
+\strong{numbers} of fish (catch in number per hook; Hoyle et al. 2019, Collect. Vol. Sci. Pap. ICCAT 75(7): 2033-2080,
+SCRS/2018/058; recorded in
+\code{bet$info$cpue.unit}). Like JABBA in the 2018 assessment, the guide examples treat them as an index of
+exploitable biomass; an index in numbers declines less than biomass as fishing truncates the size structure, so with
+selectivity information the Selex model with \code{jb3_selex(units = "numbers")} maps it correctly.
 }
 \keyword{datasets}

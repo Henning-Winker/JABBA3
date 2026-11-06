@@ -28,7 +28,9 @@
 #'   of \code{\link{jb3_selex}()}; the state
 #'   is then spawning biomass, indices are modelled as q x SB x (EB/SB)(SB/SB0)
 #' @param ebsb.index curve per index (number or name; 0 = spawning-biomass index); default curve 1 for all
-#' @param ebsb.catch curve for the removals (default 1)
+#' @param ebsb.catch curve for the removals: one curve (name or position; default 1), or one per year (named by year or
+#'   in the order of the model years) for a change in selectivity over time; reference points and projections use the
+#'   curve of the last year
 #' @param ebsb.removal catch removes C / (EB/SB) from spawning biomass (default TRUE)
 #' @param q.uniform legacy JABBA uniform prior on q (density proportional to q on log q)
 #' @param P.bound,K.bound soft bounds on B/K and K (JABBA defaults)

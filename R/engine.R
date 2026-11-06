@@ -58,8 +58,14 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     ei <- model$ebsb.index %||% rep(1, nI)
     if(is.character(ei)) ei <- match(ei, names(model$ebsb), nomatch = 0)
     ei <- rep(ei, length.out = nI); ei[ei == 0] <- nc + 1
-    ec <- model$ebsb.catch; if(is.character(ec)) ec <- match(ec, names(model$ebsb))
-  } else { ebm <- matrix(c(1, 1, 1, 0, 1), 1); ei <- rep(1, nI); ec <- 1 }
+    ec <- model$ebsb.catch; if(is.character(ec)) ec <- stats::setNames(match(ec, names(model$ebsb)), names(ec))
+    if(anyNA(ec)) stop("ebsb.catch: curve name(s) not found in ebsb", call. = FALSE)
+    if(length(ec) > 1){                                   # removal curve by year (e.g. a change in selectivity)
+      if(!is.null(names(ec)) && all(as.character(data$years) %in% names(ec))) ec <- ec[as.character(data$years)] else
+        if(length(ec) >= Ny) ec <- ec[seq_len(Ny)] else stop("ebsb.catch by year: one curve per model year (", Ny, ")", call. = FALSE)
+    }
+    ec <- rep(ec, length.out = Ny)[sst$stepyear]           # by model step
+  } else { ebm <- matrix(c(1, 1, 1, 0, 1), 1); ei <- rep(1, nI); ec <- rep(1, N) }
   fi <- if(nrow(ok)) min(ok[, 1]) else 1L
   ax <- .aux_setup(data, model, priors, Ny)
   dat <- list(
@@ -120,14 +126,14 @@ jb3_inits <- function(dat, jitter = 0){
   N <- dat$N; m <- dat$mu.m
   K <- dat$K.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.3)); if(dat$Kmax.pr[3] == 1) K <- min(K, 0.8*exp(dat$Kmax.pr[1])); r <- dat$r.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.2))
   bk <- min(max(dat$bk.pr[1], 0.05), 1.2)
-  rem <- function(p) if(dat$eb.rem) .rho_curve(p, dat$ebm[dat$ebcc, ]) else 1
+  rem <- function(p, t) if(dat$eb.rem) .rho_curve(p, dat$ebm[dat$ebcc[t], ]) else 1
   TC <- dat$TC
   if(dat$nmiss > 0){ o <- which(dat$cobs == 1)
     TC[dat$miss_t] <- if(length(o) > 1) stats::approx(o, dat$TC[o], xout = dat$miss_t, rule = 2)$y else dat$TC[o][1] }
   for(k in 1:15){
     P <- numeric(N); P[1] <- bk
     Cst <- TC[dat$stepyear]*dat$cshare
-    for(t in 2:N){ Pl <- P[dat$lagidx[t - 1]]; P[t] <- max(P[t-1] + dat$gfac[t-1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - Cst[t-1]/(K*rem(P[t-1])), 0.02) }
+    for(t in 2:N){ Pl <- P[dat$lagidx[t - 1]]; P[t] <- max(P[t-1] + dat$gfac[t-1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - Cst[t-1]/(K*rem(P[t-1], t - 1)), 0.02) }
     if(mean(P <= 0.021) < 0.1) break
     K <- K*1.5
   }
@@ -200,7 +206,7 @@ jb3_nll <- function(par, dat){
     dprev <- 0*lbk
     if(N > 1) for(t in 2:N){
       Pp <- exp(logP[t - 1]); Pl <- exp(logP[lagidx[t - 1]])
-      remt <- if(eb.rem) rhof(Pp, ebcc) else 1
+      remt <- if(eb.rem) rhof(Pp, ebcc[t - 1]) else 1
       pm <- log(smax(Pp + gfac[t - 1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - estCS[t - 1]/(K*remt), 0.001, 1e-7))
       sdp <- if(dyn) sdb*lclamp(Pp/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb
       vt <- if(t < stI) 1e-4 + 0*sdb else sdp^2/vf
@@ -212,7 +218,8 @@ jb3_nll <- function(par, dat){
     nll <- nll - sum(dnorm(zP, 0, 1, TRUE))
   }
   P <- exp(logP); BBmsy <- P/BmsyK
-  if(eb.rem){ rem <- rhof(P, ebcc); rem.msy <- rhof(BmsyK, ebcc) } else { rem <- 1 + 0*P; rem.msy <- 1 }
+  # removal curve by step; reference points with the current (last-year) selectivity
+  if(eb.rem){ rem <- rhof(P, ebcc); rem.msy <- rhof(BmsyK, ebcc[N]) } else { rem <- 1 + 0*P; rem.msy <- 1 }
   # years without catch (annual model only): harvest rate H_t = exp(lH) (random walk), catch = H_t K P_t rem_t
   sdf <- exp(logsdf)
   if(nmiss > 0){
@@ -231,7 +238,7 @@ jb3_nll <- function(par, dat){
     ii <- (y - 1)*ns + seq_len(ns)
     if(allocF[y] == 2){ ebi <- P[ii]*rem[ii]; estCS[ii] <- estC[y]*ebi/sum(ebi) } else {
       P0 <- P[ii[1]]
-      remf <- function(p) if(eb.rem) rhof(p, ebcc) else 1 + 0*p
+      remf <- function(p) if(eb.rem) rhof(p, ebcc[ii[1]]) else 1 + 0*p
       h <- estC[y]/(K*ns*P0*remf(P0))
       for(k in 1:4){
         Pt <- P0; eb <- 0*P[ii]

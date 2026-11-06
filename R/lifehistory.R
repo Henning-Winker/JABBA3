@@ -207,62 +207,73 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 
 #' Selex inputs from length-based selectivity: EB/SB curves for the spawning-biomass state
 #'
-#' Computes, for each fleet (selectivity), the equilibrium ratio of exploitable to spawning biomass EB/SB as a function of
-#' spawning-biomass depletion P = SB/SB0 over a grid of F, and fits the saturating curve
+#' Computes, for each fleet (selectivity), the equilibrium ratio of the exploitable stock to spawning biomass as a
+#' function of spawning-biomass depletion P = SB/SB0 over a grid of F, and fits the saturating curve
 #' \eqn{EB/SB(P) = u_1 + (u_2 - u_1)(1 - e^{-u_3(P - P_1)})/(1 - e^{-u_3(P_2 - P_1)})} used by
-#' \code{\link{jb3_model}(ebsb = )} (as \code{JABBA::make_ebsb()} and \code{fit_ebsb()}). Biology at age comes from an
-#' FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length, M, steepness \code{s}); selectivity is
-#' defined at length with the FLicc functions and parameters (\code{selpar} on the length scale, e.g. from
-#' \code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the length-at-age distribution
-#' (coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension \code{sex = c("F", "M")}): both sexes
-#' contribute to EB and SB with \code{sex_ratio}.
+#' \code{\link{jb3_model}(ebsb = )} (as \code{JABBA::make_ebsb()} and \code{fit_ebsb()}). The exploitable stock is
+#' measured in weight (\code{units = "biomass"}, EB/SB, for catches and indices in weight) or in numbers
+#' (\code{units = "numbers"}, exploitable numbers per unit SB, EN/SB, for indices in numbers, as \code{I.unit = 0} in
+#' JABBA-Select). Because fishing shifts the exploitable stock towards smaller fish, EN/SB rises more steeply with
+#' depletion than EB/SB, so an index in numbers declines less than one in weight; mapping it with the weight curve
+#' makes the model optimistic. The curve is fitted to the equilibrium over \code{fit.range} of SB/SB0 (as JABBA-Select)
+#' and extends smoothly to \code{P.lim}. Biology at age comes from an FLicc \code{lhpar} (von Bertalanffy growth, weight and maturity at length,
+#' M, steepness \code{s}); selectivity is defined at length with the FLicc functions and parameters (\code{selpar} on
+#' the length scale, e.g. from \code{FLicc::selpars_flicc(fit)}) and converted to age by integrating over the
+#' length-at-age distribution (coefficient of variation \code{CVL}). Sex-structured \code{lhpar} (dimension
+#' \code{sex = c("F", "M")}): both sexes contribute to EB and SB with \code{sex_ratio}.
+#'
+#' A fleet whose catch is in weight and whose index is in numbers needs two curves from the same selectivity: give the
+#' selectivity twice with different names and units, e.g. \code{selpar = list(LL = s, LL.N = s)},
+#' \code{units = c("biomass", "numbers")}, then \code{jb3_model(ebsb = sx, ebsb.index = "LL.N", ebsb.catch = "LL")}.
 #' @param lhpar FLicc life-history parameters (FLPar, named vector or \code{list(F = , M = )})
 #' @param selpar FLicc selectivity parameters on the length scale: an FLPar (one fleet), FLPars or named list (one per
 #'   fleet); the selectivity function is identified from the parameter names (logistic: SL50, SL95; dsnormal: mode,
 #'   lsd, rsd; normal: mode, sd; binormal; bidsnormal)
 #' @param sel.type "length" (default) or "age", per fleet; age-based selectivity uses the JABBA 5-parameter form
 #'   (\code{\link{jb3_sel5}()}), which can also be used at length (parameters SL50, SL95, SLdesc, CVdesc, Smin)
+#' @param units "biomass" (default) or "numbers", per fleet (recycled): units of the exploitable stock, i.e. of the
+#'   index mapped with this curve
 #' @param h steepness (default \code{lhpar$s}, else 0.7)
 #' @param CVL coefficient of variation of length at age (0: selectivity at the mean length)
 #' @param sex_ratio weights of the sexes (default equal)
 #' @param amin,amax age range
 #' @param Fgrid grid of F (default: from 0 until SB/SB0 < 0.02)
+#' @param fit.range range of SB/SB0 over which the curve is fitted (default 0.1-0.9, as JABBA-Select)
+#' @param P.lim end points \eqn{(P_1, P_2)} of the curve, beyond which it is held constant; the default matches the state
+#'   bounds of \code{jb3_model(P.bound = )}, so that the curve is smooth over all states the model can reach (a kink
+#'   inside that range can stall the gradient-based optimiser)
 #' @return object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for
-#'   \code{jb3_model(ebsb = )}), \code{curves} (equilibrium EB/SB by fleet), \code{at.len} and \code{at.age}
-#'   (selectivity and maturity), \code{leslie} (r and GT)
+#'   \code{jb3_model(ebsb = )}), \code{curves} (equilibrium ratio by fleet, column \code{EB_SB}, with \code{units}),
+#'   \code{units}, \code{at.len} and \code{at.age} (selectivity and maturity), \code{leslie} (r and GT)
+#' @seealso \code{\link{jb3_asem_prior}()} for the matching productivity prior
 #' @examples
 #' lh <- c(linf = 55.7, k = 0.08, M = 0.162, L50 = 31.2, a = 0.0047, b = 3.15, s = 0.75)
 #' sx <- jb3_selex(lh, list(Gillnet = c(mode = 32, lsd = 4, rsd = 15), Trawl = c(SL50 = 22, SL95 = 28)))
 #' sx$ebsb
+#' # catch in weight and an index in numbers from the same trawl selectivity
+#' tr <- c(SL50 = 22, SL95 = 28)
+#' sx2 <- jb3_selex(lh, list(Trawl = tr, Trawl.N = tr), units = c("biomass", "numbers"))
 #' @export
-jb3_selex <- function(lhpar, selpar, sel.type = "length", h = NULL, CVL = 0.1, sex_ratio = NULL, amin = 0, amax = NULL, Fgrid = NULL){
-  sexes <- .sexes(lhpar); sel <- .selpar_list(selpar)
-  st <- stats::setNames(rep_len(sel.type, length(sel)), names(sel))
-  if(any(st == "age" & sapply(sel, .sel_fun_from) != "jabba5")) stop("age-based selectivity needs the JABBA 5-parameter form (SL50, SL95, SLdesc, CVdesc, Smin)", call. = FALSE)
-  bio <- lapply(stats::setNames(sexes, sexes), function(s) .lh_age(.lh_one(lhpar, s), amin, amax))
-  na <- min(sapply(bio, function(b) length(b$age))); bio <- lapply(bio, function(b){ for(nm in c("age", "len", "wt", "mat", "M")) b[[nm]] <- b[[nm]][seq_len(na)]; b })
-  h <- h %||% bio[[1]]$h; sr <- sex_ratio %||% rep(1/length(sexes), length(sexes))
-  sf <- sapply(sel, .sel_fun_from)
-  sela <- lapply(names(sel), function(f) lapply(bio, function(b)
-    if(st[[f]] == "age") jb3_sel5(b$age, sel[[f]], "age") else .sel_age(b$len, sf[[f]], sel[[f]], CVL, b$linf)))
-  names(sela) <- names(sel)
-  pr <- function(F, f){
-    sb <- 0; eb <- 0
-    for(j in seq_along(bio)){ b <- bio[[j]]; S <- sela[[f]][[j]]; Z <- b$M + F*S; N <- numeric(na); N[1] <- 1
-      if(na > 1) for(a in 2:na) N[a] <- N[a - 1]*exp(-Z[a - 1])
-      N[na] <- N[na]/max(1e-12, 1 - exp(-Z[na]))
-      sb <- sb + sr[j]*sum(N*b$wt*b$mat); eb <- eb + sr[j]*sum(N*b$wt*S) }
-    c(sb = sb, eb = eb)
-  }
+jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h = NULL, CVL = 0.1, sex_ratio = NULL,
+                      amin = 0, amax = NULL, Fgrid = NULL, fit.range = c(0.1, 0.9), P.lim = c(0.02, 1.3)){
+  ss <- .selex_setup(lhpar, selpar, sel.type, CVL, sex_ratio, amin, amax)
+  bio <- ss$bio; sela <- ss$sela; sr <- ss$sr; sexes <- ss$sexes; st <- ss$st; sf <- ss$sf; sel <- ss$sel
+  h <- h %||% bio[[1]]$h
+  if(length(units) > 1 && length(units) != length(sel)) stop("units: one value or one per fleet", call. = FALSE)
+  un <- stats::setNames(rep_len(as.character(units), length(sel)), names(sel))
+  if(any(!un %in% c("biomass", "numbers"))) stop("units must be \"biomass\" or \"numbers\"", call. = FALSE)
   curves <- do.call(rbind, lapply(names(sel), function(f){
-    sb0 <- pr(0, f)[["sb"]]
-    Pof <- function(F){ p <- pr(F, f); R <- max(0, (4*h*p[["sb"]] - (1 - h)*sb0)/((5*h - 1)*p[["sb"]])); c(P = p[["sb"]]*R/sb0, EB_SB = p[["eb"]]/p[["sb"]]) }
+    sb0 <- .eq_pr(0, bio, sela[[f]], sr)[["sb"]]
+    Pof <- function(F){ p <- .eq_pr(F, bio, sela[[f]], sr); R <- max(0, (4*h*p[["sb"]] - (1 - h)*sb0)/((5*h - 1)*p[["sb"]]))
+      c(P = p[["sb"]]*R/sb0, EB_SB = (if(un[[f]] == "numbers") p[["en"]] else p[["eb"]])/p[["sb"]]) }
     Fg <- Fgrid %||% { Fm <- 0.5; while(Pof(Fm)[["P"]] > 0.02 && Fm < 50) Fm <- 2*Fm; seq(0, Fm, length.out = 150) }
-    d <- t(sapply(Fg, Pof)); d <- data.frame(fleet = f, F = Fg, d)
+    d <- t(sapply(Fg, Pof)); d <- data.frame(fleet = f, units = un[[f]], F = Fg, d)
     d <- d[d$P > 0.005 & is.finite(d$EB_SB), ]; d[order(d$P), ]
   }))
   ebsb <- lapply(stats::setNames(names(sel), names(sel)), function(f){
-    d <- curves[curves$fleet == f, ]; P1 <- min(d$P); P2 <- max(d$P)
+    d <- curves[curves$fleet == f & curves$P >= fit.range[1] & curves$P <= fit.range[2], ]
+    if(nrow(d) < 5) stop("fewer than 5 equilibrium points in fit.range for ", f, call. = FALSE)
+    P1 <- P.lim[1]; P2 <- P.lim[2]                       # curve end points = state bounds: smooth over all reachable states
     fit <- try(stats::nls(EB_SB ~ u1 + (u2 - u1)*(1 - exp(-u3*(P - P1)))/(1 - exp(-u3*(P2 - P1))), data = d,
                           start = list(u1 = d$EB_SB[1], u2 = d$EB_SB[nrow(d)], u3 = 3),
                           control = stats::nls.control(maxiter = 200, warnOnly = TRUE)), silent = TRUE)
@@ -278,8 +289,130 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", h = NULL, CVL = 0.1, s
                                              value = 1/(1 + exp(-log(19)*(L - bio[[1]]$L50)/(bio[[1]]$L95 - bio[[1]]$L50)))))))
   at.age <- do.call(rbind, c(lapply(names(sel), function(f) data.frame(curve = f, type = "selectivity", age = bio[[1]]$age, value = sela[[f]][[1]])),
                              list(data.frame(curve = "maturity", type = "maturity", age = bio[[1]]$age, value = bio[[1]]$mat))))
-  structure(list(ebsb = ebsb, curves = curves, at.len = at.len, at.age = at.age, sel.fun = sf, sel.type = st, h = h, sexes = sexes,
+  structure(list(ebsb = ebsb, curves = curves, units = un, at.len = at.len, at.age = at.age, sel.fun = sf, sel.type = st, h = h,
+                 sexes = sexes, fit.range = fit.range,
                  leslie = jb3_leslie(lhpar, h = h, sex = sexes[1], amin = amin, amax = amax)), class = "jb3selex")
+}
+
+# biology and selectivity at age for jb3_selex() and jb3_asem_prior()
+.selex_setup <- function(lhpar, selpar, sel.type = "length", CVL = 0.1, sex_ratio = NULL, amin = 0, amax = NULL){
+  sexes <- .sexes(lhpar); sel <- .selpar_list(selpar)
+  st <- stats::setNames(rep_len(sel.type, length(sel)), names(sel))
+  if(any(st == "age" & sapply(sel, .sel_fun_from) != "jabba5")) stop("age-based selectivity needs the JABBA 5-parameter form (SL50, SL95, SLdesc, CVdesc, Smin)", call. = FALSE)
+  bio <- lapply(stats::setNames(sexes, sexes), function(s) .lh_age(.lh_one(lhpar, s), amin, amax))
+  na <- min(sapply(bio, function(b) length(b$age))); bio <- lapply(bio, function(b){ for(nm in c("age", "len", "wt", "mat", "M")) b[[nm]] <- b[[nm]][seq_len(na)]; b })
+  sr <- sex_ratio %||% rep(1/length(sexes), length(sexes))
+  sf <- sapply(sel, .sel_fun_from)
+  sela <- lapply(names(sel), function(f) lapply(bio, function(b)
+    if(st[[f]] == "age") jb3_sel5(b$age, sel[[f]], "age") else .sel_age(b$len, sf[[f]], sel[[f]], CVL, b$linf)))
+  names(sela) <- names(sel)
+  list(bio = bio, sela = sela, sr = sr, sexes = sexes, st = st, sf = sf, sel = sel)
+}
+
+# equilibrium per recruit at fishing mortality F (selectivity S, a list over sexes): spawning biomass, exploitable
+# biomass and numbers (start of year) and yield in weight (Baranov); the last age is a plus group
+.eq_pr <- function(F, bio, S, sr, Mmult = 1){
+  sb <- 0; eb <- 0; en <- 0; y <- 0
+  for(j in seq_along(bio)){ b <- bio[[j]]; Sj <- S[[j]]; na <- length(b$age); M <- b$M*Mmult; Z <- M + F*Sj
+    N <- numeric(na); N[1] <- 1
+    if(na > 1) for(a in 2:na) N[a] <- N[a - 1]*exp(-Z[a - 1])
+    N[na] <- N[na]/max(1e-12, 1 - exp(-Z[na]))
+    sb <- sb + sr[j]*sum(N*b$wt*b$mat); eb <- eb + sr[j]*sum(N*b$wt*Sj); en <- en + sr[j]*sum(N*Sj)
+    y <- y + sr[j]*sum(F*Sj/Z*(1 - exp(-Z))*N*b$wt) }
+  c(sb = sb, eb = eb, en = en, y = y)
+}
+
+#' Productivity prior from the age-structured equilibrium, accounting for selectivity
+#'
+#' Monte Carlo over natural mortality and steepness through the age-structured equilibrium with the fishery's
+#' selectivity (as the ASEM prior of JABBA-Select): for each draw, F_MSY is found by maximising the equilibrium yield
+#' (Beverton-Holt recruitment), and the harvest rate at MSY and the production-function shape follow from the
+#' equilibrium at F_MSY. The prior for r then matches the harvest rate at MSY of the model, which depends on the state
+#' and on how catch is removed:
+#' \itemize{
+#'   \item standard JABBA3 (\code{state = "EB"}): K = EB0, B_MSY/K = EB_MSY/EB0 and r = m MSY/EB_MSY;
+#'   \item Selex (\code{state = "SB"}), catch removed through the EB/SB curve (\code{jb3_model(ebsb.removal = TRUE)},
+#'     the default; \code{removal = "EB"}): K = SB0, B_MSY/K = SB_MSY/SB0 and r = m MSY/EB_MSY;
+#'   \item Selex with catch removed from SB directly (\code{ebsb.removal = FALSE}, as JABBA-Select v1;
+#'     \code{removal = "SB"}): r = m MSY/SB_MSY.
+#' }
+#' Here m is the Pella-Tomlinson shape for B_MSY/K. Unlike \eqn{r_{Leslie}/2}, which ignores selectivity and the
+#' stock-recruitment curve beyond its slope and can be wrong by a factor of two, this is the prior to use whenever the
+#' biology and selectivity of an age-structured model are available.
+#'
+#' Use the medians as the model settings and the r prior conditional on the fixed shape:
+#' \code{jb3_model(BmsyK = pr$BmsyK)} with \code{jb3_priors(r = pr$r)}. To estimate the shape, use \code{pr$m} as the m
+#' prior (independent of r in JABBA3; JABBA-Select v1 used the correlated prior \code{pr$lmvn} on log(H_MSY, m)).
+#' @param lhpar,selpar,sel.type,CVL,sex_ratio,amin,amax as in \code{\link{jb3_selex}()}; with several fleets the
+#'   selectivity of fleet \code{catch} sets F_MSY
+#' @param catch fleet (name or position) whose selectivity defines the fishery
+#' @param state "SB" (Selex) or "EB" (standard JABBA3)
+#' @param removal for \code{state = "SB"}: "EB" (catch removed through the EB/SB curve, default as in
+#'   \code{jb3_model()}) or "SB" (removed from SB directly, \code{ebsb.removal = FALSE})
+#' @param M,h natural mortality and steepness: single values (default from \code{lhpar}) or vectors of draws
+#' @param M.cv,h.sd lognormal CV of M and normal SD of steepness for the draws when single values are given
+#' @param nsim number of draws (1 without uncertainty)
+#' @param seed random seed
+#' @return object of class \code{jb3asem}: \code{r} (c(median, log.sd) for \code{jb3_priors(r = )}, conditional on the
+#'   median shape), \code{BmsyK} (median, for \code{jb3_model(BmsyK = )}), \code{m} (c(median, log.sd, 1) for
+#'   \code{jb3_priors(m = )}), \code{lmvn} (mean and covariance of log(H_MSY, m)), \code{draws} (per draw: M, h,
+#'   F_MSY, MSY, SB0, SB_MSY, EB0, EB_MSY, B_MSY/K, m, H_MSY, r)
+#' @seealso \code{\link{jb3_selex}()}, \code{\link{jb3_fmsy2r}()}, \code{\link{jb3_leslie}()}
+#' @examples
+#' lh <- c(linf = 147.5, k = 0.126, t0 = -1.89, a = 1.3718e-5, b = 3.0793, M = 0.3, s = 0.64,
+#'         L50 = 79.9, L95 = 91.3, amax = 15)
+#' sel <- c(SL50 = 57.2, SL95 = 72.4)
+#' pr <- jb3_asem_prior(lh, sel, M.cv = 0.3, h.sd = 0.064, nsim = 200)
+#' pr
+#' # jb3_model(BmsyK = pr$BmsyK, ebsb = jb3_selex(lh, sel)); jb3_priors(r = pr$r)
+#' @export
+jb3_asem_prior <- function(lhpar, selpar, sel.type = "length", catch = 1, state = c("SB", "EB"), removal = c("EB", "SB"),
+                           M = NULL, h = NULL, M.cv = 0, h.sd = 0, nsim = 1000, CVL = 0.1, sex_ratio = NULL, amin = 0,
+                           amax = NULL, seed = 1){
+  state <- match.arg(state); removal <- match.arg(removal)
+  ss <- .selex_setup(lhpar, selpar, sel.type, CVL, sex_ratio, amin, amax)
+  bio <- ss$bio; sr <- ss$sr
+  S <- ss$sela[[catch]]; if(is.null(S)) stop("catch: fleet ", catch, " not found", call. = FALSE)
+  M0 <- bio[[1]]$M[1]; h0 <- bio[[1]]$h
+  if(length(M) > 1 || length(h) > 1) nsim <- max(length(M), length(h)) else if(M.cv == 0 && h.sd == 0) nsim <- 1
+  set.seed(seed)
+  Md <- if(!is.null(M) && length(M) > 1) rep_len(M, nsim) else (M %||% M0)*exp(stats::rnorm(nsim, -0.5*log(1 + M.cv^2), sqrt(log(1 + M.cv^2))))
+  hd <- if(!is.null(h) && length(h) > 1) rep_len(h, nsim) else pmin(pmax(stats::rnorm(nsim, h %||% h0, h.sd), 0.21), 0.99)
+  one <- function(Mi, hi){
+    mm <- Mi/M0; pr0 <- .eq_pr(0, bio, S, sr, mm); sb0 <- pr0[["sb"]]
+    eq <- function(F){ p <- .eq_pr(F, bio, S, sr, mm); R <- max(0, (4*hi*p[["sb"]] - (1 - hi)*sb0)/((5*hi - 1)*p[["sb"]]))
+      c(R*p, R = R) }
+    Fg <- exp(seq(log(0.01*Mi), log(10*Mi), length.out = 200)); Y <- sapply(Fg, function(F) eq(F)[["y"]])
+    i <- which.max(Y); lo <- Fg[max(1, i - 1)]; hi_ <- Fg[min(length(Fg), i + 1)]
+    Fm <- stats::optimize(function(F) -eq(F)[["y"]], c(lo, hi_))$minimum
+    e <- eq(Fm); bk <- if(state == "EB") e[["eb"]]/pr0[["eb"]] else e[["sb"]]/sb0
+    H <- e[["y"]]/(if(state == "SB" && removal == "SB") e[["sb"]] else e[["eb"]])
+    c(M = Mi, h = hi, Fmsy = Fm, MSY = e[["y"]], SB0 = sb0, SBmsy = e[["sb"]], EB0 = pr0[["eb"]], EBmsy = e[["eb"]],
+      BmsyK = bk, Hmsy = H)
+  }
+  d <- as.data.frame(t(mapply(one, Md, hd)))
+  d$m <- sapply(d$BmsyK, .m_from_bmsyk); d$r <- d$Hmsy*d$m
+  bk <- stats::median(d$BmsyK); mmed <- .m_from_bmsyk(bk)
+  rc <- d$Hmsy*mmed                                                        # r conditional on the fixed median shape
+  lsd <- function(x) if(length(x) > 1) stats::sd(log(x)) else 0
+  lm <- log(cbind(Hmsy = d$Hmsy, m = d$m))
+  structure(list(r = c(median = stats::median(rc), log.sd = lsd(rc)), BmsyK = bk,
+                 m = c(median = stats::median(d$m), log.sd = lsd(d$m), on = 1),
+                 lmvn = list(mean = colMeans(lm), cov = if(nrow(lm) > 1) stats::cov(lm) else matrix(0, 2, 2)),
+                 r.marginal = c(median = stats::median(d$r), log.sd = lsd(d$r)), state = state, removal = removal,
+                 draws = d, leslie = jb3_leslie(lhpar, h = h0, sex = ss$sexes[1], amin = amin, amax = amax)), class = "jb3asem")
+}
+
+#' @export
+print.jb3asem <- function(x, ...){
+  d <- x$draws
+  cat(sprintf("JABBA3 ASEM productivity prior (%d draws; state %s%s)\n", nrow(d), x$state,
+              if(x$state == "SB") paste0(", catch removed from ", x$removal) else ""))
+  cat(sprintf("  F_MSY %.3f | H_MSY %.3f | B_MSY/K %.3f (m = %.3f)\n", stats::median(d$Fmsy), stats::median(d$Hmsy), x$BmsyK,
+              .m_from_bmsyk(x$BmsyK)))
+  cat(sprintf("  r prior (shape fixed at the median): median %.3f, log.sd %.3f\n", x$r[1], x$r[2]))
+  cat(sprintf("  for comparison: r_Leslie/2 converted to this shape = %.3f\n", jb3_fmsy2r(x$leslie[["r"]]/2, x$BmsyK)))
+  cat("  use: jb3_model(BmsyK = $BmsyK), jb3_priors(r = $r)\n"); invisible(x)
 }
 
 #' @export
@@ -287,8 +420,9 @@ print.jb3selex <- function(x, ...){
   cat("JABBA3 Selex inputs:", length(x$ebsb), "selectivity curve(s);", if(length(x$sexes) > 1) "sexes" else "sex",
       paste(x$sexes, collapse = ", "), "; steepness", x$h, "\n")
   cat(sprintf("  Leslie r = %.3f, generation time = %.1f years\n", x$leslie[["r"]], x$leslie[["gt"]]))
-  print(round(do.call(rbind, x$ebsb), 3))
-  cat("  pass $ebsb to jb3_model(ebsb = )\n"); invisible(x)
+  u <- x$units %||% stats::setNames(rep("biomass", length(x$ebsb)), names(x$ebsb))
+  print(cbind(as.data.frame(signif(do.call(rbind, x$ebsb), 4)), units = u))
+  cat("  pass the object to jb3_model(ebsb = ); with several curves set ebsb.index and ebsb.catch\n"); invisible(x)
 }
 
 #' Selectivity and EB/SB curves
@@ -309,12 +443,18 @@ jbplot_selex <- function(x, at = c("length", "age")){
     ggplot2::geom_line(data = d[d$type == "selectivity", ], ggplot2::aes(.data$xx, .data$value, colour = .data$curve), linewidth = 0.9) +
     ggplot2::scale_colour_manual(values = cols, name = NULL) +
     ggplot2::labs(x = if(at == "length") "Length" else "Age", y = "Selectivity, maturity (dashed)") + theme_jabba3()
-  cv <- x$curves
-  p2 <- ggplot2::ggplot(cv, ggplot2::aes(.data$P, colour = .data$fleet)) +
+  cv <- x$curves; x$units <- x$units %||% stats::setNames(rep("biomass", length(x$ebsb)), names(x$ebsb))
+  x$fit.range <- x$fit.range %||% c(0, 1); if(is.null(cv$units)) cv$units <- "biomass"
+  rel <- any(x$units == "numbers") && any(x$units == "biomass")
+  if(rel) for(f in unique(cv$fleet)){ w <- cv$fleet == f; s <- .rho_curve(1, x$ebsb[[f]]); cv$EB_SB[w] <- cv$EB_SB[w]/s; cv$fit[w] <- cv$fit[w]/s }
+  ylab <- if(rel) "Exploitable / SB (relative to SB0)" else if(all(x$units == "numbers")) "EN/SB" else "EB/SB"
+  p2 <- ggplot2::ggplot(cv, ggplot2::aes(.data$P, colour = .data$fleet, linetype = .data$units)) +
     ggplot2::geom_point(ggplot2::aes(y = .data$EB_SB), size = 0.8, alpha = 0.6) +
     ggplot2::geom_line(ggplot2::aes(y = .data$fit), linewidth = 0.9) + ggplot2::geom_hline(yintercept = 1, linetype = 3) +
     ggplot2::scale_colour_manual(values = cols, name = NULL, guide = "none") +
-    ggplot2::labs(x = expression(SB/SB[0]), y = "EB/SB") + theme_jabba3()
+    ggplot2::scale_linetype_manual(values = c(biomass = 1, numbers = 2), name = NULL, guide = "none") +
+    ggplot2::annotate("rect", xmin = x$fit.range[1], xmax = x$fit.range[2], ymin = -Inf, ymax = Inf, alpha = 0.06) +
+    ggplot2::labs(x = expression(SB/SB[0]), y = ylab) + theme_jabba3()
   if(!requireNamespace("patchwork", quietly = TRUE)) return(list(p1, p2))
   patchwork::wrap_plots(p1, p2, ncol = 2) + patchwork::plot_layout(guides = "collect") & ggplot2::theme(legend.position = "bottom")
 }
