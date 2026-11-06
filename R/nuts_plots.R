@@ -232,8 +232,10 @@ jbplot_energy <- function(fit){
 jbplot_nutsdiags <- function(fit, pars = NULL){
   .need("patchwork", "jbplot_nutsdiags() needs patchwork")
   g <- function(p) p + ggplot2::theme(legend.position = "none")
-  (g(jbplot_trace(fit, pars)) | g(jbplot_rank(fit, pars))) / (jbplot_rhat(fit) | jbplot_energy(fit)) +
-    patchwork::plot_layout(heights = c(1, 1))
+  # wrap_plots() rather than nested (a | b) / (c | d): the nested form fails to build
+  # for some fits with ggplot2 3.4 + patchwork 1.2 ("attempt to apply non-function")
+  patchwork::wrap_plots(list(g(jbplot_trace(fit, pars)), g(jbplot_rank(fit, pars)),
+                             jbplot_rhat(fit), jbplot_energy(fit)), ncol = 2)
 }
 
 #' Effective sample size of the derived states

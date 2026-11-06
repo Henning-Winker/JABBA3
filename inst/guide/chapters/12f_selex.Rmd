@@ -140,11 +140,11 @@ The estimated spawning-biomass depletion against the operating-model truth:
 
 ```{r model-kobsim-truth, fig.height = 4, fig.width = 7}
 bkk <- fk$ts[fk$ts$quantity == "B/K", ]
-ggplot(bkk, aes(year, est)) +
-  geom_ribbon(aes(ymin = lci, ymax = uci), fill = "grey80") + geom_line() +
-  geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
-  geom_vline(xintercept = kobsim$sel.change - 0.5, linetype = 2) +
-  labs(x = "Year", y = "SB/SB0", subtitle = "JABBA3 Selex (black, 95% CI) and operating model (red)") + theme_jabba3()
+ggplot2::ggplot(bkk, ggplot2::aes(year, est)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), fill = "grey80") + ggplot2::geom_line() +
+  ggplot2::geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
+  ggplot2::geom_vline(xintercept = kobsim$sel.change - 0.5, linetype = 2) +
+  ggplot2::labs(x = "Year", y = "SB/SB0", subtitle = "JABBA3 Selex (black, 95% CI) and operating model (red)") + theme_jabba3()
 ```
 
 ## Example: an index in numbers (bigeye)
