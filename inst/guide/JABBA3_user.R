@@ -2733,6 +2733,12 @@ mk  <- jb3_model(BmsyK = prk$BmsyK, sets.q = c(1, 1, 2, 2), ebsb = sxk,
 fk  <- jabba3(dk, jb3_priors(dk, r = prk$r, K = c(8*max(dk$catch), 1)), mk, osa = FALSE)
 
 #' 
+#' The fit with `jabbaplot3()` (here without the biomass trigger and limit lines):
+#' 
+## ----model-kobsim-plot, fig.width = 10, fig.height = 6------------------------
+jabbaplot3(fk, bthr = NULL, blim = NULL, panels = c("B/Bmsy", "F/Fmsy", "procdev", "Catch"))
+
+#' 
 #' The estimated spawning-biomass depletion against the operating-model truth:
 #' 
 ## ----model-kobsim-truth, fig.height = 4, fig.width = 7------------------------
