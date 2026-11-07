@@ -50,3 +50,10 @@ jb3_runs <- function(x, mixing = c("less", "two.sided", "greater")){
 }
 
 .need <- function(pkg, why) if(!requireNamespace(pkg, quietly = TRUE)) stop(why, ": install.packages('", pkg, "')", call. = FALSE)
+
+# Arguments of the calling function (defaults evaluated), stored with jb3_priors() / jb3_model() objects so that
+# update.jabba3() can rebuild them with changed arguments. Call first in the function body, before arguments are modified.
+.fn_args <- function(drop = "data"){
+  env <- parent.frame(); fn <- sys.function(sys.parent())
+  mget(setdiff(names(formals(fn)), drop), envir = env)
+}

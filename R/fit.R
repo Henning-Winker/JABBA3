@@ -41,8 +41,14 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   }
   engine <- match.arg(engine); workflow <- match.arg(workflow)
   if(ncol(data$I) == 0 || isTRUE(prior.only)) osa <- FALSE
-  if(workflow != "none") return(jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
-                                             ndraws = ndraws, nuts = nuts, osa = osa, se = se))
+  settings <- list(engine = engine, ndraws = ndraws, nuts = nuts, osa = osa, workflow = workflow, amat = amat, se = se,
+                   peels = peels, index.peels = index.peels, nstart = nstart, silent = silent, prior.only = isTRUE(prior.only))
+  if(workflow != "none"){
+    res <- jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
+                        ndraws = ndraws, nuts = nuts, osa = osa, se = se)
+    res$settings <- settings; res$inputs <- list(priors = priors, model = model)   # inputs before the workflow steps
+    return(res)
+  }
   if((model$nseason %||% 1) > 1){                        # seasonal prototype: mode fits with annual outputs
     if(engine == "nuts" || ndraws > 0) stop("nseason > 1: NUTS and draws are not yet available (use engine = \"rtmb\", ndraws = 0)", call. = FALSE)
     osa <- FALSE
@@ -62,6 +68,7 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   fit$index <- .index_table(fit)
   fit$auxiliary <- .aux_table(fit)
   fit$time <- (proc.time() - ptm)[["elapsed"]]
+  fit$settings <- settings
   fit
 }
 

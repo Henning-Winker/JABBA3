@@ -1630,6 +1630,52 @@ jbplot_ensemble(runs, joint = TRUE)
 jbplot_summary(runs)
 
 #' 
+#' ### Sensitivity runs with `update()`
+#' 
+#' A fit stores its data, priors, model and settings, so `update()` refits it with
+#' only the inputs that change. Priors and model options are changed by name, with
+#' the arguments of `jb3_priors()` and `jb3_model()`; all other inputs and settings
+#' (engine, draws, OSA, workflow) are taken from the fit. With `lapply()` a
+#' sensitivity analysis takes one line per factor:
+#' 
+## ----cmp-update---------------------------------------------------------------
+sens.r <- lapply(c(0.1, 0.2, 0.4), function(r)
+  update(fit, priors = list(r = c(r, 0.5)), run = paste("r =", r)))
+sens.sdb <- lapply(c(0.05, 0.1, 0.2), function(s)
+  update(fit, priors = list(sdb = c(s, 0.3)), run = paste("sdb =", s)))
+names(sens.r)   <- sapply(sens.r, `[[`, "run")
+names(sens.sdb) <- sapply(sens.sdb, `[[`, "run")
+t(sapply(c(sens.r, sens.sdb), function(f){
+  s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quantity) }))
+
+#' 
+## ----cmp-update-plot, fig.width = 10, fig.height = 5--------------------------
+jbplot_ensemble(sens.r)
+
+#' 
+#' Some priors are derived from others when `jb3_priors()` is called: the FishLife
+#' prior on the process-error SD (`sdb`) and the default `kdyn` from `r`, and the
+#' default `K` from the catch. By default `update()` changes only the priors that
+#' are named, so the `r` runs above keep the `sdb` prior of the base fit. Dependent
+#' priors can be set explicitly (`priors = list(r = c(0.4, 0.5), sdb = c(0.15, 0.3))`),
+#' or re-derived from the new values with `recompute = TRUE`:
+#' 
+## ----cmp-update-recompute-----------------------------------------------------
+fr <- update(fit, priors = list(r = c(0.4, 0.5)), recompute = TRUE)
+rbind(base = fit$priors$sdb, `r = 0.4` = sens.r[[3]]$priors$sdb, `r = 0.4, recompute` = fr$priors$sdb)
+
+#' 
+#' The same works for model options, the workflow and the engine, e.g. a final NUTS
+#' run of the selected configuration:
+#' 
+## ----cmp-update-other, eval = FALSE-------------------------------------------
+## update(fit, model = list(lag = 3, rho = 0.75), run = "lag + AR(1)")   # model options
+## update(fit, workflow = "tier1", amat = 3)                             # rerun as a workflow
+## update(fit, engine = "nuts", nuts = list(iter = 2000))                # same inputs, NUTS
+## update(fit, data = d.new)                                             # new data, same settings
+
+#' 
 #' `kobe = FALSE` drops the Kobe panel in `jbplot_summary()` and `jbplot_ensemble()`.
 #' `jabbaplot3()` takes a list of runs too, with a choice of panels:
 #' 
@@ -2939,7 +2985,7 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' | Data | `jb3_data()` (catch-only with `indices = NULL`; auxiliary data), `jb3_data_jabba()` |
 #' | Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jb3_qtable()` (relative catchabilities), `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`, `jbplot_q()`, `jbplot_indexcor()` (pairwise index correlations); diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
 #' | Priors and model | `jb3_priors()`, `jb3_bprior()` (status priors), `jb3_model()` (incl. `effort.creep`, `aux.q`, `aux.sd`, `param`) |
-#' | Fitting | `jabba3()` (incl. `prior.only = TRUE`), `jb3_draws()` |
+#' | Fitting | `jabba3()` (incl. `prior.only = TRUE`), `update()` (refit with changed priors, model options, data or settings; sensitivity runs), `jb3_draws()` |
 #' | Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |
 #' | Convergence | `jb3_convergence()` |
 #' | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
