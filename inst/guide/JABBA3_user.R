@@ -2907,7 +2907,7 @@ fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)"
 #' 
 ## ----rjc-frw-plot, fig.width = 10, fig.height = 4-----------------------------
 jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, blim = NULL,
-           panels = c("Catch", "F/Fmsy", "B/Bmsy"))
+           panels = c("Catch", "F/Fmsy", "B/Bmsy","procdev"))
 
 #' 
 #' ## Comparison with the SPiCT assessment
@@ -2918,10 +2918,9 @@ jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, bli
 #' JABBA3.
 #' 
 ## ----rjc-advice, fig.width = 10, fig.height = 5, eval = requireNamespace("FLRef", quietly = TRUE)----
-stks <- FLCore::FLStocks(SPiCT = rjc$spict.stk, JABBA3 = jb3_FLStockR(fr, ndraws = 500))
-FLRef::plotAdvice(stks, ncol = 3)
-
-#' 
+stks <- FLCore::FLStocks(JABBA3 = jb3_FLStockR(fr, ndraws = 1000),SPiCT = rjc$spict.stk)
+FLRef::plotAdvice(stks, ncol = 3,type="spm")
+#' IDEALLY USE #JABBA3::jbplot_advice()
 #' Terminal status (2021) of the two JABBA3 runs:
 #' 
 ## ----rjc-status---------------------------------------------------------------
