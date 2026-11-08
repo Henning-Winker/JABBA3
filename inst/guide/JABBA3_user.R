@@ -2905,22 +2905,32 @@ jbplot_catcherror(fr)
 fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
 
 #' 
-## ----rjc-frw-plot, fig.width = 10, fig.height = 4-----------------------------
+## ----rjc-frw-plot, fig.width = 10, fig.height = 6.5---------------------------
 jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, blim = NULL,
-           panels = c("Catch", "F/Fmsy", "B/Bmsy","procdev"))
+           panels = c("Catch", "F/Fmsy", "B/Bmsy", "procdev"))
 
 #' 
 #' ## Comparison with the SPiCT assessment
 #' 
 #' `jb3_FLStockR()` converts the JABBA3 run to an `FLStockR` with posterior
-#' draws, which `FLRef::plotAdvice()` combines with the SPiCT assessment. The SPiCT
-#' `FLStockR` holds the estimated trajectory only, so the intervals are shown for
-#' JABBA3.
+#' draws. `jbplot_advice()` takes `FLStock`/`FLStockR` objects as well as fits, so
+#' the JABBA3 run can be shown with the SPiCT assessment as an `FLStocks` (or a list
+#' mixing fits and stocks). The SPiCT `FLStockR` holds the estimated trajectory
+#' only, so the intervals are shown for JABBA3:
 #' 
-## ----rjc-advice, fig.width = 10, fig.height = 5, eval = requireNamespace("FLRef", quietly = TRUE)----
-stks <- FLCore::FLStocks(JABBA3 = jb3_FLStockR(fr, ndraws = 1000),SPiCT = rjc$spict.stk)
-FLRef::plotAdvice(stks, ncol = 3,type="spm")
-#' IDEALLY USE #JABBA3::jbplot_advice()
+## ----rjc-advice, fig.width = 10, fig.height = 3.8-----------------------------
+stks <- FLCore::FLStocks(JABBA3 = jb3_FLStockR(fr, ndraws = 1000), SPiCT = rjc$spict.stk)
+jbplot_advice(stks, colours = c(JABBA3 = "dodgerblue", SPiCT = "black"), ncol = 3)
+
+#' 
+#' The same with `FLRef::plotAdvice()`, with the colours set manually:
+#' 
+## ----rjc-advice-flref, fig.width = 10, fig.height = 4.5, eval = requireNamespace("FLRef", quietly = TRUE)----
+FLRef::plotAdvice(stks, ncol = 3, type = "spm") +
+  ggplot2::scale_fill_manual(values = c("dodgerblue", "black")) +
+  ggplot2::scale_colour_manual(values = c("dodgerblue", "black"))
+
+#' 
 #' Terminal status (2021) of the two JABBA3 runs:
 #' 
 ## ----rjc-status---------------------------------------------------------------
@@ -2934,6 +2944,60 @@ noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa), st)))
 #' $B_{MSY}$ in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). JABBA3 is
 #' slightly lower in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual
 #' time step and the index timing.
+#' 
+#' ## ICES catch advice: HCR and catch fractiles
+#' 
+#' ICES advice for stocks assessed with surplus production models follows a fixed
+#' routine (as for SPiCT stocks; the WKBELASMO forecast used it with SPiCT).
+#' `jb3_advice()` runs it in one call:
+#' 
+#' | Step | What happens | `jb3_advice()` |
+#' |---|---|---|
+#' | 1. Intermediate year | From the last assessment year (2021), the stock is projected to the advice year with status quo F (mean of the last 3 years) | `imp.years = 1`, `imp = "Fsq"` |
+#' | 2. Harvest control rule | In the advice year (2023), the ICES MSY hockey-stick rule $F = F_{MSY} \times \min(1, B/B_{trigger})$, with $B_{trigger} = 0.5\,B_{MSY}$, is applied to each draw of $B/B_{MSY}$ at the start of the year: this gives the distribution of the catch in the advice year | `ftgt = 1`, `btrigger = 0.5` |
+#' | 3. Catch fractile | The advised catch is a lower percentile of that distribution: the 35th percentile in the ICES advice rule, a lower one (15th or 25th) where status is uncertain | `fractiles = c(0.35, 0.25, 0.15)` |
+#' | 4. Advice table | Each advised catch is projected: F in the advice year, $B/B_{MSY}$ at the start of 2024 and the probability of falling below $B_{lim} = 0.3\,B_{MSY}$ (the precautionary check: at most 5%) | `blim = 0.3` |
+#' 
+#' The assessment of 2022 uses data up to 2021, so there is one intermediate year
+#' (2022) before the advice year (2023). Other catch options, such as the status
+#' quo catch and a 20% increase (two of the WKBELASMO scenarios), are added with
+#' `catch`:
+#' 
+## ----rjc-ices-advice----------------------------------------------------------
+csq <- mean(tail(fr$data$catch, 2))          # average removals 2020-2021
+adv <- jb3_advice(fr, fractiles = c(0.35, 0.25, 0.15), imp.years = 1, imp = "Fsq",
+                  catch = c(`Status quo catch` = csq, `Status quo catch +20%` = 1.2*csq))
+adv
+
+#' 
+#' The distribution of the advice-year catch under the HCR, with the median and
+#' the fractiles:
+#' 
+## ----rjc-ices-catch, fig.width = 8, fig.height = 4----------------------------
+jbplot_advicecatch(adv)
+
+#' 
+#' The forecast of the catch options (`adv$options`, a `jb3_fwd()` projection):
+#' 
+## ----rjc-ices-forecast, fig.width = 10, fig.height = 6------------------------
+jbplot_projection(adv$options, nyears = 15)
+
+#' 
+#' The advice table (`adv$table`):
+#' 
+## ----rjc-ices-table-----------------------------------------------------------
+knitr::kable(adv$table)
+
+#' 
+#' The routine is the same as in the WKBELASMO forecast, which gave 8051 t at the
+#' 35th percentile (F/Fmsy 0.92, B/Bmsy 1.14 at the start of 2024), 7074 t at the
+#' 15th percentile and 3441 t for a 20% increase on the realised removals. The
+#' JABBA3 advice is higher because its MSY is higher than SPiCT's, while
+#' $F/F_{MSY}$ in the advice year at each fractile is similar (0.90 at the 35th
+#' percentile). The fractile lowers F below $F_{MSY}$ in proportion to the
+#' uncertainty of the forecast catch, so a less certain assessment gives a lower
+#' advised catch. As the paper on process error discusses, a lower fractile also
+#' compensates for optimism in the assessment.
 #' 
 #' # FLR outputs
 #' 
@@ -3128,7 +3192,7 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
 #' | NUTS diagnostics | `jb3_nuts_diags()`, `jb3_nuts_ess()`, `jbplot_nuts()`, `jbplot_nutsdiags()`, `jbplot_trace()`, `jbplot_rank()`, `jbplot_mcmcdens()`, `jbplot_mcmcacf()`, `jbplot_pairs()`, `jbplot_rhat()`, `jbplot_energy()` |
 #' | Projections | `jb3_project()` (F/Fmsy scenarios by default, or constant catch; optional intermediate years), `jb3_fwd()` (forecast controls, as `fw_jabba_ctrl()`) |
-#' | Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
+#' | Ensembles and HCR | `jb3_ensemble()`, `jb3_weights()`, `jb3_hcr()`, `jbplot_hcr()`, `jb3_advice()` (ICES HCR + catch fractile advice), `jbplot_advicecatch()`, `jb3_fwdtable()` (GFCM fishing opportunities) |
 #' | FLR | `jb3_flqs()`, `jb3_flpar()`, `jb3_FLStockR()` |
 #' | Life history | `jb3_leslie()`, `jb3_fmsy2r()`, `jb3_r2fmsy()`, `jb3_rho_gt()`, `jb3_rho_table()`, `jb3_selex()`, `jb3_sel5()`, `jbplot_selex()` |
 #' | Tables | `jb3_partable()`, `jb3_tstable()`, `jb3_projtable()`, `jb3_kobematrix()`, `jb3_kobematrix_iotc()`, `jb3_kobematrix_gfcm()`, `jb3_kobematrix_ices()`, `jbplot_kobematrix()`, `jb3_nuts_diags()` |
