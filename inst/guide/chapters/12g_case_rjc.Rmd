@@ -5,8 +5,8 @@ Sea, Skagerrak, Kattegat and eastern English Channel; rjc.27.3a47d) was
 benchmarked at the ICES workshop WKBELASMO with SPiCT (ICES, 2023;
 Pedersen and Berg, 2017). This chapter converts the final SPiCT assessment to JABBA3,
 introduces the hybrid F random walk that JABBA3 uses for index years without
-catch, and compares the JABBA3 run with the SPiCT assessment in an ICES advice
-plot.
+catch, adds the production lag and AR(1) process error, compares the result with
+the SPiCT assessment, and derives the ICES catch advice.
 
 ## The benchmark assessment
 
@@ -87,28 +87,57 @@ uncertainty narrows towards the first observed catch.
 jbplot_catcherror(fr)
 ```
 
-With the random walk on all years:
+## Alternative runs: F random walk, lag and AR(1)
 
-```{r rjc-frw}
+Two alternatives to the converted run: the random walk on F in all years
+(SPiCT-like), and the protocol for process error of JABBA3, a production lag at
+the age at maturity with AR(1) process deviations. Age at maturity follows from
+the benchmark growth parameters and the length at 50% maturity (73.7 cm), and
+the AR(1) persistence is the default $\rho = 0.75$:
+
+```{r rjc-alt}
 fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
+lh <- rjc$info$lh
+amat <- round(lh[["t0"]] - log(1 - lh[["L50"]]/lh[["Linf"]])/lh[["k"]])
+amat
+fl <- update(fr, model = list(lag = amat, rho = 0.75), run = "Lag 6 + AR(1)")
 ```
 
-```{r rjc-frw-plot, fig.width = 10, fig.height = 6.5}
-jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, blim = NULL,
-           panels = c("Catch", "F/Fmsy", "B/Bmsy", "procdev"))
+```{r rjc-alt-plot, fig.width = 10, fig.height = 6.5}
+jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl),
+           bthr = NULL, blim = NULL, panels = c("Catch", "F/Fmsy", "B/Bmsy", "procdev"))
 ```
+
+Terminal status (2021) of the three runs:
+
+```{r rjc-status}
+st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
+noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl), st)))
+```
+
+The converted run reproduces the SPiCT perception: depleted in the 1990s, F
+below $F_{MSY}$ since the mid-2000s and a rebuilding stock close to $B_{MSY}$
+in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). It is slightly lower
+in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual time step and
+the index timing. The random walk on all years changes little. With the lag
+and AR(1) process error, the process deviations become persistent (below
+average production in the 1990s, above average from the mid-2000s, when the
+stock rebuilt), status is slightly higher, and the intervals are wider: the
+persistence of the production anomalies shows as uncertainty.
 
 ## Comparison with the SPiCT assessment
 
-`jb3_FLStockR()` converts the JABBA3 run to an `FLStockR` with posterior
-draws. `jbplot_advice()` takes `FLStock`/`FLStockR` objects as well as fits, so
-the JABBA3 run can be shown with the SPiCT assessment as an `FLStocks` (or a list
-mixing fits and stocks). The SPiCT `FLStockR` holds the estimated trajectory
-only, so the intervals are shown for JABBA3:
+`jb3_FLStockR()` converts a JABBA3 fit to an `FLStockR` with posterior draws.
+`jbplot_advice()` takes `FLStock`/`FLStockR` objects as well as fits, so the
+lag + AR(1) run can be shown with the SPiCT assessment as an `FLStocks` (or a
+list mixing fits and stocks). The SPiCT `FLStockR` holds the estimated
+trajectory only, so the intervals are shown for JABBA3. The lag + AR(1) run
+follows the SPiCT $B/B_{MSY}$ trajectory closely:
 
 ```{r rjc-advice, fig.width = 10, fig.height = 3.8}
-stks <- FLCore::FLStocks(JABBA3 = jb3_FLStockR(fr, ndraws = 1000), SPiCT = rjc$spict.stk)
-jbplot_advice(stks, colours = c(JABBA3 = "dodgerblue", SPiCT = "black"), ncol = 3)
+stks <- FLCore::FLStocks(`JABBA3 lag 6 + AR(1)` = jb3_FLStockR(fl, ndraws = 1000), SPiCT = rjc$spict.stk)
+jbplot_advice(stks, colours = c("dodgerblue", "black"), ncol = 3)
 ```
 
 The same with `FLRef::plotAdvice()`, with the colours set manually:
@@ -118,20 +147,6 @@ FLRef::plotAdvice(stks, ncol = 3, type = "spm") +
   ggplot2::scale_fill_manual(values = c("dodgerblue", "black")) +
   ggplot2::scale_colour_manual(values = c("dodgerblue", "black"))
 ```
-
-Terminal status (2021) of the two JABBA3 runs:
-
-```{r rjc-status}
-st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
-noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa), st)))
-```
-
-The converted JABBA3 run reproduces the SPiCT perception: depleted in the
-1990s, F below $F_{MSY}$ since the mid-2000s and a rebuilding stock close to
-$B_{MSY}$ in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). JABBA3 is
-slightly lower in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual
-time step and the index timing.
 
 ## ICES catch advice: HCR and catch fractiles
 
@@ -149,40 +164,70 @@ routine (as for SPiCT stocks; the WKBELASMO forecast used it with SPiCT).
 The assessment of 2022 uses data up to 2021, so there is one intermediate year
 (2022) before the advice year (2023). Other catch options, such as the status
 quo catch and a 20% increase (two of the WKBELASMO scenarios), are added with
-`catch`:
+`catch`. The advice is derived for the converted run and for the lag + AR(1)
+run:
 
 ```{r rjc-ices-advice}
 csq <- mean(tail(fr$data$catch, 2))          # average removals 2020-2021
-adv <- jb3_advice(fr, fractiles = c(0.35, 0.25, 0.15), imp.years = 1, imp = "Fsq",
-                  catch = c(`Status quo catch` = csq, `Status quo catch +20%` = 1.2*csq))
+opts <- c(`Status quo catch` = csq, `Status quo catch +20%` = 1.2*csq)
+adv0 <- jb3_advice(fr, fractiles = c(0.35, 0.25, 0.15), imp.years = 1, catch = opts, ndraws = 4000)
+adv  <- jb3_advice(fl, fractiles = c(0.35, 0.25, 0.15), imp.years = 1, catch = opts, ndraws = 4000)
 adv
 ```
 
-The distribution of the advice-year catch under the HCR, with the median and
-the fractiles:
+The two runs side by side:
+
+```{r rjc-ices-compare}
+cmp <- function(a, f){
+  tb <- a$table; r <- function(b) tb[tb$Basis == b, ]
+  fmt <- function(b) sprintf("%s (F/Fmsy %.2f)", format(round(r(b)[[2]]), big.mark = ","), r(b)[[3]])
+  c(`B/Bmsy 2021` = sprintf("%.2f", f$ts$est[f$ts$quantity == "B/Bmsy" & f$ts$year == 2021]),
+    MSY = format(round(f$refpts["MSY", "est"]), big.mark = ","),
+    `CV of the 2023 catch under the HCR` = sprintf("%.2f", stats::sd(log(a$catch))),
+    `Median catch 2023` = format(round(stats::median(a$catch)), big.mark = ","),
+    `35th percentile (ICES advice)` = fmt("HCR, 35th percentile"),
+    `25th percentile` = fmt("HCR, 25th percentile"),
+    `15th percentile` = fmt("HCR, 15th percentile"),
+    `P(B 2024 < Blim) at the 35th` = sprintf("%.1f%%", r("HCR, 35th percentile")$`P(B<Blim)`))
+}
+knitr::kable(cbind(JABBA3 = cmp(adv0, fr), `Lag 6 + AR(1)` = cmp(adv, fl)))
+```
+
+For the lag + AR(1) run: the distribution of the advice-year catch under the
+HCR, with the median and the fractiles,
 
 ```{r rjc-ices-catch, fig.width = 8, fig.height = 4}
 jbplot_advicecatch(adv)
 ```
 
-The forecast of the catch options (`adv$options`, a `jb3_fwd()` projection):
+the forecast of the catch options (`adv$options`, a `jb3_fwd()` projection),
 
 ```{r rjc-ices-forecast, fig.width = 10, fig.height = 6}
 jbplot_projection(adv$options, nyears = 15)
 ```
 
-The advice table (`adv$table`):
+and the advice table (`adv$table`):
 
 ```{r rjc-ices-table}
 knitr::kable(adv$table)
 ```
 
-The routine is the same as in the WKBELASMO forecast, which gave 8051 t at the
-35th percentile (F/Fmsy 0.92, B/Bmsy 1.14 at the start of 2024), 7074 t at the
-15th percentile and 3441 t for a 20% increase on the realised removals. The
-JABBA3 advice is higher because its MSY is higher than SPiCT's, while
-$F/F_{MSY}$ in the advice year at each fractile is similar (0.90 at the 35th
-percentile). The fractile lowers F below $F_{MSY}$ in proportion to the
-uncertainty of the forecast catch, so a less certain assessment gives a lower
-advised catch. As the paper on process error discusses, a lower fractile also
-compensates for optimism in the assessment.
+What the comparison shows:
+
+- **Lag + AR(1) gives the more precautionary advice, although it estimates the
+  stock slightly higher.** Two effects lower the advice: MSY is lower, and the
+  forecast catch is much less certain. The persistent process deviations carry
+  into the forecast years, so the CV of the advice-year catch nearly doubles.
+- **The fractile takes a larger cut where the uncertainty is larger.** The 35th
+  percentile is about 90% of the median catch in the converted run and about
+  83% with lag + AR(1); the 15th percentile about 75% and 61%. The fractile
+  acts through the uncertainty, not the point estimate, which is how the rule
+  is meant to work.
+- **The lag + AR(1) advice is close to the SPiCT advice.** WKBELASMO gave
+  8051 t at the 35th percentile (F/Fmsy 0.92, B/Bmsy 1.14 at the start of
+  2024), 7074 t at the 15th percentile and 3441 t for a 20% increase on the
+  realised removals.
+- **With the uncertainty modelled, a very low fractile may be overly
+  cautious.** Allowing for persistence widens the forecast uncertainty, and with
+  a fixed fractile that turns directly into precaution, so a 15th percentile on
+  top of it lowers F to about 0.6 $F_{MSY}$.
