@@ -1,0 +1,17 @@
+test_that("jb3_advice() gives the ICES HCR + fractile advice", {
+  d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")
+  fit <- jabba3(d, osa = FALSE)
+  adv <- jb3_advice(fit, fractiles = c(0.35, 0.15), imp.years = 1, ndraws = 500, catch = c(Csq = 60000))
+  expect_s3_class(adv, "jb3advice")
+  expect_equal(adv$year, max(fit$years) + 2)
+  expect_equal(unname(adv$advice), unname(stats::quantile(adv$catch, c(0.35, 0.15))))
+  expect_true(adv$advice[[2]] < adv$advice[[1]])
+  expect_equal(nrow(adv$table), 4)
+  # the projected catch of each option is the advised catch, and a lower catch gives a lower F
+  expect_equal(adv$table[[2]][2:3], round(unname(adv$advice)), tolerance = 1e-6)
+  expect_true(all(diff(adv$table[[3]][1:3]) < 0))
+  expect_s3_class(ggplot2::ggplot_build(jbplot_advicecatch(adv)), "ggplot_built")
+  expect_output(print(adv), "Catch advice for")
+  a0 <- jb3_advice(fit, imp.years = 0, ndraws = 300)
+  expect_equal(a0$year, max(fit$years) + 1)
+})

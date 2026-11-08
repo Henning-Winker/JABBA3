@@ -462,3 +462,120 @@ jb3_fwdtable <- function(proj, eval.yr = NULL, osa = TRUE, rel = TRUE, bthr = 0.
   rownames(df) <- NULL
   df
 }
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ICES-type advice: MSY hockey-stick rule with a catch fractile (as the ICES advice rule for SPiCT stocks)
+# ---------------------------------------------------------------------------------------------------------------------
+
+#' Catch advice with a harvest control rule and catch fractiles (ICES SPiCT-type advice)
+#'
+#' The routine short-term forecast of ICES advice for surplus production models (as for SPiCT stocks, e.g. ICES
+#' WKMSYSPiCT and the WKBELASMO 2023 benchmark of thornback ray), in three steps:
+#' \enumerate{
+#'   \item \strong{Intermediate year(s)}: from the last assessment year, the stock is projected with status quo F
+#'     (\code{imp = "Fsq"}, mean F/Fmsy of the last \code{nsq} years) or status quo catch (\code{imp = "Csq"}), or a given
+#'     catch (\code{imp.catch}).
+#'   \item \strong{Advice year}: the MSY hockey-stick rule F = Ftgt x min(1, B/Btrigger), with B/Bmsy at the start of the
+#'     advice year, is applied draw by draw. This gives the distribution of the catch in the advice year.
+#'   \item \strong{Fractiles}: the advised catch is a lower percentile of that distribution (the ICES advice rule takes
+#'     the 35th percentile; 15th or 25th for stocks with uncertain status). Each advised catch is projected as a catch
+#'     scenario to give the F in the advice year, the biomass at the start of the following year and the probability of
+#'     falling below Blim (ICES precautionary check: at most 5\%).
+#' }
+#' Further catch options (e.g. status quo catch, a 20\% increase) can be added with \code{catch}. The draws are shared by
+#' all steps and scenarios (common random numbers), so the options differ only by their catch.
+#' @param fit a \code{jabba3} fit or \code{jb3_ensemble()}
+#' @param fractiles percentiles of the advice-year catch under the HCR (default the ICES 35th and the 15th percentile)
+#' @param imp.years number of intermediate years between the last assessment year and the advice year (1 when the
+#'   assessment uses data up to the year before the assessment year and advises for the following year)
+#' @param imp "Fsq" (status quo F, default) or "Csq" (status quo catch) in the intermediate years
+#' @param imp.catch optional catch(es) in the intermediate years (overrides \code{imp})
+#' @param ftgt,btrigger,blim target F/Fmsy, trigger and limit biomass (B/Bmsy; ICES SPiCT proxies: Btrigger = 0.5 Bmsy,
+#'   Blim = 0.3 Bmsy)
+#' @param catch optional named vector of further catch options for the advice year (tonnes)
+#' @param nsq years for the status quo
+#' @param ndraws draws (when the fit has none)
+#' @param procerr process error in the projections (see \code{\link{jb3_project}()})
+#' @param seed random seed
+#' @return object of class \code{jb3advice}: \code{table} (advice table), \code{catch} (advice-year catch draws under the
+#'   HCR), \code{advice} (advised catch by fractile), \code{hcr} and \code{options} (the \code{jb3proj} forecasts, for
+#'   \code{jbplot_projection()} and \code{jb3_fwdtable()}), and the settings
+#' @seealso \code{\link{jbplot_advicecatch}()}, \code{\link{jbplot_projection}()}, \code{\link{jb3_fwd}()}
+#' @examples
+#' \donttest{
+#' data(rjc)
+#' xs <- spictinp2jabba3(rjc$inp, verbose = FALSE)
+#' fit <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
+#' adv <- jb3_advice(fit, imp.years = 1)
+#' adv
+#' jbplot_advicecatch(adv); jbplot_projection(adv$options)
+#' }
+#' @export
+jb3_advice <- function(fit, fractiles = c(0.35, 0.15), imp.years = 1, imp = c("Fsq", "Csq"), imp.catch = NULL,
+                       ftgt = 1, btrigger = 0.5, blim = 0.3, catch = NULL, nsq = 3, ndraws = 2000,
+                       procerr = c("ar1", "mean", "none"), seed = 123){
+  imp <- match.arg(imp); procerr <- match.arg(procerr)
+  if(imp.years < 0) stop("imp.years must be >= 0", call. = FALSE)
+  if(inherits(fit, "jabba3") && is.null(fit$draws)){ set.seed(seed); fit$draws <- jb3_draws(fit, ndraws) }
+  y0 <- max(fit$years); yadv <- y0 + imp.years + 1; yrs <- y0 + seq_len(imp.years + 2)
+  ni <- imp.years
+  iv <- if(!is.null(imp.catch)) rep(imp.catch, length.out = ni) else rep(1, ni)
+  iq <- if(!is.null(imp.catch)) rep("Catch", ni) else rep(imp, ni)
+  # step 1-2: intermediate years, then the HCR in the advice year (and the year after, for the biomass)
+  hc <- data.frame(year = yrs, value = c(iv, ftgt, ftgt), quant = c(iq, "HCR", "HCR"), stringsAsFactors = FALSE)
+  fh <- jb3_fwd(fit, list(HCR = hc), ndraws = ndraws, procerr = procerr, nsq = nsq, hcr = list(btrigger = btrigger), seed = seed)
+  it <- fh$iters[[1]]; j <- match(yadv, it$years); cd <- it$Catch[, j]
+  # step 3: advised catch by fractile, projected as catch scenarios
+  fr <- sort(unique(fractiles), decreasing = TRUE)
+  adv <- stats::setNames(stats::quantile(cd, fr, names = FALSE), sprintf("HCR, %gth percentile", 100*fr))
+  opts <- c(stats::setNames(stats::median(cd), "HCR, median"), adv, catch)
+  ctl <- lapply(opts, function(C) data.frame(year = yrs, value = c(iv, C, C), quant = c(iq, "Catch", "Catch"), stringsAsFactors = FALSE))
+  fo <- jb3_fwd(fit, ctl, ndraws = ndraws, procerr = procerr, nsq = nsq, seed = seed)
+  fo$tac.year <- yadv
+  tab <- jb3_fwdtable(fo, eval.yr = yadv, bthr = btrigger, blim = blim)
+  tab$`P(B<Blim)` <- round(100 - tab$`P(B>Blim)`, 1)
+  tab$`PA (P(B<Blim) <= 5%)` <- ifelse(tab$`P(B<Blim)` <= 5, "yes", "no")
+  ci <- it$Catch[, match(y0 + seq_len(ni), it$years), drop = FALSE]
+  structure(list(table = tab, catch = cd, advice = adv, hcr = fh, options = fo, year = yadv, last.year = y0,
+                 imp = list(years = if(ni) y0 + seq_len(ni) else integer(0), basis = if(!is.null(imp.catch)) "catch" else imp,
+                            catch = if(ni) apply(ci, 2, stats::median) else numeric(0)),
+                 rule = c(ftgt = ftgt, btrigger = btrigger, blim = blim), fractiles = fr, run = fit$run %||% "fit"),
+            class = "jb3advice")
+}
+
+#' @export
+print.jb3advice <- function(x, ...){
+  im <- x$imp
+  cat(sprintf("Catch advice for %d (assessment to %d), MSY hockey-stick rule: F = %.2f Fmsy x min(1, B/%.2f Bmsy)\n",
+              x$year, x$last.year, x$rule[["ftgt"]], x$rule[["btrigger"]]))
+  if(length(im$years)) cat(sprintf("Intermediate year%s %s: %s (median catch %s)\n", if(length(im$years) > 1) "s" else "",
+                                   paste(im$years, collapse = ", "), switch(im$basis, Fsq = "status quo F", Csq = "status quo catch", "given catch"),
+                                   paste(round(im$catch), collapse = ", ")))
+  cat(sprintf("Advice-year catch under the HCR: median %s; %s\n\n", round(stats::median(x$catch)),
+              paste(sprintf("%s: %s", sub("HCR, ", "", names(x$advice)), round(x$advice)), collapse = "; ")))
+  print(x$table, row.names = FALSE)
+  invisible(x)
+}
+
+#' Advice-year catch distribution under the harvest control rule
+#'
+#' Density of the catch in the advice year under the MSY hockey-stick rule (\code{\link{jb3_advice}()}), with the median
+#' and the advised catch at each fractile.
+#' @param x a \code{jb3advice}
+#' @param colour fill colour
+#' @export
+jbplot_advicecatch <- function(x, colour = "dodgerblue"){
+  d <- data.frame(C = x$catch)
+  v <- data.frame(C = c(stats::median(x$catch), x$advice), lab = c("median", sprintf("%gth", 100*x$fractiles)))
+  ymax <- max(stats::density(x$catch)$y)
+  ggplot2::ggplot(d, ggplot2::aes(.data$C)) +
+    ggplot2::geom_density(fill = colour, alpha = 0.35, colour = colour) +
+    ggplot2::geom_vline(data = v, ggplot2::aes(xintercept = .data$C, linetype = .data$lab == "median"), show.legend = FALSE) +
+    ggplot2::geom_text(data = v, ggplot2::aes(x = .data$C, y = 1.02*ymax, label = paste0(.data$lab, ": ", round(.data$C))),
+                       angle = 90, hjust = 1, vjust = -0.4, size = 3) +
+    ggplot2::scale_linetype_manual(values = c(`TRUE` = 2, `FALSE` = 1)) +
+    ggplot2::labs(x = paste("Catch in", x$year), y = "Density",
+                  subtitle = sprintf("HCR: F = %.2f Fmsy x min(1, B/%.2f Bmsy); intermediate: %s", x$rule[["ftgt"]], x$rule[["btrigger"]],
+                                     if(length(x$imp$years)) paste(paste(x$imp$years, collapse = ", "), x$imp$basis) else "none")) +
+    theme_jabba3() + ggplot2::theme(axis.text.y = ggplot2::element_blank(), axis.ticks.y = ggplot2::element_blank())
+}
