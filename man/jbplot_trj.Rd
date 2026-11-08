@@ -18,7 +18,8 @@ jbplot_trj(
   proj = NULL,
   label.size = 2.5,
   bthr = 0.5,
-  blim = 0.3
+  blim = 0.3,
+  colours = NULL
 )
 }
 \arguments{
@@ -52,6 +53,9 @@ on the scale of the panels plotted, e.g. \code{c(Blim = 0.5, Bpa = 0.8)} with B/
 defaults of WKBMSYSPiCT); drawn on the B/Bmsy panel (and the B panel for a single run); \code{NULL} to omit.
 With several runs, reference points are drawn only on relative quantities (B/Bmsy, F/Fmsy, and Bmsy/K on B/K when
 it is the same in all runs): absolute levels (K, Bmsy, Fmsy, MSY) differ between runs.}
+
+\item{colours}{colours of the runs (several runs): a vector in the order of the runs, or named by run (e.g.
+\code{c(JABBA3 = "dodgerblue", SPiCT = "black")}); default \code{jb3cols()}}
 }
 \description{
 One facet per quantity, the estimate (mode, or posterior median with NUTS) with its 95\% interval, reference points as

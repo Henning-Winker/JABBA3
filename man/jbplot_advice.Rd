@@ -24,3 +24,9 @@ Stock status (B/Bmsy, F/Fmsy) and catch with MSY reference points, as \code{FLRe
 \code{jagg_advice()}; \code{rel = FALSE} for B, F and catch on absolute scales. Nested 90/60\% bands by default
 (\code{nested = FALSE} for the 95\% interval).
 }
+\details{
+\code{x} can also be an \code{FLStock}/\code{FLStockR} of a biomass-dynamic assessment (e.g. from
+\code{\link{jb3_FLStockR}()}, \code{FLRef::spict2FLStockR()} or \code{FLRef::jabba2FLStockR()}), an \code{FLStocks},
+or a list mixing fits and FLStocks, so that JABBA3 runs can be compared with other assessments. Stocks with
+iterations show intervals; a single iteration shows the trajectory only.
+}

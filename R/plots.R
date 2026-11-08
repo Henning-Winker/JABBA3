@@ -66,11 +66,51 @@ jb3cols <- function(n, alpha = 1){
     if(steps && !is.null(x$steps)) return(x$steps)
     return(stats::setNames(list(x), x$run))
   }
-  if(is.list(x) && all(vapply(x, inherits, TRUE, "jabba3"))){
-    nm <- names(x); if(is.null(nm) || any(nm == "")) nm <- vapply(x, function(f) f$run, "")
+  if(inherits(x, "FLStock")) return(stats::setNames(list(.flr2fit(x, x@name)), if(nzchar(x@name)) x@name else "FLStock"))
+  if(inherits(x, "FLStocks")) x <- stats::setNames(as.list(x@.Data), names(x))
+  if(is.list(x) && all(vapply(x, function(f) inherits(f, c("jabba3", "FLStock")), TRUE))){
+    nm <- names(x)
+    if(is.null(nm)) nm <- rep("", length(x))
+    nm[nm == ""] <- vapply(x[nm == ""], function(f) if(inherits(f, "FLStock")) f@name else f$run, "")
+    x <- lapply(seq_along(x), function(i) if(inherits(x[[i]], "FLStock")) .flr2fit(x[[i]], nm[i]) else x[[i]])
     return(stats::setNames(x, make.unique(nm)))
   }
-  stop("x must be a jabba3 fit or a list of fits", call. = FALSE)
+  stop("x must be a jabba3 fit, an FLStock(R), or a list of them (or FLStocks)", call. = FALSE)
+}
+
+# FLStock / FLStockR (biomass-dynamic, one "age"; e.g. jb3_FLStockR(), FLRef::spict2FLStockR(), FLRef::jabba2FLStockR())
+# as a light fit object for the trajectory plots: B = stock(), F = fbar(), catch; relative (B/Bmsy, F/Fmsy) when the
+# reference points are Bmsy = Fmsy = 1 (rel = TRUE), absolute otherwise. Iterations give the intervals (and the draws for
+# nested bands); a single iteration gives the trajectory only.
+.flr2fit <- function(stk, name = "FLStock"){
+  .need("FLCore", "FLStock inputs need FLCore")
+  yrs <- as.numeric(dimnames(FLCore::stock(stk))$year)
+  mat <- function(q){ a <- as.numeric(q); matrix(a, ncol = length(yrs), byrow = TRUE) }   # iter x year
+  B <- mat(FLCore::stock(stk)); H <- mat(FLCore::fbar(stk)); C <- mat(FLCore::catch(stk))
+  rp <- if(methods::.hasSlot(stk, "refpts") && length(stk@refpts)){
+    r <- stk@refpts; v <- apply(array(as.numeric(r), dim = dim(r)), 1, stats::median, na.rm = TRUE)
+    stats::setNames(v, dimnames(r)[[1]]) } else numeric(0)
+  g <- function(n) if(n %in% names(rp) && is.finite(rp[[n]])) rp[[n]] else NA_real_
+  rel <- isTRUE(abs(g("Bmsy") - 1) < 1e-8 && abs(g("Fmsy") - 1) < 1e-8)
+  dr <- list(Catch = C)
+  if(rel){ dr[["B/Bmsy"]] <- B; dr[["F/Fmsy"]] <- H } else {
+    dr$B <- B; dr$F <- H
+    if(is.finite(g("Bmsy"))) dr[["B/Bmsy"]] <- B/g("Bmsy")
+    if(is.finite(g("Fmsy"))) dr[["F/Fmsy"]] <- H/g("Fmsy")
+  }
+  if(is.finite(g("MSY"))) dr[["Catch/MSY"]] <- C/g("MSY")
+  ni <- nrow(B)
+  ts <- do.call(rbind, lapply(names(dr), function(q){ x <- dr[[q]]
+    data.frame(year = yrs, quantity = q, est = apply(x, 2, stats::median, na.rm = TRUE),
+               lci = if(ni > 1) apply(x, 2, stats::quantile, 0.025, na.rm = TRUE, names = FALSE) else NA_real_,
+               uci = if(ni > 1) apply(x, 2, stats::quantile, 0.975, na.rm = TRUE, names = FALSE) else NA_real_, se.log = NA_real_,
+               run = NA_character_) }))
+  ts$est[!is.finite(ts$est)] <- NA
+  K <- if(rel) g("B0") else g("B0")
+  refpts <- data.frame(est = c(Bmsy = if(rel) 1 else g("Bmsy"), K = K, Fmsy = if(rel) 1 else g("Fmsy"), MSY = g("MSY"),
+                               BmsyK = if(is.finite(K) && K > 0) (if(rel) 1 else g("Bmsy"))/K else NA))
+  structure(list(run = name, stock = name, years = yrs, ts = ts, draws = if(ni > 1) dr else NULL, refpts = refpts,
+                 model = list(sdb.form = "const", lag = 0)), class = "jb3flr")
 }
 
 #' Trajectories with credible intervals
@@ -94,6 +134,8 @@ jb3cols <- function(n, alpha = 1){
 #' @param drop.last drop the last year of F, F/Fmsy and catch (as JAGG's \code{osa = TRUE})
 #' @param proj optional output of \code{\link{jb3_project}()}, appended after the last year
 #' @param label.size size of the reference point labels
+#' @param colours colours of the runs (several runs): a vector in the order of the runs, or named by run (e.g.
+#'   \code{c(JABBA3 = "dodgerblue", SPiCT = "black")}); default \code{jb3cols()}
 #' @param bthr,blim biomass threshold and limit as fractions of Bmsy (defaults 0.5 and 0.3, the SPiCT benchmark
 #'   defaults of WKBMSYSPiCT); drawn on the B/Bmsy panel (and the B panel for a single run); \code{NULL} to omit.
 #'   With several runs, reference points are drawn only on relative quantities (B/Bmsy, F/Fmsy, and Bmsy/K on B/K when
@@ -101,7 +143,7 @@ jb3cols <- function(n, alpha = 1){
 #' @export
 jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Process deviation"), steps = FALSE, refpts = TRUE, extra = NULL,
                        ncol = NULL, colour = "grey45", nested = FALSE, probs = c(0.05, 0.2, 0.5, 0.8, 0.95),
-                       drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3){
+                       drop.last = FALSE, proj = NULL, label.size = 2.5, bthr = 0.5, blim = 0.3, colours = NULL){
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
   d <- do.call(rbind, lapply(names(fl), function(n){
@@ -122,12 +164,14 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
     if(nrow(dr1)) p <- p + ggplot2::geom_ribbon(data = dr1, ggplot2::aes(ymin = .data$lo1, ymax = .data$hi1), fill = colour, alpha = 0.4)
     p <- p + ggplot2::geom_line(linewidth = 0.6)
   } else {
-    cols <- stats::setNames(jb3cols(nr), names(fl))
+    cols <- if(is.null(colours)) jb3cols(nr) else rep(colours, length.out = nr)
+    cols <- if(!is.null(names(colours)) && all(names(fl) %in% names(colours))) colours[names(fl)] else stats::setNames(cols, names(fl))
     if(nrow(dr)) p <- p + ggplot2::geom_ribbon(data = dr, ggplot2::aes(ymin = .data$lci, ymax = .data$uci, fill = .data$run), alpha = 0.15)
     if(nrow(dr1)) p <- p + ggplot2::geom_ribbon(data = dr1, ggplot2::aes(ymin = .data$lo1, ymax = .data$hi1, fill = .data$run), alpha = 0.25)
     p <- p +
       ggplot2::geom_line(ggplot2::aes(colour = .data$run), linewidth = 0.7) +
-      ggplot2::scale_colour_manual(values = cols) + ggplot2::scale_fill_manual(values = cols)
+      ggplot2::scale_colour_manual(values = cols, breaks = names(fl), limits = names(fl), name = NULL) +
+      ggplot2::scale_fill_manual(values = cols, breaks = names(fl), limits = names(fl), name = NULL)   # one legend
   }
   if(!is.null(proj)){
     pr <- proj$ts[proj$ts$quantity %in% type, c("scenario", "year", "quantity", "est", "lci", "uci")]
@@ -211,6 +255,11 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
 #' Stock status (B/Bmsy, F/Fmsy) and catch with MSY reference points, as \code{FLRef::plotAdvice()} and JAGG's
 #' \code{jagg_advice()}; \code{rel = FALSE} for B, F and catch on absolute scales. Nested 90/60\% bands by default
 #' (\code{nested = FALSE} for the 95\% interval).
+#'
+#' \code{x} can also be an \code{FLStock}/\code{FLStockR} of a biomass-dynamic assessment (e.g. from
+#' \code{\link{jb3_FLStockR}()}, \code{FLRef::spict2FLStockR()} or \code{FLRef::jabba2FLStockR()}), an \code{FLStocks},
+#' or a list mixing fits and FLStocks, so that JABBA3 runs can be compared with other assessments. Stocks with
+#' iterations show intervals; a single iteration shows the trajectory only.
 #' @inheritParams jbplot_trj
 #' @param rel relative (default) or absolute quantities
 #' @param panels quantities to show instead of the default set
