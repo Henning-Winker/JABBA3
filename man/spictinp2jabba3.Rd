@@ -19,13 +19,24 @@ list(data, priors, model)
 \description{
 Translates a SPiCT input list (\code{inp}, as passed to \code{spict::fit.spict()}) into JABBA3 \code{data},
 \code{priors} and \code{model}. SPiCT works in continuous time; JABBA3 is annual, so catches are summed and index
-observations within a year averaged (geometric mean) by calendar year (\code{floor(time)}). The SPiCT observation-error
-form is used (\code{obs.error = "spict"}), with \code{stdevfacI} as relative year weights.
+observations within a year averaged (geometric mean) by calendar year (\code{floor(time)}); within-year index timing
+is not used.
 }
 \details{
-Priors: \code{logr}, \code{logK}, \code{logbkfrac} (-> bkinit), \code{logsdb} (-> sdb), \code{logn} (-> shape m),
-\code{logsdi} (-> sdi) are carried over with their on/off switches (prior vectors \code{c(mean, sd[, on])} on the log
-scale). A fixed n (\code{phases$logn = -1}) fixes the shape. SPiCT's r and JABBA's r coincide for the Pella-Tomlinson
-form (MSY = rK / n^(n/(n-1))). The ratio priors \code{logalpha}, \code{logbeta} and the F process have no JABBA3
-equivalent and are reported. Catch error is on with \code{sdc} from the \code{logsdc} prior or initial value.
+Years: the model years span the catch and the indices, as in SPiCT. Index years before or after the catch series are
+kept, and the catch in those years is estimated with an F random walk (\code{jb3_data(catch.gaps = "estimate")}).
+
+Observation error: the SPiCT form is used (\code{obs.error = "spict"}): the SD of an index observation is
+\code{sdi[index] * stdevfacI}, with \code{stdevfacI} passed as the index se (multipliers of sdi, as in SPiCT). For
+several observations in a year the multiplier of their geometric mean is \code{sqrt(sum(stdevfacI^2))/n}. Index
+groups sharing sdi (\code{mapsdi}) and q (\code{mapq}) are kept (\code{sets.var}, \code{sets.q}). Catch error is on,
+with the catch SD \code{sdc * stdevfacC} by year (\code{catch.se}), \code{sdc} from the \code{logsdc} prior (or
+initial value).
+
+Priors: \code{logr}, \code{logK}, \code{logbkfrac} (-> bkinit, first model year), \code{logsdb} (-> sdb), \code{logn}
+(-> shape m), \code{logsdi} (-> sdi; one prior per index when given as a list, as in SPiCT) and \code{logsdf}
+(-> sdf, F random walk in years without catch) are carried over with their on/off switches (prior vectors
+\code{c(mean, sd[, on])} on the log scale). A fixed n (\code{phases$logn = -1}) fixes the shape. SPiCT's r and
+JABBA's r coincide for the Pella-Tomlinson form (MSY = rK / n^(n/(n-1))). The ratio priors \code{logalpha},
+\code{logbeta} and the F process in years with catch have no JABBA3 equivalent and are reported.
 }

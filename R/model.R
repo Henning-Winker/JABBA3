@@ -16,7 +16,7 @@
 #' @param biascor lognormal process error bias correction (log mean - var/2)
 #' @param start "all" (default): process error in all years; "index": deterministic before the first index year
 #'   (JABBA \code{proc.dev.all = FALSE})
-#' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x relative se weights
+#' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)
 #' @param se.min fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)
 #' @param se.na SE used where an index has SEs but a year has none (JABBA: 0.3)
 #' @param sets.q,sets.var catchability and observation-variance groups (one entry per index; default one each)

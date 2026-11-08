@@ -70,7 +70,7 @@ d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$r
 \item{start}{"all" (default): process error in all years; "index": deterministic before the first index year
 (JABBA \code{proc.dev.all = FALSE})}
 
-\item{obs.error}{"additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x relative se weights}
+\item{obs.error}{"additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)}
 
 \item{se.min}{fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)}
 

@@ -50,7 +50,9 @@ on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.064
 \item{rho}{AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
 default (rho fixed by \code{jb3_model(rho = )})}
 
-\item{sdi}{index observation SD prior (only with \code{obs.error = "spict"}), off by default}
+\item{sdi}{index observation SD prior (only with \code{obs.error = "spict"}), off by default: one prior
+\code{c(median, log.sd, on)} for all observation-variance groups, or a list (or 3-column matrix) with one prior per
+group (\code{sets.var} in \code{jb3_model()}; by default one group per index), as SPiCT's \code{logsdi} by index}
 
 \item{status}{optional status priors: a data.frame(year, type, median, log.sd) with type one of "BK", "BBmsy",
 "FFmsy" (lower case and JABBA's "bk", "bbmsy", "ffmsy" accepted; year NA = terminal year of the fit), the output of

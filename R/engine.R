@@ -40,7 +40,8 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   for(i in seq_len(nI)){
     if(hasse[i]){ s <- SEm[, i]; s[is.na(s)] <- model$se.na
       SE2[, i] <- s^2 + (semin %||% 0.001)^2
-      W[, i] <- s/mean(s[!is.na(I[, i])])
+      # SPiCT form: the se are multipliers of sdi (SPiCT stdevfacI), used as given; missing = 1
+      W[, i] <- if(model$obs.error == "spict") ifelse(is.na(SEm[, i]), 1, SEm[, i]) else s/mean(s[!is.na(I[, i])])
     } else SE2[, i] <- (semin %||% 0.1)^2
   }
   # priors (K and q on the catch-scaled internal units)
@@ -78,7 +79,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
     r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
     sdb.ig = priors$sdb.type == "igamma", q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
-    sdi.pr = priors$sdi,
+    sdi.pr = .sdi_prior(priors$sdi, nvar),
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,
     rw = isTRUE(model$rw), rw.scale = model$rw.scale %||% 1,
     rho.fix = model$rho, est.rho = priors$rho[3] == 1, rho.pr = priors$rho,
@@ -179,7 +180,7 @@ jb3_nll <- function(par, dat){
     else if(sdb.pr[3] == 1) nll <- nll - dnorm(logsdb, log(sdb.pr[1]), sdb.pr[2], TRUE)
   }
   sdi <- exp(logsdi)
-  if(spict){ if(sdi.pr[3] == 1) nll <- nll - sum(dnorm(logsdi, log(sdi.pr[1]), sdi.pr[2], TRUE)) }
+  if(spict) nll <- nll - sum(sdi.pr[, 3]*dnorm(logsdi, log(sdi.pr[, 1]), sdi.pr[, 2], TRUE))
   else nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))         # JABBA: gamma(0.001, 0.001) on 1/sdi^2
   if(dyn){
     if(est.k){ pk <- 1/(1 + exp(-tk)); kdyn <- -0.5 + 2.5*pk
@@ -400,3 +401,13 @@ jb3_nll <- function(par, dat){
 }
 
 .aux_x <- function(type, H, P, BBmsy, HHmsy) switch(type, H, -log(1 - pmin(H, 0.99)), HHmsy, BBmsy, P, pmax(1 - (1 - 0.1)*(1 - H), 0.001))
+
+# sdi prior as an nvar x 3 matrix (median, log.sd, on): one prior for all variance groups, or one per group
+.sdi_prior <- function(x, nvar){
+  nvar <- max(nvar, 1)
+  m <- if(is.matrix(x)) x else matrix(rep(as.numeric(x), each = nvar), nvar, 3)
+  if(nrow(m) == 1 && nvar > 1) m <- m[rep(1, nvar), , drop = FALSE]
+  if(nrow(m) != nvar) stop("the sdi prior has ", nrow(m), " rows but the model has ", nvar, " observation-variance groups (sets.var)", call. = FALSE)
+  m[m[, 3] != 1, 1:2] <- 1                       # unused priors: finite placeholders
+  unname(m)
+}

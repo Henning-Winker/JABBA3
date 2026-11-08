@@ -102,14 +102,25 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
 #'
 #' Translates a SPiCT input list (\code{inp}, as passed to \code{spict::fit.spict()}) into JABBA3 \code{data},
 #' \code{priors} and \code{model}. SPiCT works in continuous time; JABBA3 is annual, so catches are summed and index
-#' observations within a year averaged (geometric mean) by calendar year (\code{floor(time)}). The SPiCT observation-error
-#' form is used (\code{obs.error = "spict"}), with \code{stdevfacI} as relative year weights.
+#' observations within a year averaged (geometric mean) by calendar year (\code{floor(time)}); within-year index timing
+#' is not used.
 #'
-#' Priors: \code{logr}, \code{logK}, \code{logbkfrac} (-> bkinit), \code{logsdb} (-> sdb), \code{logn} (-> shape m),
-#' \code{logsdi} (-> sdi) are carried over with their on/off switches (prior vectors \code{c(mean, sd[, on])} on the log
-#' scale). A fixed n (\code{phases$logn = -1}) fixes the shape. SPiCT's r and JABBA's r coincide for the Pella-Tomlinson
-#' form (MSY = rK / n^(n/(n-1))). The ratio priors \code{logalpha}, \code{logbeta} and the F process have no JABBA3
-#' equivalent and are reported. Catch error is on with \code{sdc} from the \code{logsdc} prior or initial value.
+#' Years: the model years span the catch and the indices, as in SPiCT. Index years before or after the catch series are
+#' kept, and the catch in those years is estimated with an F random walk (\code{jb3_data(catch.gaps = "estimate")}).
+#'
+#' Observation error: the SPiCT form is used (\code{obs.error = "spict"}): the SD of an index observation is
+#' \code{sdi[index] * stdevfacI}, with \code{stdevfacI} passed as the index se (multipliers of sdi, as in SPiCT). For
+#' several observations in a year the multiplier of their geometric mean is \code{sqrt(sum(stdevfacI^2))/n}. Index
+#' groups sharing sdi (\code{mapsdi}) and q (\code{mapq}) are kept (\code{sets.var}, \code{sets.q}). Catch error is on,
+#' with the catch SD \code{sdc * stdevfacC} by year (\code{catch.se}), \code{sdc} from the \code{logsdc} prior (or
+#' initial value).
+#'
+#' Priors: \code{logr}, \code{logK}, \code{logbkfrac} (-> bkinit, first model year), \code{logsdb} (-> sdb), \code{logn}
+#' (-> shape m), \code{logsdi} (-> sdi; one prior per index when given as a list, as in SPiCT) and \code{logsdf}
+#' (-> sdf, F random walk in years without catch) are carried over with their on/off switches (prior vectors
+#' \code{c(mean, sd[, on])} on the log scale). A fixed n (\code{phases$logn = -1}) fixes the shape. SPiCT's r and
+#' JABBA's r coincide for the Pella-Tomlinson form (MSY = rK / n^(n/(n-1))). The ratio priors \code{logalpha},
+#' \code{logbeta} and the F process in years with catch have no JABBA3 equivalent and are reported.
 #' @param inp SPiCT input list
 #' @param stock stock name
 #' @param verbose print conversion messages
@@ -118,46 +129,72 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
 spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE){
   msg <- function(...) if(verbose) message("spictinp2jabba3: ", ...)
   pr <- inp$priors %||% list(); ini <- inp$ini %||% list(); ph <- inp$phases %||% list()
-  # catch: annual sums
   if(is.null(inp$obsC) || is.null(inp$timeC)) stop("inp needs obsC and timeC", call. = FALSE)
+  # catch: annual sums; catch SD multipliers (stdevfacC) averaged by year
   cy <- floor(inp$timeC + 1e-8)
-  catch <- data.frame(year = sort(unique(cy)), catch = as.numeric(tapply(inp$obsC, cy, sum)))
+  cyrs <- sort(unique(cy))
+  catch <- data.frame(year = cyrs, catch = as.numeric(tapply(inp$obsC, cy, sum)))
   if(any(inp$timeC %% 1 > 1e-8)) msg("sub-annual catches summed by calendar year")
+  sfC <- if(is.null(inp$stdevfacC)) rep(1, length(cyrs)) else as.numeric(tapply(inp$stdevfacC, cy, mean))
   # indices: lists or a single vector
   obsI <- if(is.list(inp$obsI)) inp$obsI else list(inp$obsI)
   timeI <- if(is.list(inp$timeI)) inp$timeI else list(inp$timeI)
   sfI <- inp$stdevfacI; if(!is.null(sfI) && !is.list(sfI)) sfI <- list(sfI)
+  if(is.null(sfI)) sfI <- lapply(obsI, function(x) rep(1, length(x)))
   nm <- names(obsI); if(is.null(nm) || any(nm == "")) nm <- paste0("I", seq_along(obsI))
-  yrs <- seq(min(catch$year), max(catch$year))
+  iy <- lapply(timeI, function(t) floor(t + 1e-8))
+  yrs <- seq(min(c(cyrs, unlist(iy))), max(c(cyrs, unlist(iy))))
   I <- data.frame(year = yrs); S <- data.frame(year = yrs); seas <- FALSE
   for(i in seq_along(obsI)){
-    ty <- floor(timeI[[i]] + 1e-8); if(any(duplicated(ty))) seas <- TRUE
-    gm <- tapply(log(obsI[[i]]), ty, mean)
-    I[[nm[i]]] <- exp(as.numeric(gm))[match(yrs, as.numeric(names(gm)))]
-    S[[nm[i]]] <- if(is.null(sfI)) NA else as.numeric(tapply(sfI[[i]], ty, mean))[match(yrs, as.numeric(names(gm)))]
+    ty <- iy[[i]]; ok <- is.finite(obsI[[i]]) & obsI[[i]] > 0
+    if(any(duplicated(ty[ok]))) seas <- TRUE
+    gm <- tapply(log(obsI[[i]][ok]), ty[ok], mean)
+    sm <- tapply(sfI[[i]][ok], ty[ok], function(f) sqrt(sum(f^2))/length(f))
+    k <- match(yrs, as.numeric(names(gm)))
+    I[[nm[i]]] <- exp(as.numeric(gm))[k]; S[[nm[i]]] <- as.numeric(sm)[k]
   }
-  if(seas) msg("several index observations per year averaged (geometric mean)")
-  outside <- setdiff(unlist(lapply(timeI, floor)), yrs)
-  if(length(outside)) msg("index years outside the catch years dropped")
-  data <- jb3_data(catch, I, if(is.null(sfI)) NULL else S, stock = stock)
-  # priors: SPiCT c(mean, sd, on) on the log scale -> JABBA3 c(median, log.sd, on)
-  lp <- function(nm, default){ x <- pr[[nm]]; if(is.null(x)) return(default); x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
-    c(exp(x[1]), x[2], x[3]) }
+  if(seas) msg("several index observations per year averaged (geometric mean; stdevfacI combined as sqrt(sum(f^2))/n)")
+  if(any(unlist(timeI) %% 1 > 1e-8)) msg("within-year index timing not used (annual model: indices refer to the start of the year)")
+  gaps <- length(setdiff(yrs, cyrs)) > 0
+  if(gaps) msg("model years ", min(yrs), "-", max(yrs), " span catch and indices; catch in ", length(setdiff(yrs, cyrs)),
+               " years without catch (", .yr_ranges(setdiff(yrs, cyrs)), ") estimated with an F random walk")
+  # priors: SPiCT c(mean, sd, on) on the log scale -> JABBA3 c(median, log.sd, on); lists (by index) -> one row per index
+  lp1 <- function(x){ x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1); c(exp(x[1]), x[2], x[3]) }
+  lp <- function(p, default){ x <- pr[[p]]; if(is.null(x)) return(default)
+    if(is.list(x)){ m <- do.call(rbind, lapply(x, lp1)); rownames(m) <- names(x); return(m) }
+    lp1(x) }
+  on <- function(x) !is.null(x) && any(if(is.matrix(x)) x[, 3] == 1 else x[3] == 1)
   r <- lp("logr", c(0.2, 0.5, 1)); K <- lp("logK", c(NA, cv2sd(1), 0)); bk <- lp("logbkfrac", c(0.9, 0.25, 0))
-  sdb <- lp("logsdb", NULL); sdi <- lp("logsdi", c(0.2, 0.5, 0)); n <- lp("logn", NULL)
+  sdb <- lp("logsdb", NULL); n <- lp("logn", NULL); sdf <- lp("logsdf", NULL)
+  if(K[3] == 0) K <- c(NA, cv2sd(1), 0)            # SPiCT placeholder for an unused K prior: JABBA3 default start (8 x max catch)
   if(r[3] == 0) msg("no r prior in SPiCT: JABBA3 runs with r flat on the log scale (SPiCT benchmarks normally use one)")
   if(any(vapply(c("logalpha", "logbeta"), function(p) !is.null(pr[[p]]) && length(pr[[p]]) > 2 && pr[[p]][3] == 1, TRUE)))
     msg("alpha/beta ratio priors have no JABBA3 equivalent and were dropped")
-  if(is.null(sdb) || sdb[3] == 0){ sdb <- "fishlife"; msg("no sdb prior: JABBA3 FishLife default prior on sdb used") }
+  if(!on(sdb)){ sdb <- "fishlife"; msg("no sdb prior: JABBA3 FishLife default prior on sdb used") }
+  # observation-variance and catchability groups
+  ni <- length(obsI)
+  sets.var <- if(!is.null(inp$mapsdi) && length(inp$mapsdi) == ni) as.integer(inp$mapsdi) else seq_len(ni)
+  if(isTRUE(inp$onesdi)) sets.var <- rep(1L, ni)
+  sets.q <- if(!is.null(inp$mapq) && length(inp$mapq) == ni) as.integer(inp$mapq) else seq_len(ni)
+  sdi <- lp("logsdi", c(0.2, 0.5, 0))
+  if(is.matrix(sdi)){
+    if(nrow(sdi) != ni) stop("logsdi has ", nrow(sdi), " priors for ", ni, " indices", call. = FALSE)
+    sdi <- sdi[!duplicated(sets.var), , drop = FALSE]          # one prior per sdi group (first index of the group)
+  }
   n.fix <- !is.null(ph$logn) && ph$logn < 0
   if(n.fix){ m <- exp(as.numeric(ini$logn %||% log(2))); m.pr <- c(NA, 0.3, 0) }
   else if(!is.null(n) && n[3] == 1){ m <- n[1]; m.pr <- n }
   else { m <- 2; m.pr <- c(NA, 0.3, 0); msg("n neither fixed nor with a prior: Schaefer shape (n = 2) used") }
   shape <- if(abs(m - 2) < 1e-6) "schaefer" else "pella"
   bmsyk <- if(shape == "schaefer") 0.5 else m^(-1/(m - 1))
-  priors <- jb3_priors(data, r = r, K = K, bkinit = bk, sdb = sdb, m = m.pr, sdi = sdi)
-  sdc <- if(!is.null(pr$logsdc) && length(pr$logsdc) > 2 && pr$logsdc[3] == 1) exp(pr$logsdc[1]) else exp(as.numeric(ini$logsdc %||% log(0.1)))
-  model <- jb3_model(shape = shape, BmsyK = bmsyk, obs.error = "spict", catch.error = TRUE, sdc = sdc)
-  msg("the F process (sdf) is not modelled; catch enters with lognormal error (sdc = ", signif(sdc, 2), ")")
+  sdc <- if(on(pr$logsdc)) exp(pr$logsdc[1]) else exp(as.numeric(ini$logsdc %||% log(0.1)))
+  cse <- data.frame(year = cyrs, se = sdc*sfC)
+  data <- jb3_data(catch, I, S, stock = stock, catch.se = cse, catch.gaps = if(gaps) "estimate" else "stop")
+  priors <- jb3_priors(data, r = r, K = K, bkinit = bk, sdb = sdb, m = m.pr, sdi = sdi,
+                       sdf = if(on(sdf)) sdf else c(0.3, 0.5, 1))
+  model <- jb3_model(shape = shape, BmsyK = bmsyk, obs.error = "spict", catch.error = TRUE, sdc = sdc,
+                     sets.var = sets.var, sets.q = sets.q)
+  msg("catch error: sdc = ", signif(sdc, 2), if(any(sfC != 1)) paste0(" x stdevfacC (catch SD ", paste(signif(range(sdc*sfC), 2), collapse = "-"), ")"),
+      "; the F process is only modelled in years without catch")
   list(data = data, priors = priors, model = model)
 }
