@@ -53,3 +53,9 @@ test_that("workflow fits rerun the workflow from the original inputs", {
   expect_length(f$steps, 2)
   expect_equal(f$steps[[1]]$model$lag, 0)
 })
+
+test_that("dropped NULL entries are not taken as hand edits", {
+  f0 <- fit; f0$model$ebsb <- NULL
+  expect_silent(f <- update(f0, model = list(rho = 0.5)))
+  expect_equal(f$model$rho, 0.5)
+})
