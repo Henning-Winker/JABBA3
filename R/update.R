@@ -54,7 +54,7 @@ update.jabba3 <- function(object, data = NULL, priors = NULL, model = NULL, reco
 
 # TRUE if an object built by f() was changed by hand after it was built
 .edited <- function(x, rebuilt){
-  strip <- function(o){ attr(o, "args") <- NULL; unclass(o) }
+  strip <- function(o){ attr(o, "args") <- NULL; o <- unclass(o); o[!vapply(o, is.null, TRUE)] }   # NULL entries may be dropped (e.g. model$ebsb in workflows)
   !isTRUE(all.equal(strip(x), strip(rebuilt)))
 }
 
