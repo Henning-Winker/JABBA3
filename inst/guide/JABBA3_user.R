@@ -2817,8 +2817,8 @@ t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %i
 #' benchmarked at the ICES workshop WKBELASMO with SPiCT (ICES, 2023;
 #' Pedersen and Berg, 2017). This chapter converts the final SPiCT assessment to JABBA3,
 #' introduces the hybrid F random walk that JABBA3 uses for index years without
-#' catch, applies the production lag and AR(1) process error, and compares the
-#' runs with the SPiCT assessment in an ICES advice plot.
+#' catch, and compares the JABBA3 run with the SPiCT assessment in an ICES advice
+#' plot.
 #' 
 #' ## The benchmark assessment
 #' 
@@ -2910,54 +2910,31 @@ jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, bli
            panels = c("Catch", "F/Fmsy", "B/Bmsy"))
 
 #' 
-#' ## Production lag and AR(1) process error
-#' 
-#' Age at maturity follows from the benchmark growth parameters and the length at
-#' 50% maturity (73.7 cm), and the AR(1) persistence is set to the default
-#' $\rho = 0.75$:
-#' 
-## ----rjc-lag------------------------------------------------------------------
-lh <- rjc$info$lh
-amat <- round(lh[["t0"]] - log(1 - lh[["L50"]]/lh[["Linf"]])/lh[["k"]])
-amat
-fl <- update(fr, model = list(lag = amat, rho = 0.75), run = paste0("Lag ", amat, " + AR(1)"))
-
-#' 
-## ----rjc-lag-plot, fig.width = 10, fig.height = 6.5---------------------------
-jabbaplot3(list(JABBA3 = fr, `Lag 6 + AR(1)` = fl), bthr = NULL, blim = NULL,
-           panels = c("B/Bmsy", "F/Fmsy", "procdev", "kobe"))
-
-#' 
 #' ## Comparison with the SPiCT assessment
 #' 
-#' `jb3_FLStockR()` converts the JABBA3 runs to `FLStockR` objects with posterior
+#' `jb3_FLStockR()` converts the JABBA3 run to an `FLStockR` with posterior
 #' draws, which `FLRef::plotAdvice()` combines with the SPiCT assessment. The SPiCT
 #' `FLStockR` holds the estimated trajectory only, so the intervals are shown for
-#' the JABBA3 runs.
+#' JABBA3.
 #' 
 ## ----rjc-advice, fig.width = 10, fig.height = 5, eval = requireNamespace("FLRef", quietly = TRUE)----
-stks <- FLCore::FLStocks(SPiCT = rjc$spict.stk,
-                         JABBA3 = jb3_FLStockR(fr, ndraws = 500),
-                         `Lag 6 + AR(1)` = jb3_FLStockR(fl, ndraws = 500))
+stks <- FLCore::FLStocks(SPiCT = rjc$spict.stk, JABBA3 = jb3_FLStockR(fr, ndraws = 500))
 FLRef::plotAdvice(stks, ncol = 3)
 
 #' 
-#' Terminal status (2021) of the JABBA3 runs:
+#' Terminal status (2021) of the two JABBA3 runs:
 #' 
 ## ----rjc-status---------------------------------------------------------------
 st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
   stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
-noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl), st)))
+noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa), st)))
 
 #' 
 #' The converted JABBA3 run reproduces the SPiCT perception: depleted in the
 #' 1990s, F below $F_{MSY}$ since the mid-2000s and a rebuilding stock close to
 #' $B_{MSY}$ in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). JABBA3 is
 #' slightly lower in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual
-#' time step and the index timing. The lag and AR(1) process error widen the
-#' intervals but change the terminal status little: for this stock the data do not
-#' separate the configurations, and the persistence of production anomalies
-#' mainly shows as uncertainty.
+#' time step and the index timing.
 #' 
 #' # FLR outputs
 #' 
