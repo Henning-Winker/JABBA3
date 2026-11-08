@@ -93,21 +93,30 @@ With the random walk on all years:
 fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
 ```
 
-```{r rjc-frw-plot, fig.width = 10, fig.height = 4}
+```{r rjc-frw-plot, fig.width = 10, fig.height = 6.5}
 jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, blim = NULL,
-           panels = c("Catch", "F/Fmsy", "B/Bmsy"))
+           panels = c("Catch", "F/Fmsy", "B/Bmsy", "procdev"))
 ```
 
 ## Comparison with the SPiCT assessment
 
 `jb3_FLStockR()` converts the JABBA3 run to an `FLStockR` with posterior
-draws, which `FLRef::plotAdvice()` combines with the SPiCT assessment. The SPiCT
-`FLStockR` holds the estimated trajectory only, so the intervals are shown for
-JABBA3.
+draws. `jbplot_advice()` takes `FLStock`/`FLStockR` objects as well as fits, so
+the JABBA3 run can be shown with the SPiCT assessment as an `FLStocks` (or a list
+mixing fits and stocks). The SPiCT `FLStockR` holds the estimated trajectory
+only, so the intervals are shown for JABBA3:
 
-```{r rjc-advice, fig.width = 10, fig.height = 5, eval = requireNamespace("FLRef", quietly = TRUE)}
-stks <- FLCore::FLStocks(SPiCT = rjc$spict.stk, JABBA3 = jb3_FLStockR(fr, ndraws = 500))
-FLRef::plotAdvice(stks, ncol = 3)
+```{r rjc-advice, fig.width = 10, fig.height = 3.8}
+stks <- FLCore::FLStocks(JABBA3 = jb3_FLStockR(fr, ndraws = 1000), SPiCT = rjc$spict.stk)
+jbplot_advice(stks, colours = c(JABBA3 = "dodgerblue", SPiCT = "black"), ncol = 3)
+```
+
+The same with `FLRef::plotAdvice()`, with the colours set manually:
+
+```{r rjc-advice-flref, fig.width = 10, fig.height = 4.5, eval = requireNamespace("FLRef", quietly = TRUE)}
+FLRef::plotAdvice(stks, ncol = 3, type = "spm") +
+  ggplot2::scale_fill_manual(values = c("dodgerblue", "black")) +
+  ggplot2::scale_colour_manual(values = c("dodgerblue", "black"))
 ```
 
 Terminal status (2021) of the two JABBA3 runs:
