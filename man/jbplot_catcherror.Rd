@@ -11,5 +11,7 @@ jbplot_catcherror(fit)
 }
 \description{
 As JABBA's \code{jbplot_catcherror()}: observed catch (points) and estimated catch with its 95\% interval, and the
-log ratio of estimated to observed catch. Without catch error the catch is assumed known and the plot says so.
+log ratio of estimated to observed catch. Without catch error the catch is assumed known and the plot says so. Years
+without catch (\code{jb3_data(catch.gaps = "estimate")}, e.g. index years before the catch series) are shaded: the
+catch there is predicted from the F random walk and the biomass, so the estimated series extends beyond the observed one.
 }
