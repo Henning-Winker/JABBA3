@@ -336,3 +336,30 @@ print.jb3data <- function(x, ...){
 #' sx <- jb3_selex(kobsim$lhpar, kobsim$selpar)
 #' sx
 "kobsim"
+
+#' Thornback ray in the North Sea: the ICES WKBELASMO 2023 SPiCT assessment
+#'
+#' SPiCT input and final assessment of thornback ray (\emph{Raja clavata}) in Subarea 4 and divisions 3.a and 7.d
+#' (North Sea, Skagerrak, Kattegat and eastern English Channel; rjc.27.3a47d), benchmarked at the ICES workshop
+#' WKBELASMO (ICES 2023, Benchmark workshop on selected elasmobranch stocks, ICES Scientific Reports 5:45,
+#' doi:10.17895/ices.pub.22760042). Removals (landings and dead discards) 1999-2021, with 1999-2008 reconstructed and
+#' twice the catch SD before 2009; two combined survey biomass indices (rays >= 30 cm): Q14 (NS-IBTS-Q1 and FR-CGFS-Q4,
+#' 1989-2021) and Q3 (NS-IBTS-Q3, BTS-Eng-Q3 and BTS-BEL-Q3, 1991-2021). Priors: r 0.15 (CV 0.3), Schaefer shape,
+#' bkfrac 0.15 (CV 0.5), sdb 0.07 (CV 0.5), sdi by index and sdc. Script: \code{data-raw/rjc.R}.
+#' @format list with
+#' \describe{
+#'   \item{inp}{SPiCT input list of the final assessment (\code{obsC}, \code{timeC}, \code{stdevfacC}, \code{obsI},
+#'     \code{timeI}, \code{stdevfacI}, \code{dteuler}, \code{priors}); refit with \code{spict::fit.spict(rjc$inp)} or
+#'     convert with \code{\link{spictinp2jabba3}()}}
+#'   \item{spict.stk}{the fitted SPiCT assessment as an \code{FLStockR} relative to MSY reference points
+#'     (\code{FLRef::spict2FLStockR(fit, rel = TRUE)}); needs FLCore}
+#'   \item{info}{stock, area, index definitions and the life-history parameters of the benchmark (\code{lh}: von
+#'     Bertalanffy growth in cm, length at 50\% and 95\% maturity, length-weight a and b, M, maximum age)}
+#' }
+#' @examples
+#' data(rjc)
+#' xs <- spictinp2jabba3(rjc$inp, stock = "rjc.27.3a47d")
+#' \donttest{
+#' fit <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
+#' }
+"rjc"

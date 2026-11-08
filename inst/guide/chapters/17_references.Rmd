@@ -16,6 +16,8 @@ Hoyle, S.D., Huang, J.H.-W., Kim, D.N., Lee, M.K., Matsumoto, T. and Walter, J. 
 
 ICCAT (2018). Report of the 2018 ICCAT bigeye tuna stock assessment meeting. International Commission for the Conservation of Atlantic Tunas, Madrid. <https://www.iccat.int/Documents/Meetings/Docs/2018/REPORTS/2018_BET_SA_ENG.pdf>
 
+ICES (2023). Benchmark workshop on selected elasmobranch stocks (WKBELASMO). *ICES Scientific Reports* 5:45. 117 pp. doi:10.17895/ices.pub.22760042
+
 Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R. (2025).
 Transforming data and capacity-limited stock assessment: achieving risk
 equivalence with hierarchical assessment frameworks and auxiliary data.

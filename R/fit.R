@@ -184,9 +184,12 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   ts <- rbind(tsq("B", g("logB"), mu, B), tsq("F", g("logF"), 1, rep$H), tsq("B/Bmsy", g("logBBmsy"), 1, rep$BBmsy),
               tsq("F/Fmsy", g("logFFmsy"), 1, rep$HHmsy),
               cbind(data.frame(year = yrs, quantity = "B/K"), data.frame(est = exp(lp), lci = exp(lp - 1.96*lps), uci = exp(lp + 1.96*lps), se.log = lps)),
-              data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
-                         lci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] - 1.96*g("estC")[, 2])*mu else rep$estC*mu,
-                         uci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] + 1.96*g("estC")[, 2])*mu else rep$estC*mu, se.log = NA),
+              {   # estimated catch: lognormal CI (delta method: se.log = se/est), so the interval stays positive
+                gc <- if(dat$catch.err || dat$nmiss > 0) g("estC") else NULL
+                sl <- if(is.null(gc)) rep(NA_real_, length(yrs)) else gc[, 2]/pmax(gc[, 1], 1e-12)
+                data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
+                           lci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(-1.96*sl)),
+                           uci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(1.96*sl)), se.log = sl) },
               data.frame(year = yrs, quantity = "Process deviation", est = rep$procdev,
                          lci = if(is.null(pd)) NA else pd[, 1] - 1.96*pd[, 2], uci = if(is.null(pd)) NA else pd[, 1] + 1.96*pd[, 2], se.log = NA),
               data.frame(year = yrs, quantity = "Process SD", est = rep$sdt, lci = NA, uci = NA, se.log = NA),
