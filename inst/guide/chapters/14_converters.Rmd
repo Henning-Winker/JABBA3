@@ -32,12 +32,17 @@ signif(f2$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 `spictinp2jabba3()` takes a SPiCT input list (`inp`, as passed to
 `spict::fit.spict()`). JABBA3 is an annual model: catches are summed by
 calendar year and several index observations in a year are averaged
-(geometric mean). SPiCT's observation-error form is used
-(`obs.error = "spict"`), with `stdevfacI` as relative weights. The priors
-`logr`, `logK`, `logbkfrac`, `logsdb`, `logn` and `logsdi` carry over with
-their on/off switches, and a fixed `n` (phase -1) fixes the shape. The `alpha`
-and `beta` priors (ratios of observation to process SDs) and the F process
-have no JABBA3 equivalent and are reported as dropped.
+(geometric mean). The model years span the catch and the indices, as in SPiCT;
+the catch in index years without catch is estimated with the hybrid F random
+walk (see the thornback ray chapter). SPiCT's observation-error form is used
+(`obs.error = "spict"`): the observation SD is `sdi[index] * stdevfacI`, and
+the catch SD `sdc * stdevfacC`. The priors `logr`, `logK`, `logbkfrac`,
+`logsdb`, `logn`, `logsdi` (one prior per index when given by index) and
+`logsdf` carry over with their on/off switches, and a fixed `n` (phase -1)
+fixes the shape. The `alpha` and `beta` priors (ratios of observation to
+process SDs) and the F process in years with catch have no JABBA3 equivalent
+and are reported as dropped. The thornback ray chapter converts a full ICES
+benchmark assessment.
 
 A SPiCT-style input list built from the bigeye data:
 

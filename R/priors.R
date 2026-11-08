@@ -20,7 +20,9 @@
 #'   on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.064 - 0.155 log r)}, sd 0.15
 #' @param rho AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
 #'   default (rho fixed by \code{jb3_model(rho = )})
-#' @param sdi index observation SD prior (only with \code{obs.error = "spict"}), off by default
+#' @param sdi index observation SD prior (only with \code{obs.error = "spict"}), off by default: one prior
+#'   \code{c(median, log.sd, on)} for all observation-variance groups, or a list (or 3-column matrix) with one prior per
+#'   group (\code{sets.var} in \code{jb3_model()}; by default one group per index), as SPiCT's \code{logsdi} by index
 #' @param status optional status priors: a data.frame(year, type, median, log.sd) with type one of "BK", "BBmsy",
 #'   "FFmsy" (lower case and JABBA's "bk", "bbmsy", "ffmsy" accepted; year NA = terminal year of the fit), the output of
 #'   \code{\link{jb3_bprior}()}, or a JABBA \code{b.prior} vector c(mean, cv, year, type) (the cv used as log-scale SD, as
@@ -43,6 +45,7 @@
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
                        creep = c(0.02, 0.02), sdf = c(0.3, 0.5, 1), K.max = NULL){
+  args <- .fn_args()
   pr3 <- function(x, nm){
     x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
     if(length(x) != 3) stop("prior ", nm, " must be c(median, log.sd[, on])", call. = FALSE)
@@ -59,7 +62,7 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   m <- pr3(m, "m")
   if(is.null(kdyn)) kdyn <- c(if(r[["median"]] > 1.5) 0 else max(0, 0.064 - 0.155*log(r[["median"]])), 0.15, 1)
   kdyn <- stats::setNames(as.numeric(c(kdyn, 1)[1:3]), c("mean", "sd", "on"))
-  sdi <- pr3(sdi, "sdi"); sdf <- pr3(sdf, "sdf")
+  sdi <- if(is.list(sdi) || is.matrix(sdi)) .pr_rows(sdi, "sdi") else pr3(sdi, "sdi"); sdf <- pr3(sdf, "sdf")
   rho <- stats::setNames(as.numeric(c(rho, 1)[1:3]), c("mean", "sd", "on"))
   status <- .status_df(status)
   K.max <- if(is.null(K.max)) c(mult = NA, log.sd = NA, on = 0) else if(identical(K.max, "r"))
@@ -67,7 +70,8 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
       if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = K.max[1], log.sd = if(length(K.max) > 1) K.max[2] else 0.3, on = 1) }
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
-                 sdi = sdi, sdf = sdf, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max), class = "jb3priors")
+                 sdi = sdi, sdf = sdf, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max),
+            class = "jb3priors", args = args)
 }
 
 #' Status priors (JABBA b.prior)
@@ -112,7 +116,8 @@ jb3_bprior <- function(median, cv = 0.2, year = NULL, type = c("bbmsy", "bk", "f
 
 #' @export
 print.jb3priors <- function(x, ...){
-  tab <- rbind(r = x$r, K = x$K, bkinit = x$bkinit, sdb = x$sdb, m = x$m, sdi = x$sdi)
+  sdi <- if(is.matrix(x$sdi)){ s <- x$sdi; rownames(s) <- paste0("sdi.", rownames(s) %||% seq_len(nrow(s))); s } else rbind(sdi = x$sdi)
+  tab <- rbind(r = x$r, K = x$K, bkinit = x$bkinit, sdb = x$sdb, m = x$m, sdi)
   cat("JABBA3 priors (lognormal: median, log.sd; on = 1)\n")
   print(signif(tab, 3))
   cat("sdb:", switch(x$sdb.type, fishlife = sprintf("FishLife centre 0.80 x sigR (%.2f) x r^0.45", x$sigR),
@@ -122,4 +127,13 @@ print.jb3priors <- function(x, ...){
   if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K.max: soft upper prior at %.1f x max catch (half-normal on log K above, sd %.2f)\n", x$K.max[1], x$K.max[2]))
   if(!is.null(x$status)){ cat("status priors:\n"); print(x$status) }
   invisible(x)
+}
+
+# one prior c(median, log.sd, on) per row, from a list of vectors or a 3-column matrix (rows named after list names)
+.pr_rows <- function(x, nm){
+  if(is.list(x)) x <- do.call(rbind, lapply(x, function(v){ v <- as.numeric(v); if(length(v) == 2) v <- c(v, 1)
+    if(length(v) != 3) stop(nm, " priors need c(median, log.sd[, on])", call. = FALSE); v }))
+  x <- matrix(as.numeric(x), ncol = 3, dimnames = list(rownames(x), c("median", "log.sd", "on")))
+  if(any(x[, "on"] == 1 & !(x[, "median"] > 0 & x[, "log.sd"] > 0))) stop(nm, " priors need median > 0 and log.sd > 0", call. = FALSE)
+  x
 }

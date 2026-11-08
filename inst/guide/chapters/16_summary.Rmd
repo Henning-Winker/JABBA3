@@ -23,10 +23,11 @@
 
 | Area | Functions |
 |---|---|
+| Example data | `iccat`, `kobsim`, `jara_examples`, `rjc` (thornback ray, ICES WKBELASMO SPiCT assessment) |
 | Data | `jb3_data()` (catch-only with `indices = NULL`; auxiliary data), `jb3_data_jabba()` |
 | Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jb3_qtable()` (relative catchabilities), `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`, `jbplot_q()`, `jbplot_indexcor()` (pairwise index correlations); diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
 | Priors and model | `jb3_priors()`, `jb3_bprior()` (status priors), `jb3_model()` (incl. `effort.creep`, `aux.q`, `aux.sd`, `param`) |
-| Fitting | `jabba3()` (incl. `prior.only = TRUE`), `jb3_draws()` |
+| Fitting | `jabba3()` (incl. `prior.only = TRUE`), `update()` (refit with changed priors, model options, data or settings; sensitivity runs), `jb3_draws()` |
 | Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |
 | Convergence | `jb3_convergence()` |
 | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |

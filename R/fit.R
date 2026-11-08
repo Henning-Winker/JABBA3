@@ -41,8 +41,14 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   }
   engine <- match.arg(engine); workflow <- match.arg(workflow)
   if(ncol(data$I) == 0 || isTRUE(prior.only)) osa <- FALSE
-  if(workflow != "none") return(jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
-                                             ndraws = ndraws, nuts = nuts, osa = osa, se = se))
+  settings <- list(engine = engine, ndraws = ndraws, nuts = nuts, osa = osa, workflow = workflow, amat = amat, se = se,
+                   peels = peels, index.peels = index.peels, nstart = nstart, silent = silent, prior.only = isTRUE(prior.only))
+  if(workflow != "none"){
+    res <- jb3_workflow(data, priors, model, workflow = workflow, amat = amat, engine = engine,
+                        ndraws = ndraws, nuts = nuts, osa = osa, se = se)
+    res$settings <- settings; res$inputs <- list(priors = priors, model = model)   # inputs before the workflow steps
+    return(res)
+  }
   if((model$nseason %||% 1) > 1){                        # seasonal prototype: mode fits with annual outputs
     if(engine == "nuts" || ndraws > 0) stop("nseason > 1: NUTS and draws are not yet available (use engine = \"rtmb\", ndraws = 0)", call. = FALSE)
     osa <- FALSE
@@ -62,6 +68,7 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   fit$index <- .index_table(fit)
   fit$auxiliary <- .aux_table(fit)
   fit$time <- (proc.time() - ptm)[["elapsed"]]
+  fit$settings <- settings
   fit
 }
 
@@ -177,9 +184,12 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   ts <- rbind(tsq("B", g("logB"), mu, B), tsq("F", g("logF"), 1, rep$H), tsq("B/Bmsy", g("logBBmsy"), 1, rep$BBmsy),
               tsq("F/Fmsy", g("logFFmsy"), 1, rep$HHmsy),
               cbind(data.frame(year = yrs, quantity = "B/K"), data.frame(est = exp(lp), lci = exp(lp - 1.96*lps), uci = exp(lp + 1.96*lps), se.log = lps)),
-              data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
-                         lci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] - 1.96*g("estC")[, 2])*mu else rep$estC*mu,
-                         uci = if((dat$catch.err || dat$nmiss > 0) && !is.null(g("estC"))) (g("estC")[, 1] + 1.96*g("estC")[, 2])*mu else rep$estC*mu, se.log = NA),
+              {   # estimated catch: lognormal CI (delta method: se.log = se/est), so the interval stays positive
+                gc <- if(dat$catch.err || dat$nmiss > 0) g("estC") else NULL
+                sl <- if(is.null(gc)) rep(NA_real_, length(yrs)) else gc[, 2]/pmax(gc[, 1], 1e-12)
+                data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
+                           lci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(-1.96*sl)),
+                           uci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(1.96*sl)), se.log = sl) },
               data.frame(year = yrs, quantity = "Process deviation", est = rep$procdev,
                          lci = if(is.null(pd)) NA else pd[, 1] - 1.96*pd[, 2], uci = if(is.null(pd)) NA else pd[, 1] + 1.96*pd[, 2], se.log = NA),
               data.frame(year = yrs, quantity = "Process SD", est = rep$sdt, lci = NA, uci = NA, se.log = NA),

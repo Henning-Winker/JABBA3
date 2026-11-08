@@ -16,7 +16,7 @@
 #' @param biascor lognormal process error bias correction (log mean - var/2)
 #' @param start "all" (default): process error in all years; "index": deterministic before the first index year
 #'   (JABBA \code{proc.dev.all = FALSE})
-#' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x relative se weights
+#' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)
 #' @param se.min fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)
 #' @param se.na SE used where an index has SEs but a year has none (JABBA: 0.3)
 #' @param sets.q,sets.var catchability and observation-variance groups (one entry per index; default one each)
@@ -79,6 +79,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
                       param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE,
                       nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
+  args <- .fn_args()
   nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
   if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal", "Fstate"))
   if(!is.null(season.w) && (length(season.w) != nseason || any(season.w < 0) || sum(season.w) <= 0))
@@ -107,7 +108,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
                  aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, nseason = nseason, catch.alloc = catch.alloc,
                  season.w = season.w, sdb.max = sdb.max),
-            class = "jb3model")
+            class = "jb3model", args = args)
 }
 
 #' @export

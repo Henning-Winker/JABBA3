@@ -74,3 +74,23 @@ test_that("spictinp2jabba3 converts a SPiCT input list", {
   f <- jabba3(x$data, x$priors, x$model, osa = FALSE)
   expect_true(f$convergence$tier %in% c("ok", "warning"))
 })
+
+test_that("spictinp2jabba3 keeps index years before the catch, per-index sdi priors and stdevfacI multipliers", {
+  b <- iccat$bet; ok1 <- is.finite(b$cpue[, 2]); ok2 <- is.finite(b$cpue[, 3])
+  cyr <- b$catch[, 1] >= 1970
+  inp <- list(obsC = b$catch[cyr, 2], timeC = b$catch[cyr, 1], stdevfacC = rep(2, sum(cyr)),
+              obsI = list(A = b$cpue[ok1, 2], B = b$cpue[ok2, 3]), timeI = list(A = b$cpue[ok1, 1], B = b$cpue[ok2, 1]),
+              stdevfacI = list(A = rep(1.5, sum(ok1)), B = rep(1, sum(ok2))),
+              priors = list(logr = c(log(0.2), 0.5, 1), logK = c(log(1e-4), 0.2, 0),
+                            logsdi = list(A = c(log(0.2), 0.3, 1), B = c(log(0.3), 0.3, 1))),
+              ini = list(logn = log(2)), phases = list(logn = -1))
+  x <- spictinp2jabba3(inp, stock = "bet", verbose = FALSE)
+  expect_equal(min(x$data$years), min(b$cpue[ok1 | ok2, 1]))          # index years before 1970 kept
+  expect_true(all(is.na(x$data$catch[x$data$years < 1970])))
+  expect_equal(unname(x$priors$sdi[, "median"]), c(0.2, 0.3))
+  expect_equal(unique(stats::na.omit(x$data$SE[, "A"])), 1.5)          # stdevfacI used as given
+  expect_equal(unique(stats::na.omit(x$data$catch.se)), 0.2)           # sdc 0.1 x stdevfacC 2
+  expect_true(is.na(x$priors$K[["median"]]))                            # unused SPiCT K prior -> default start
+  f <- jabba3(x$data, x$priors, x$model, osa = FALSE)
+  expect_true(f$convergence$tier %in% c("ok", "warning"))
+})

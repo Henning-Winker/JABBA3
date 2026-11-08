@@ -160,25 +160,35 @@ jbplot_biplot <- function(fit, ftarget = 0.8, bthreshold = 0.2, npoints = 2000){
 #' Catch error: observed and estimated catch
 #'
 #' As JABBA's \code{jbplot_catcherror()}: observed catch (points) and estimated catch with its 95\% interval, and the
-#' log ratio of estimated to observed catch. Without catch error the catch is assumed known and the plot says so.
+#' log ratio of estimated to observed catch. Without catch error the catch is assumed known and the plot says so. Years
+#' without catch (\code{jb3_data(catch.gaps = "estimate")}, e.g. index years before the catch series) are shaded: the
+#' catch there is predicted from the F random walk and the biomass, so the estimated series extends beyond the observed one.
 #' @param fit a \code{jabba3} fit
 #' @export
 jbplot_catcherror <- function(fit){
   d <- fit$ts[fit$ts$quantity == "Catch", ]; d$obs <- fit$data$catch[seq_len(nrow(d))]
   d$lr <- log(d$est/d$obs)
   ce <- isTRUE(fit$model$catch.error)
-  p1 <- ggplot2::ggplot(d, ggplot2::aes(.data$year)) +
-    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "grey75") +
+  miss <- d$year[!is.finite(d$obs)]
+  sdc <- if(!is.null(fit$data$catch.se) && any(is.finite(fit$data$catch.se))) range(fit$data$catch.se, na.rm = TRUE) else fit$model$sdc
+  sub <- if(ce) sprintf("catch error, CV %s", paste(unique(sprintf("%.2f", sdc)), collapse = "-")) else "catch error off: catch assumed known"
+  if(length(miss)) sub <- paste0(sub, "; shaded: no catch, predicted from the F random walk (", .yr_ranges(miss), ")")
+  blk <- if(length(miss)){ g <- cumsum(c(1, diff(miss) != 1)); data.frame(x0 = tapply(miss, g, min) - 0.5, x1 = tapply(miss, g, max) + 0.5) } else NULL
+  p1 <- ggplot2::ggplot(d, ggplot2::aes(.data$year))
+  if(!is.null(blk)) p1 <- p1 + ggplot2::geom_rect(data = blk, ggplot2::aes(xmin = .data$x0, xmax = .data$x1, ymin = -Inf, ymax = Inf),
+                                                  inherit.aes = FALSE, fill = "grey92")
+  p1 <- p1 + ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "grey75") +
     ggplot2::geom_line(ggplot2::aes(y = .data$est, colour = "Estimated"), linewidth = 0.8) +
-    ggplot2::geom_point(ggplot2::aes(y = .data$obs, colour = "Observed"), shape = 21, fill = "white", size = 1.8) +
-    ggplot2::scale_colour_manual(values = c(Estimated = "blue", Observed = "black")) +
+    ggplot2::geom_point(data = d[is.finite(d$obs), ], ggplot2::aes(y = .data$obs, colour = "Observed"), shape = 21, fill = "white", size = 1.8) +
+    ggplot2::scale_colour_manual(values = c(Estimated = "blue", Observed = "black"),
+      guide = ggplot2::guide_legend(override.aes = list(shape = c(NA, 21), linetype = c(1, 0), linewidth = c(0.8, 0)))) +
     ggplot2::expand_limits(y = 0) + scale_x_year() +
-    ggplot2::labs(x = NULL, y = "Catch", subtitle = if(ce) sprintf("catch error, CV %.2f", fit$model$sdc) else "catch error off: catch assumed known") +
+    ggplot2::labs(x = NULL, y = "Catch", colour = NULL, subtitle = sub) +
     theme_jabba3() + ggplot2::theme(legend.position = c(0.99, 0.99), legend.justification = c(1, 1))
   if(!ce || !requireNamespace("patchwork", quietly = TRUE)) return(p1)
-  p2 <- ggplot2::ggplot(d, ggplot2::aes(.data$year, .data$lr)) + ggplot2::geom_hline(yintercept = 0, linetype = 2) +
+  p2 <- ggplot2::ggplot(d[is.finite(d$lr), ], ggplot2::aes(.data$year, .data$lr)) + ggplot2::geom_hline(yintercept = 0, linetype = 2) +
     ggplot2::geom_segment(ggplot2::aes(xend = .data$year, yend = 0), colour = "grey40") + ggplot2::geom_point(size = 1.2) +
-    scale_x_year() + ggplot2::labs(x = "Year", y = "log(est/obs)") + theme_jabba3(9)
+    ggplot2::coord_cartesian(xlim = range(d$year)) + scale_x_year() + ggplot2::labs(x = "Year", y = "log(est/obs)") + theme_jabba3(9)
   p1 / p2 + patchwork::plot_layout(heights = c(3, 1))
 }
 

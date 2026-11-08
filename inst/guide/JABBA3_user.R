@@ -1630,6 +1630,52 @@ jbplot_ensemble(runs, joint = TRUE)
 jbplot_summary(runs)
 
 #' 
+#' ### Sensitivity runs with `update()`
+#' 
+#' A fit stores its data, priors, model and settings, so `update()` refits it with
+#' only the inputs that change. Priors and model options are changed by name, with
+#' the arguments of `jb3_priors()` and `jb3_model()`; all other inputs and settings
+#' (engine, draws, OSA, workflow) are taken from the fit. With `lapply()` a
+#' sensitivity analysis takes one line per factor:
+#' 
+## ----cmp-update---------------------------------------------------------------
+sens.r <- lapply(c(0.1, 0.2, 0.4), function(r)
+  update(fit, priors = list(r = c(r, 0.5)), run = paste("r =", r)))
+sens.sdb <- lapply(c(0.05, 0.1, 0.2), function(s)
+  update(fit, priors = list(sdb = c(s, 0.3)), run = paste("sdb =", s)))
+names(sens.r)   <- sapply(sens.r, `[[`, "run")
+names(sens.sdb) <- sapply(sens.sdb, `[[`, "run")
+t(sapply(c(sens.r, sens.sdb), function(f){
+  s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quantity) }))
+
+#' 
+## ----cmp-update-plot, fig.width = 10, fig.height = 5--------------------------
+jbplot_ensemble(sens.r)
+
+#' 
+#' Some priors are derived from others when `jb3_priors()` is called: the FishLife
+#' prior on the process-error SD (`sdb`) and the default `kdyn` from `r`, and the
+#' default `K` from the catch. By default `update()` changes only the priors that
+#' are named, so the `r` runs above keep the `sdb` prior of the base fit. Dependent
+#' priors can be set explicitly (`priors = list(r = c(0.4, 0.5), sdb = c(0.15, 0.3))`),
+#' or re-derived from the new values with `recompute = TRUE`:
+#' 
+## ----cmp-update-recompute-----------------------------------------------------
+fr <- update(fit, priors = list(r = c(0.4, 0.5)), recompute = TRUE)
+rbind(base = fit$priors$sdb, `r = 0.4` = sens.r[[3]]$priors$sdb, `r = 0.4, recompute` = fr$priors$sdb)
+
+#' 
+#' The same works for model options, the workflow and the engine, e.g. a final NUTS
+#' run of the selected configuration:
+#' 
+## ----cmp-update-other, eval = FALSE-------------------------------------------
+## update(fit, model = list(lag = 3, rho = 0.75), run = "lag + AR(1)")   # model options
+## update(fit, workflow = "tier1", amat = 3)                             # rerun as a workflow
+## update(fit, engine = "nuts", nuts = list(iter = 2000))                # same inputs, NUTS
+## update(fit, data = d.new)                                             # new data, same settings
+
+#' 
 #' `kobe = FALSE` drops the Kobe panel in `jbplot_summary()` and `jbplot_ensemble()`.
 #' `jabbaplot3()` takes a list of runs too, with a choice of panels:
 #' 
@@ -2687,6 +2733,12 @@ mk  <- jb3_model(BmsyK = prk$BmsyK, sets.q = c(1, 1, 2, 2), ebsb = sxk,
 fk  <- jabba3(dk, jb3_priors(dk, r = prk$r, K = c(8*max(dk$catch), 1)), mk, osa = FALSE)
 
 #' 
+#' The fit with `jabbaplot3()` (here without the biomass trigger and limit lines):
+#' 
+## ----model-kobsim-plot, fig.width = 10, fig.height = 6------------------------
+jabbaplot3(fk, bthr = NULL, blim = NULL, panels = c("B/Bmsy", "F/Fmsy", "procdev", "Catch"))
+
+#' 
 #' The estimated spawning-biomass depletion against the operating-model truth:
 #' 
 ## ----model-kobsim-truth, fig.height = 4, fig.width = 7------------------------
@@ -2757,6 +2809,132 @@ t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %i
 #' > Check that the selectivity is plausible against the length compositions
 #' > (e.g. with an FLicc fit) before using the curve: it determines how the
 #' > exploitable-biomass indices map onto the spawning-biomass state.
+#' 
+#' # From SPiCT: North Sea thornback ray
+#' 
+#' Thornback ray (*Raja clavata*) in Subarea 4 and divisions 3.a and 7.d (North
+#' Sea, Skagerrak, Kattegat and eastern English Channel; rjc.27.3a47d) was
+#' benchmarked at the ICES workshop WKBELASMO with SPiCT (ICES, 2023;
+#' Pedersen and Berg, 2017). This chapter converts the final SPiCT assessment to JABBA3,
+#' introduces the hybrid F random walk that JABBA3 uses for index years without
+#' catch, and compares the JABBA3 run with the SPiCT assessment in an ICES advice
+#' plot.
+#' 
+#' ## The benchmark assessment
+#' 
+#' The final assessment of WKBELASMO 2023 had:
+#' 
+#' | Setting | Final SPiCT assessment |
+#' |---|---|
+#' | Removals | 1999–2021 (landings and dead discards; 1999–2008 reconstructed), with twice the catch SD before 2009 (`stdevfacC = 2`) |
+#' | Index 1 (Q14) | NS-IBTS-Q1 and FR-CGFS-Q4 combined, biomass of rays ≥ 30 cm, 1989–2021 |
+#' | Index 2 (Q3) | NS-IBTS-Q3, BTS-Eng-Q3 and BTS-BEL-Q3 combined, biomass ≥ 30 cm, 1991–2021 |
+#' | r prior | 0.15 (CV 0.3) |
+#' | Shape | Schaefer (n = 2) |
+#' | Initial depletion | bkfrac 0.15 (CV 0.5) |
+#' | Process error | sdb 0.07 (CV 0.5) |
+#' | Time step | `dteuler = 1/4` |
+#' 
+#' `data(rjc)` holds the SPiCT input list of the final assessment (`inp`), the
+#' SPiCT fit as an `FLStockR` (`spict.stk`, from `FLRef::spict2FLStockR(base, rel = TRUE)`)
+#' and the life-history parameters of the benchmark (`info`):
+#' 
+## ----rjc-data-----------------------------------------------------------------
+data(rjc)
+str(rjc$inp, max.level = 1)
+rjc$info$lh
+
+#' 
+#' With the spict package installed, the assessment refits with
+#' `spict::fit.spict(rjc$inp)`.
+#' 
+#' ## Conversion
+#' 
+## ----rjc-convert--------------------------------------------------------------
+xs <- spictinp2jabba3(rjc$inp, stock = "rjc.27.3a47d")
+xs$priors
+
+#' 
+#' The indices start ten years before the catch, so the model years are 1989–2021
+#' as in SPiCT; the catch in 1989–1998 is estimated (next section). The index
+#' observation SD is SPiCT's `sdi[index] * stdevfacI`, with one sdi prior per
+#' index, and the catch SD is `sdc * stdevfacC` (0.2 before 2009, 0.1 after).
+#' The annual model refers the indices to the start of the year; SPiCT uses the
+#' survey timing within the year (Q3 at 0.7).
+#' 
+## ----rjc-fit------------------------------------------------------------------
+fr <- jabba3(xs$data, xs$priors, xs$model, run = "JABBA3")
+fr$pars[c("K", "r", "bkinit", "sdb", "sdi1", "sdi2", "sdf"), c("est", "lci", "uci")]
+
+#' 
+#' ## Special feature: the hybrid F random walk
+#' 
+#' JABBA3 is conditioned on catch: the catch of each year enters the biomass
+#' equation, with lognormal catch error when `catch.error = TRUE`. SPiCT instead
+#' models fishing mortality as a random walk in all years and treats the catch as
+#' an observation of it. JABBA3 combines the two when the catch series has gaps or
+#' is shorter than the indices (`jb3_data(catch.gaps = "estimate")`, set here by
+#' the converter):
+#' 
+#' - **Years with catch** stay catch-conditioned, as before.
+#' - **Years without catch** get a harvest rate $H_t$ as a random effect, and the
+#'   catch follows from it: $\hat{C}_t = H_t K P_t$.
+#' - **The random walk** links the harvest rates on the log scale,
+#'   $\log H_t \sim N(\log H_{t-1}, \sigma_F^2)$, for every step that involves a
+#'   year without catch. The walk is therefore anchored to the harvest rate implied
+#'   by the first observed catch (1999 here, $H = C/(K P)$), and the index
+#'   information on biomass in 1989–1998 informs the catch in those years.
+#' - $\sigma_F$ has the prior `jb3_priors(sdf = )` (median 0.3, log-SD 0.5 by
+#'   default; a SPiCT `logsdf` prior is carried over).
+#' - With `jb3_model(frw.all = TRUE)` the random walk applies to all years
+#'   (SPiCT-like). $\sigma_F$ is then also informed by the years with catch, which
+#'   tends to shrink it and to smooth F through the gaps.
+#' 
+#' `jbplot_catcherror()` shows the observed catch (1999–2021) against the
+#' estimated catch over all model years. The years without catch are shaded: the
+#' catch there is predicted from the random walk and the biomass, and its
+#' uncertainty narrows towards the first observed catch.
+#' 
+## ----rjc-catch, fig.width = 9, fig.height = 5.5-------------------------------
+jbplot_catcherror(fr)
+
+#' 
+#' With the random walk on all years:
+#' 
+## ----rjc-frw------------------------------------------------------------------
+fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
+
+#' 
+## ----rjc-frw-plot, fig.width = 10, fig.height = 4-----------------------------
+jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa), bthr = NULL, blim = NULL,
+           panels = c("Catch", "F/Fmsy", "B/Bmsy"))
+
+#' 
+#' ## Comparison with the SPiCT assessment
+#' 
+#' `jb3_FLStockR()` converts the JABBA3 run to an `FLStockR` with posterior
+#' draws, which `FLRef::plotAdvice()` combines with the SPiCT assessment. The SPiCT
+#' `FLStockR` holds the estimated trajectory only, so the intervals are shown for
+#' JABBA3.
+#' 
+## ----rjc-advice, fig.width = 10, fig.height = 5, eval = requireNamespace("FLRef", quietly = TRUE)----
+stks <- FLCore::FLStocks(SPiCT = rjc$spict.stk, JABBA3 = jb3_FLStockR(fr, ndraws = 500))
+FLRef::plotAdvice(stks, ncol = 3)
+
+#' 
+#' Terminal status (2021) of the two JABBA3 runs:
+#' 
+## ----rjc-status---------------------------------------------------------------
+st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
+noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa), st)))
+
+#' 
+#' The converted JABBA3 run reproduces the SPiCT perception: depleted in the
+#' 1990s, F below $F_{MSY}$ since the mid-2000s and a rebuilding stock close to
+#' $B_{MSY}$ in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). JABBA3 is
+#' slightly lower in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual
+#' time step and the index timing.
 #' 
 #' # FLR outputs
 #' 
@@ -2837,12 +3015,17 @@ signif(f2$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' `spictinp2jabba3()` takes a SPiCT input list (`inp`, as passed to
 #' `spict::fit.spict()`). JABBA3 is an annual model: catches are summed by
 #' calendar year and several index observations in a year are averaged
-#' (geometric mean). SPiCT's observation-error form is used
-#' (`obs.error = "spict"`), with `stdevfacI` as relative weights. The priors
-#' `logr`, `logK`, `logbkfrac`, `logsdb`, `logn` and `logsdi` carry over with
-#' their on/off switches, and a fixed `n` (phase -1) fixes the shape. The `alpha`
-#' and `beta` priors (ratios of observation to process SDs) and the F process
-#' have no JABBA3 equivalent and are reported as dropped.
+#' (geometric mean). The model years span the catch and the indices, as in SPiCT;
+#' the catch in index years without catch is estimated with the hybrid F random
+#' walk (see the thornback ray chapter). SPiCT's observation-error form is used
+#' (`obs.error = "spict"`): the observation SD is `sdi[index] * stdevfacI`, and
+#' the catch SD `sdc * stdevfacC`. The priors `logr`, `logK`, `logbkfrac`,
+#' `logsdb`, `logn`, `logsdi` (one prior per index when given by index) and
+#' `logsdf` carry over with their on/off switches, and a fixed `n` (phase -1)
+#' fixes the shape. The `alpha` and `beta` priors (ratios of observation to
+#' process SDs) and the F process in years with catch have no JABBA3 equivalent
+#' and are reported as dropped. The thornback ray chapter converts a full ICES
+#' benchmark assessment.
 #' 
 #' A SPiCT-style input list built from the bigeye data:
 #' 
@@ -2936,10 +3119,11 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' 
 #' | Area | Functions |
 #' |---|---|
+#' | Example data | `iccat`, `kobsim`, `jara_examples`, `rjc` (thornback ray, ICES WKBELASMO SPiCT assessment) |
 #' | Data | `jb3_data()` (catch-only with `indices = NULL`; auxiliary data), `jb3_data_jabba()` |
 #' | Data exploration (JARA) | `jb3_trend()` (relative joint index, census, time blocks), `jb3_jointindex()`, `jb3_catchfill()`, `jb3_fill_table()`, `jb3_qtable()` (relative catchabilities), `jbplot_trend()`, `jbplot_jointindex()`, `jbplot_catchfill()`, `jbplot_q()`, `jbplot_indexcor()` (pairwise index correlations); diagnostics with `jbplot_fits()`, `jbplot_runs()`, `jbplot_residuals()`, `jbplot_ppc()` |
 #' | Priors and model | `jb3_priors()`, `jb3_bprior()` (status priors), `jb3_model()` (incl. `effort.creep`, `aux.q`, `aux.sd`, `param`) |
-#' | Fitting | `jabba3()` (incl. `prior.only = TRUE`), `jb3_draws()` |
+#' | Fitting | `jabba3()` (incl. `prior.only = TRUE`), `update()` (refit with changed priors, model options, data or settings; sensitivity runs), `jb3_draws()` |
 #' | Workflows | `jb3_workflow()`, `jb3_tier1()`, `jb3_tier2()` |
 #' | Convergence | `jb3_convergence()` |
 #' | Residual diagnostics | `jb3_osa()`, `jb3_diags()`, `jb3_runs()`, `jb3_retro()`, `jb3_hindcast()` |
@@ -2981,6 +3165,8 @@ signif(fs$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 #' Hoyle, S.D., Huang, J.H.-W., Kim, D.N., Lee, M.K., Matsumoto, T. and Walter, J. (2019). Collaborative study of bigeye tuna CPUE from multiple Atlantic Ocean longline fleets in 2018. *Collective Volume of Scientific Papers ICCAT* 75(7): 2033-2080 (SCRS/2018/058).
 #' 
 #' ICCAT (2018). Report of the 2018 ICCAT bigeye tuna stock assessment meeting. International Commission for the Conservation of Atlantic Tunas, Madrid. <https://www.iccat.int/Documents/Meetings/Docs/2018/REPORTS/2018_BET_SA_ENG.pdf>
+#' 
+#' ICES (2023). Benchmark workshop on selected elasmobranch stocks (WKBELASMO). *ICES Scientific Reports* 5:45. 117 pp. doi:10.17895/ices.pub.22760042
 #' 
 #' Kell, L.T., Cardinale, M., Mosqueira, I., Winker, H. and Sharma, R. (2025).
 #' Transforming data and capacity-limited stock assessment: achieving risk
