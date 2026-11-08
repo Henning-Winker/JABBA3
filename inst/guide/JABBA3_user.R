@@ -2890,8 +2890,16 @@ fr$pars[c("K", "r", "bkinit", "sdb", "sdi1", "sdi2", "sdf"), c("est", "lci", "uc
 #'   (SPiCT-like). $\sigma_F$ is then also informed by the years with catch, which
 #'   tends to shrink it and to smooth F through the gaps.
 #' 
-#' The estimated catch for 1989–1998 carries the uncertainty of the random walk,
-#' which narrows towards the first observed catch:
+#' `jbplot_catcherror()` shows the observed catch (1999–2021) against the
+#' estimated catch over all model years. The years without catch are shaded: the
+#' catch there is predicted from the random walk and the biomass, and its
+#' uncertainty narrows towards the first observed catch.
+#' 
+## ----rjc-catch, fig.width = 9, fig.height = 5.5-------------------------------
+jbplot_catcherror(fr)
+
+#' 
+#' With the random walk on all years:
 #' 
 ## ----rjc-frw------------------------------------------------------------------
 fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
