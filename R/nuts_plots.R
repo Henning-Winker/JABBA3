@@ -245,7 +245,7 @@ jbplot_nutsdiags <- function(fit, pars = NULL){
 #' (\code{jb3_model(param = "centred")} against \code{"noncentred"}), because the sampled states differ between them.
 #' @param fit a \code{jabba3} fit with \code{engine = "nuts"}
 #' @param quantities derived quantities, any of "B/Bmsy", "F/Fmsy", "B/K", "B", "F"
-#' @return data.frame(quantity, year, Rhat, ess_bulk, ess_tail, bulk.per1000, tail.per1000); attribute "summary" with
+#' @return data.frame(quant, year, Rhat, ess_bulk, ess_tail, bulk.per1000, tail.per1000); attribute "summary" with
 #'   minimum and median by quantity and the run time and parameterisation
 #' @export
 jb3_nuts_ess <- function(fit, quantities = c("B/Bmsy", "F/Fmsy")){
@@ -253,9 +253,9 @@ jb3_nuts_ess <- function(fit, quantities = c("B/Bmsy", "F/Fmsy")){
   nd <- nrow(dr[[quantities[1]]]); ni <- nd/nch
   out <- do.call(rbind, lapply(quantities, function(q){ x <- dr[[q]]
     do.call(rbind, lapply(seq_len(ncol(x)), function(j){ m <- matrix(x[, j], ni, nch)
-      data.frame(quantity = q, year = fit$years[j], Rhat = rstan::Rhat(m), ess_bulk = rstan::ess_bulk(m), ess_tail = rstan::ess_tail(m)) })) }))
+      data.frame(quant = q, year = fit$years[j], Rhat = rstan::Rhat(m), ess_bulk = rstan::ess_bulk(m), ess_tail = rstan::ess_tail(m)) })) }))
   out$bulk.per1000 <- 1000*out$ess_bulk/nd; out$tail.per1000 <- 1000*out$ess_tail/nd
-  sm <- do.call(rbind, lapply(split(out, out$quantity), function(z) data.frame(quantity = z$quantity[1],
+  sm <- do.call(rbind, lapply(split(out, out$quant), function(z) data.frame(quant = z$quant[1],
     min.bulk.per1000 = min(z$bulk.per1000), median.bulk.per1000 = stats::median(z$bulk.per1000),
     min.tail.per1000 = min(z$tail.per1000), max.Rhat = max(z$Rhat))))
   attr(out, "summary") <- cbind(param = fit$nuts$param %||% "centred", sm, divergent = fit$nuts$divergent, time = fit$time)

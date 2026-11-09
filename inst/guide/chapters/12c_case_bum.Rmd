@@ -49,7 +49,7 @@ with $\sigma$ fixed at a low value they form long runs of the same sign, a
 lag-1 autocorrelation of
 
 ```{r bum-acf, eval = TRUE}
-pd <- bum.base$ts$est[bum.base$ts$quantity == "Process deviation"]
+pd <- bum.base$ts$est[bum.base$ts$quant == "Process deviation"]
 round(acf(pd, plot = FALSE)$acf[2], 2)
 ```
 
@@ -145,7 +145,7 @@ diagnostics cannot tell whether a model is optimistic about rebuilding.
 bum.hc <- lapply(bum.runs, jb3_hindcast, n = 5)
 bum.rt <- lapply(bum.runs, jb3_retro, n = 5)
 mase <- sapply(bum.hc, function(h){ m <- h$mase; stats::setNames(m$MASE, m$index)[is.finite(m$MASE)] })
-mohn <- sapply(bum.rt, function(r) stats::setNames(r$rho$rho, r$rho$quantity))
+mohn <- sapply(bum.rt, function(r) stats::setNames(r$rho$rho, r$rho$quant))
 knitr::kable(round(rbind(mase, mohn[c("B/Bmsy", "F/Fmsy"), , drop = FALSE]), 2),
              caption = "Hindcast MASE by index and Mohn's rho")
 ```

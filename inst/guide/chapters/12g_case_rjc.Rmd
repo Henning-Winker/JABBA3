@@ -111,8 +111,8 @@ jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` =
 Terminal status (2021) of the three runs:
 
 ```{r rjc-status}
-st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
+st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quant) }
 noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl), st)))
 ```
 
@@ -181,7 +181,7 @@ The two runs side by side:
 cmp <- function(a, f){
   tb <- a$table; r <- function(b) tb[tb$Basis == b, ]
   fmt <- function(b) sprintf("%s (F/Fmsy %.2f)", format(round(r(b)[[2]]), big.mark = ","), r(b)[[3]])
-  c(`B/Bmsy 2021` = sprintf("%.2f", f$ts$est[f$ts$quantity == "B/Bmsy" & f$ts$year == 2021]),
+  c(`B/Bmsy 2021` = sprintf("%.2f", f$ts$est[f$ts$quant == "B/Bmsy" & f$ts$year == 2021]),
     MSY = format(round(f$refpts["MSY", "est"]), big.mark = ","),
     `CV of the 2023 catch under the HCR` = sprintf("%.2f", stats::sd(log(a$catch))),
     `Median catch 2023` = format(round(stats::median(a$catch)), big.mark = ","),
@@ -203,7 +203,7 @@ jbplot_advicecatch(adv)
 the forecast of the catch options (`adv$options`, a `jb3_fwd()` projection),
 
 ```{r rjc-ices-forecast, fig.width = 10, fig.height = 5}
-jbplot_projection(adv$options, nyears = 10)+ facet_wrap(~quantity, scales = "free_y", ncol = 3)
+jbplot_projection(adv$options, nyears = 10)+ facet_wrap(~quant, scales = "free_y", ncol = 3)
 ```
 
 and the advice table (`adv$table`):

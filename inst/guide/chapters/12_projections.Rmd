@@ -147,7 +147,7 @@ $F_{cur}$, and the precautionary $F_{MSY}$ PA (35th percentile of $F_{MSY}$):
 ```{r k2sm-fopt}
 rp <- fit$refpts
 Fmsy <- rp["Fmsy", "est"]
-Fcur <- mean(tail(fit$ts$est[fit$ts$quantity == "F"], 3))
+Fcur <- mean(tail(fit$ts$est[fit$ts$quant == "F"], 3))
 Fmsy.pa <- exp(qnorm(0.35, log(Fmsy), rp["Fmsy", "se.log"]))
 mult <- c(0, 0.5, 0.75, 1, 1.25, 1.5, 2)
 fopt <- c(setNames(lapply(mult, function(m) c(F = m*Fmsy)),
@@ -215,7 +215,7 @@ of the last three years) and two TAC years:
 y0  <- max(fit$years)
 yrs <- y0 + 1:4
 csq <- mean(tail(fit$data$catch, 3))
-fsq <- mean(tail(fit$ts$est[fit$ts$quantity == "F/Fmsy"], 3))
+fsq <- mean(tail(fit$ts$est[fit$ts$quant == "F/Fmsy"], 3))
 ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
 ctrl(1, "Fmsy")
 ```

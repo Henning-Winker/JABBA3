@@ -36,7 +36,7 @@ jb3cols <- function(n, alpha = 1){
 .kobe_cloud <- function(fit, N, npoints = 2000, seed = 1){
   if(!is.null(fit$draws)) return(data.frame(stock = fit$draws$`B/Bmsy`[, N], harvest = fit$draws$`F/Fmsy`[, N]))
   s <- fit$sdr
-  if(is.null(s)) return(data.frame(stock = fit$ts$est[fit$ts$quantity == "B/Bmsy"][N], harvest = fit$ts$est[fit$ts$quantity == "F/Fmsy"][N]))
+  if(is.null(s)) return(data.frame(stock = fit$ts$est[fit$ts$quant == "B/Bmsy"][N], harvest = fit$ts$est[fit$ts$quant == "F/Fmsy"][N]))
   nm <- names(s$value); ib <- which(nm == "logBBmsy")[N]; ih <- which(nm == "logFFmsy")[N]
   S <- s$cov[c(ib, ih), c(ib, ih)]; set.seed(seed)
   z <- matrix(stats::rnorm(2*npoints), ncol = 2) %*% chol(S)
@@ -52,7 +52,7 @@ jb3cols <- function(n, alpha = 1){
   if(is.null(refs) || !nrow(refs)) return(NULL)
   refs$colour <- .ref_colour(refs$name)
   xy <- stats::quantile(seq(min(years), max(years)), c(0.2, 0.45, 0.75, 0.6, 0.3), names = FALSE)
-  refs$x <- stats::ave(seq_len(nrow(refs)), refs$quantity, FUN = function(i) xy[(seq_along(i) - 1) %% length(xy) + 1])
+  refs$x <- stats::ave(seq_len(nrow(refs)), refs$quant, FUN = function(i) xy[(seq_along(i) - 1) %% length(xy) + 1])
   list(ggplot2::geom_hline(data = refs, ggplot2::aes(yintercept = .data$value), colour = refs$colour, linetype = 2, linewidth = 0.5),
        ggplot2::geom_label(data = refs, ggplot2::aes(x = .data$x, y = .data$value, label = .data$name), colour = refs$colour,
                            size = size, fill = "white", label.size = 0, label.padding = ggplot2::unit(0.1, "lines"), inherit.aes = FALSE))
@@ -101,7 +101,7 @@ jb3cols <- function(n, alpha = 1){
   if(is.finite(g("MSY"))) dr[["Catch/MSY"]] <- C/g("MSY")
   ni <- nrow(B)
   ts <- do.call(rbind, lapply(names(dr), function(q){ x <- dr[[q]]
-    data.frame(year = yrs, quantity = q, est = apply(x, 2, stats::median, na.rm = TRUE),
+    data.frame(year = yrs, quant = q, est = apply(x, 2, stats::median, na.rm = TRUE),
                lci = if(ni > 1) apply(x, 2, stats::quantile, 0.025, na.rm = TRUE, names = FALSE) else NA_real_,
                uci = if(ni > 1) apply(x, 2, stats::quantile, 0.975, na.rm = TRUE, names = FALSE) else NA_real_, se.log = NA_real_,
                run = NA_character_) }))
@@ -147,14 +147,14 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
   type[type == "B/B0"] <- "B/K"
   fl <- .fitlist(x, steps)
   d <- do.call(rbind, lapply(names(fl), function(n){
-    t <- if(nested) .nested_ts(fl[[n]], type, probs) else { t <- fl[[n]]$ts[fl[[n]]$ts$quantity %in% type, ]
+    t <- if(nested) .nested_ts(fl[[n]], type, probs) else { t <- fl[[n]]$ts[fl[[n]]$ts$quant %in% type, ]
       t$lo1 <- t$hi1 <- rep(NA_real_, nrow(t)); t }
     if("Catch/MSY" %in% type) t <- rbind(t, .catch_msy(fl[[n]], names(t)))
     t$run <- n; t }))
-  if(drop.last){ ly <- max(d$year); d <- d[!(d$quantity %in% c("F", "F/Fmsy", "Catch") & d$year == ly), ] }
-  d$quantity <- factor(d$quantity, levels = type); d$run <- factor(d$run, levels = names(fl))
+  if(drop.last){ ly <- max(d$year); d <- d[!(d$quant %in% c("F", "F/Fmsy", "Catch") & d$year == ly), ] }
+  d$quant <- factor(d$quant, levels = type); d$run <- factor(d$run, levels = names(fl))
   nr <- length(fl)
-  mx <- stats::ave(d$est, d$quantity, FUN = function(x) max(abs(x), na.rm = TRUE))
+  mx <- stats::ave(d$est, d$quant, FUN = function(x) max(abs(x), na.rm = TRUE))
   d$uci[is.finite(d$uci) & d$uci > 10*mx] <- NA                   # guard against exploding intervals
   dr <- d[is.finite(d$lci) & is.finite(d$uci), ]; dr1 <- d[is.finite(d$lo1) & is.finite(d$hi1), ]
   a2 <- if(nested) 0.2 else 0.35
@@ -174,14 +174,14 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
       ggplot2::scale_fill_manual(values = cols, breaks = names(fl), limits = names(fl), name = NULL)   # one legend
   }
   if(!is.null(proj)){
-    pr <- proj$ts[proj$ts$quantity %in% type, c("scenario", "year", "quantity", "est", "lci", "uci")]
+    pr <- proj$ts[proj$ts$quant %in% type, c("scenario", "year", "quant", "est", "lci", "uci")]
     if(nrow(pr)){
       f1 <- fl[[1]]; y0 <- max(f1$years)
-      last <- do.call(rbind, lapply(unique(pr$scenario), function(sc){ l <- f1$ts[f1$ts$quantity %in% unique(pr$quantity) & f1$ts$year == y0, ]
-        data.frame(scenario = sc, year = y0, quantity = l$quantity, est = l$est, lci = l$lci, uci = l$uci) }))
-      pr <- rbind(last, pr); pr$quantity <- factor(pr$quantity, levels = type); pr$scenario <- factor(pr$scenario, unique(proj$ts$scenario))
+      last <- do.call(rbind, lapply(unique(pr$scenario), function(sc){ l <- f1$ts[f1$ts$quant %in% unique(pr$quant) & f1$ts$year == y0, ]
+        data.frame(scenario = sc, year = y0, quant = l$quant, est = l$est, lci = l$lci, uci = l$uci) }))
+      pr <- rbind(last, pr); pr$quant <- factor(pr$quant, levels = type); pr$scenario <- factor(pr$scenario, unique(proj$ts$scenario))
       nsc <- length(unique(pr$scenario))
-      mxp <- stats::ave(pr$est, pr$quantity, FUN = function(x) 3*max(abs(x), na.rm = TRUE))
+      mxp <- stats::ave(pr$est, pr$quant, FUN = function(x) 3*max(abs(x), na.rm = TRUE))
       pr$uci <- pmin(pr$uci, mxp)                                   # guard against exploding intervals
       if(nr == 1){
         pcol <- stats::setNames(if(nsc == 1) "dodgerblue" else jb3cols(nsc), levels(pr$scenario))
@@ -192,7 +192,7 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
       } else p <- p + ggplot2::geom_line(data = pr, ggplot2::aes(group = .data$scenario), linewidth = 0.4, colour = "grey30")
     }
   }
-  p <- p + ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = ncol) + scale_x_year() +
+  p <- p + ggplot2::facet_wrap(~quant, scales = "free_y", ncol = ncol) + scale_x_year() +
     ggplot2::labs(x = "Year", y = NULL) + theme_jabba3()
   if(!any(type %in% c("Process deviation"))) p <- p + ggplot2::expand_limits(y = 0)
   if(refpts){
@@ -203,25 +203,25 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
     same <- all(is.finite(bmk)) && diff(range(bmk)) < 1e-6
     single <- length(fl) == 1
     if(single){                                    # one run: absolute reference points as well
-      refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
+      refs <- data.frame(quant = c("B/Bmsy", "F/Fmsy", "B", "B", "F", "Catch", "B/K", "B/K", "Process deviation"),
                          name = c("Bmsy", "Fmsy", "Bmsy", "K", "Fmsy", "MSY", "Bmsy", "B0", "zero"),
                          value = c(1, 1, rp["Bmsy", "est"], rp["K", "est"], rp["Fmsy", "est"], rp["MSY", "est"], rp["BmsyK", "est"], 1, 0))
     } else {                                       # several runs: relative reference points only
-      refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy", "Process deviation"), name = c("Bmsy", "Fmsy", "zero"), value = c(1, 1, 0))
-      if(same) refs <- rbind(refs, data.frame(quantity = "B/K", name = "Bmsy", value = bmk[[1]]))
+      refs <- data.frame(quant = c("B/Bmsy", "F/Fmsy", "Process deviation"), name = c("Bmsy", "Fmsy", "zero"), value = c(1, 1, 0))
+      if(same) refs <- rbind(refs, data.frame(quant = "B/K", name = "Bmsy", value = bmk[[1]]))
     }
-    refs <- rbind(refs, data.frame(quantity = "Catch/MSY", name = "MSY", value = 1))
+    refs <- rbind(refs, data.frame(quant = "Catch/MSY", name = "MSY", value = 1))
     lim <- c(Bthr = bthr %||% NA, Blim = blim %||% NA); lim <- lim[is.finite(lim) & !names(lim) %in% names(extra)]  # extra overrides
-    if(length(lim)) refs <- rbind(refs, data.frame(quantity = rep(c("B/Bmsy", if(single) "B"), each = length(lim)),
+    if(length(lim)) refs <- rbind(refs, data.frame(quant = rep(c("B/Bmsy", if(single) "B"), each = length(lim)),
                                                    name = rep(names(lim), 1 + single),
                                                    value = c(lim, if(single) lim*rp["Bmsy", "est"])))
     if(length(extra)){ nm <- names(extra)
       bq <- if("B/Bmsy" %in% type || !"B" %in% type) "B/Bmsy" else "B"; fq <- if("F/Fmsy" %in% type || !"F" %in% type) "F/Fmsy" else "F"
-      refs <- rbind(refs, data.frame(quantity = ifelse(substr(nm, 1, 1) == "F", fq, bq), name = nm, value = unname(extra))) }
-    refs <- refs[refs$quantity %in% type & refs$name != "zero", ]
-    refs$quantity <- factor(refs$quantity, levels = type)
+      refs <- rbind(refs, data.frame(quant = ifelse(substr(nm, 1, 1) == "F", fq, bq), name = nm, value = unname(extra))) }
+    refs <- refs[refs$quant %in% type & refs$name != "zero", ]
+    refs$quant <- factor(refs$quant, levels = type)
     p <- p + .geom_refpts(refs, range(d$year), label.size)
-    if("Process deviation" %in% type) p <- p + ggplot2::geom_hline(data = data.frame(quantity = factor("Process deviation", levels = type)),
+    if("Process deviation" %in% type) p <- p + ggplot2::geom_hline(data = data.frame(quant = factor("Process deviation", levels = type)),
                                                                    ggplot2::aes(yintercept = 0), linetype = 2)
   }
   p
@@ -230,11 +230,11 @@ jbplot_trj <- function(x, type = c("B", "F", "B/Bmsy", "F/Fmsy", "Catch", "Proce
 # nested quantile bands for one fit: lci/uci = outer band, lo1/hi1 = inner band, est = median
 .nested_ts <- function(fit, type, probs){
   out <- lapply(type, function(q){
-    t <- fit$ts[fit$ts$quantity == q, ]; if(!nrow(t)) return(NULL)
+    t <- fit$ts[fit$ts$quant == q, ]; if(!nrow(t)) return(NULL)
     x <- fit$draws[[q]]
     if(!is.null(x) && is.matrix(x)){
       qs <- apply(x, 2, stats::quantile, probs, na.rm = TRUE, names = FALSE)
-      return(data.frame(year = fit$years, quantity = q, est = qs[3, ], lci = qs[1, ], uci = qs[5, ], lo1 = qs[2, ], hi1 = qs[4, ],
+      return(data.frame(year = fit$years, quant = q, est = qs[3, ], lci = qs[1, ], uci = qs[5, ], lo1 = qs[2, ], hi1 = qs[4, ],
                         se.log = NA, run = NA))
     }
     z <- stats::qnorm(probs)
@@ -296,7 +296,7 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
   style <- match.arg(style)
   y <- year %||% max(fit$years); N <- match(y, fit$years)
   if(is.na(N)) stop("year not in the assessment years", call. = FALSE)
-  bb <- fit$ts$est[fit$ts$quantity == "B/Bmsy"]; ff <- fit$ts$est[fit$ts$quantity == "F/Fmsy"]
+  bb <- fit$ts$est[fit$ts$quant == "B/Bmsy"]; ff <- fit$ts$est[fit$ts$quant == "F/Fmsy"]
   trj <- data.frame(year = fit$years, stock = bb, harvest = ff)
   pt <- .kobe_cloud(fit, N, npoints)
   zone <- ifelse(pt$stock >= 1 & pt$harvest <= 1, "green", ifelse(pt$stock < 1 & pt$harvest <= 1, "yellow",
@@ -353,11 +353,11 @@ jbplot_kobe <- function(fit, npoints = 2000, year = NULL, contours = c(0.5, 0.8,
 
 # catch relative to MSY (estimated catch and its interval divided by the MSY estimate of the run)
 .catch_msy <- function(fit, cols){
-  t <- fit$ts[fit$ts$quantity == "Catch", ]
+  t <- fit$ts[fit$ts$quant == "Catch", ]
   if(!nrow(t) || is.null(fit$refpts) || !"MSY" %in% rownames(fit$refpts)) return(NULL)
   msy <- fit$refpts["MSY", "est"]
   for(v in intersect(c("est", "lci", "uci", "lo1", "hi1"), names(t))) t[[v]] <- t[[v]]/msy
-  t$quantity <- "Catch/MSY"
+  t$quant <- "Catch/MSY"
   if(!"lo1" %in% names(t)) t$lo1 <- rep(NA_real_, nrow(t))
   if(!"hi1" %in% names(t)) t$hi1 <- rep(NA_real_, nrow(t))
   t[, cols, drop = FALSE]
@@ -624,7 +624,7 @@ jbplot_production <- function(fit, type = c("phase", "dyn"), rel = FALSE){
 .spcurve <- function(fit, rel = FALSE){
   rp <- fit$refpts; K <- rp["K", "est"]; MSY <- rp["MSY", "est"]; Bmsy <- rp["Bmsy", "est"]
   r <- fit$pars["r", "est"]; m <- fit$pars["m", "est"]
-  g <- function(q) fit$ts$est[fit$ts$quantity == q]
+  g <- function(q) fit$ts$est[fit$ts$quant == q]
   B <- g("B"); b <- seq(0, max(K, B, na.rm = TRUE), length.out = 400)
   sp <- r/(m - 1)*b*(1 - (b/K)^(m - 1))
   sp0 <- g("Surplus production"); if(!length(sp0)) sp0 <- NA
@@ -671,18 +671,18 @@ jbplot_data <- function(data, indices = NULL, ...){
 #' @return a ggplot; Mohn's rho in attribute "rho"
 #' @export
 jbplot_retro <- function(retro, type = c("B/Bmsy", "F/Fmsy", "B", "F"), ncol = NULL){
-  ts <- retro$ts[retro$ts$quantity %in% type, ]; rho <- retro$rho
-  lab <- stats::setNames(sprintf("%s\nMohn's rho = %.3f", rho$quantity, rho$rho), rho$quantity)
-  ts$quantity <- factor(ts$quantity, levels = type)
+  ts <- retro$ts[retro$ts$quant %in% type, ]; rho <- retro$rho
+  lab <- stats::setNames(sprintf("%s\nMohn's rho = %.3f", rho$quant, rho$rho), rho$quant)
+  ts$quant <- factor(ts$quant, levels = type)
   peels <- sort(unique(ts$peel)); ty <- max(ts$year[ts$peel == 0])
   plab <- ifelse(peels == 0, "Reference", as.character(ty - peels)); ts$run <- factor(plab[match(ts$peel, peels)], levels = plab)
   cols <- stats::setNames(c("black", jb3cols(max(length(peels) - 1, 1))[seq_len(length(peels) - 1)]), plab)
-  ends <- ts[stats::ave(ts$year, ts$run, ts$quantity, FUN = max) == ts$year & ts$peel > 0, ]
+  ends <- ts[stats::ave(ts$year, ts$run, ts$quant, FUN = max) == ts$year & ts$peel > 0, ]
   r0 <- ts[ts$peel == 0, ]
   p <- ggplot2::ggplot(ts, ggplot2::aes(.data$year, .data$est, colour = .data$run)) +
     ggplot2::geom_ribbon(data = r0, ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "grey80", colour = NA) +
     ggplot2::geom_line(linewidth = 0.6) + ggplot2::geom_point(data = ends, size = 2) + ggplot2::scale_colour_manual(values = cols) +
-    ggplot2::facet_wrap(~quantity, scales = "free_y", labeller = ggplot2::as_labeller(lab), ncol = ncol) + ggplot2::expand_limits(y = 0) +
+    ggplot2::facet_wrap(~quant, scales = "free_y", labeller = ggplot2::as_labeller(lab), ncol = ncol) + ggplot2::expand_limits(y = 0) +
     scale_x_year() + ggplot2::labs(x = "Year", y = NULL) + theme_jabba3()
   attr(p, "rho") <- rho
   p
@@ -750,15 +750,15 @@ jbplot_hcxval <- function(hc, nyears = 5, adj = FALSE, ncol = NULL, indices = NU
 jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyears = 15, refpts = TRUE, bthr = 0.5,
                               blim = 0.3, extra = NULL, label.size = 2.5){
   ft <- proj$fit.ts; y0 <- max(ft$year)
-  ft <- ft[ft$quantity %in% type & ft$year > y0 - nyears, ]
-  pr <- proj$ts[proj$ts$quantity %in% type, ]
+  ft <- ft[ft$quant %in% type & ft$year > y0 - nyears, ]
+  pr <- proj$ts[proj$ts$quant %in% type, ]
   sc <- unique(pr$scenario); cols <- stats::setNames(jb3cols(length(sc)), sc)
-  last <- do.call(rbind, lapply(sc, function(s){ x <- ft[ft$year == y0, ]; x$scenario <- s; x[, c("scenario", "year", "quantity", "est", "lci", "uci")] }))
+  last <- do.call(rbind, lapply(sc, function(s){ x <- ft[ft$year == y0, ]; x$scenario <- s; x[, c("scenario", "year", "quant", "est", "lci", "uci")] }))
   pr <- rbind(last, pr[, names(last)])
-  mx <- stats::ave(c(ft$est, pr$est), c(as.character(ft$quantity), as.character(pr$quantity)), FUN = function(x) max(abs(x), na.rm = TRUE))
+  mx <- stats::ave(c(ft$est, pr$est), c(as.character(ft$quant), as.character(pr$quant)), FUN = function(x) max(abs(x), na.rm = TRUE))
   pr$uci <- pmin(pr$uci, 3*mx[nrow(ft) + seq_len(nrow(pr))])        # guard against exploding intervals
   pr$scenario <- factor(pr$scenario, levels = sc)
-  ft$quantity <- factor(ft$quantity, levels = type); pr$quantity <- factor(pr$quantity, levels = type)
+  ft$quant <- factor(ft$quant, levels = type); pr$quant <- factor(pr$quant, levels = type)
   p <- ggplot2::ggplot(mapping = ggplot2::aes(.data$year, .data$est)) +
     ggplot2::geom_ribbon(data = ft, ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "grey80") +
     ggplot2::geom_line(data = ft, linewidth = 0.7) +
@@ -766,25 +766,25 @@ jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyear
     ggplot2::geom_line(data = pr, ggplot2::aes(colour = .data$scenario), linewidth = 0.7) +
     ggplot2::scale_colour_manual(values = cols) + ggplot2::scale_fill_manual(values = cols) +
     ggplot2::geom_vline(xintercept = c(y0, if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) proj$tac.year - 1), linetype = 3) +
-    ggplot2::facet_wrap(~quantity, scales = "free_y", ncol = 1) + ggplot2::expand_limits(y = 0) + scale_x_year() +
+    ggplot2::facet_wrap(~quant, scales = "free_y", ncol = 1) + ggplot2::expand_limits(y = 0) + scale_x_year() +
     ggplot2::labs(x = "Year", y = NULL, colour = NULL, fill = NULL,
                   caption = if(!is.null(proj$tac.year) && proj$tac.year > y0 + 1) paste("dotted: last assessment year and last intermediate year; TAC year", proj$tac.year)) +
     theme_jabba3()
   if(!refpts) return(p)
   rp <- proj$refpts
   nm1 <- function(x, d) if(!is.null(names(x)) && nzchar(names(x)[1])) names(x)[1] else d
-  refs <- data.frame(quantity = c("B/Bmsy", "F/Fmsy"), name = c("Bmsy", "Fmsy"), value = c(1, 1))
-  if(!is.null(rp) && "MSY" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "Catch", name = "MSY", value = rp$est[rp$par == "MSY"]))
-  if(!is.null(rp) && "Bmsy" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "B", name = "Bmsy", value = rp$est[rp$par == "Bmsy"]))
-  if(!is.null(rp) && "Fmsy" %in% rp$par) refs <- rbind(refs, data.frame(quantity = "F", name = "Fmsy", value = rp$est[rp$par == "Fmsy"]))
+  refs <- data.frame(quant = c("B/Bmsy", "F/Fmsy"), name = c("Bmsy", "Fmsy"), value = c(1, 1))
+  if(!is.null(rp) && "MSY" %in% rp$par) refs <- rbind(refs, data.frame(quant = "Catch", name = "MSY", value = rp$est[rp$par == "MSY"]))
+  if(!is.null(rp) && "Bmsy" %in% rp$par) refs <- rbind(refs, data.frame(quant = "B", name = "Bmsy", value = rp$est[rp$par == "Bmsy"]))
+  if(!is.null(rp) && "Fmsy" %in% rp$par) refs <- rbind(refs, data.frame(quant = "F", name = "Fmsy", value = rp$est[rp$par == "Fmsy"]))
   lim <- c(if(!is.null(bthr)) stats::setNames(unname(bthr[1]), nm1(bthr, "Bthr")),
            if(!is.null(blim)) stats::setNames(unname(blim[1]), nm1(blim, "Blim")), extra)
   if(length(lim)){
     isF <- substr(names(lim), 1, 1) == "F"
-    refs <- rbind(refs, data.frame(quantity = ifelse(isF, "F/Fmsy", "B/Bmsy"), name = names(lim), value = unname(lim)))
+    refs <- rbind(refs, data.frame(quant = ifelse(isF, "F/Fmsy", "B/Bmsy"), name = names(lim), value = unname(lim)))
   }
-  refs <- refs[refs$quantity %in% type, ]
-  refs$quantity <- factor(refs$quantity, levels = type)
+  refs <- refs[refs$quant %in% type, ]
+  refs$quant <- factor(refs$quant, levels = type)
   p + .geom_refpts(refs, c(y0 - nyears + 1, max(pr$year)), label.size)
 }
 
@@ -792,7 +792,7 @@ jbplot_projection <- function(proj, type = c("B/Bmsy", "F/Fmsy", "Catch"), nyear
 #' @param fit a \code{jabba3} fit
 #' @export
 jbplot_catch <- function(fit){
-  d <- fit$ts[fit$ts$quantity == "Catch", ]; d$obs <- fit$data$catch[seq_len(nrow(d))]
+  d <- fit$ts[fit$ts$quant == "Catch", ]; d$obs <- fit$data$catch[seq_len(nrow(d))]
   ggplot2::ggplot(d, ggplot2::aes(.data$year)) + ggplot2::geom_col(ggplot2::aes(y = .data$obs), fill = "grey70") +
     ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lci, ymax = .data$uci), fill = "dodgerblue", alpha = 0.3) +
     ggplot2::geom_line(ggplot2::aes(y = .data$est), colour = "dodgerblue4", linewidth = 0.7) +
@@ -808,7 +808,7 @@ jbplot_catch <- function(fit){
 #' @export
 jbplot_steps <- function(x){
   fl <- .fitlist(x, steps = TRUE)
-  st <- vapply(names(fl), function(n){ f <- fl[[n]]; b <- utils::tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1)
+  st <- vapply(names(fl), function(n){ f <- fl[[n]]; b <- utils::tail(f$ts$est[f$ts$quant == "B/Bmsy"], 1)
     sprintf("%s: B/Bmsy %.2f, sdb %.3f%s", n, b, f$pars["sdb", "est"], if(f$model$lag > 0) paste0(", lag ", f$model$lag) else "") }, "")
   jbplot_trj(fl, type = c("B/Bmsy", "F/Fmsy")) + ggplot2::labs(subtitle = paste(st, collapse = "\n"))
 }

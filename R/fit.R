@@ -172,7 +172,7 @@ jb3_output <- function(best, setup, sdreport = TRUE){
     data.frame(est = exp(e)*scale, lci = exp(e - 1.96*s)*scale, uci = exp(e + 1.96*s)*scale, se.log = s)
   }
   # time series (long)
-  tsq <- function(q, x, scale = 1, est = NULL) cbind(data.frame(year = yrs, quantity = q), lnci(x, scale, est))
+  tsq <- function(q, x, scale = 1, est = NULL) cbind(data.frame(year = yrs, quant = q), lnci(x, scale, est))
   lpS <- if(!is.null(sdr)) sdr$par.random[names(sdr$par.random) == "logP"] else log(rep$PS %||% rep$P)
   lpsS <- if(!is.null(sdr)) sqrt(sdr$diag.cov.random[names(sdr$par.random) == "logP"]) else rep(NA, length(lpS))
   y1 <- dat$yr1 %||% seq_len(N)
@@ -183,27 +183,27 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   pd <- g("procdev")
   ts <- rbind(tsq("B", g("logB"), mu, B), tsq("F", g("logF"), 1, rep$H), tsq("B/Bmsy", g("logBBmsy"), 1, rep$BBmsy),
               tsq("F/Fmsy", g("logFFmsy"), 1, rep$HHmsy),
-              cbind(data.frame(year = yrs, quantity = "B/K"), data.frame(est = exp(lp), lci = exp(lp - 1.96*lps), uci = exp(lp + 1.96*lps), se.log = lps)),
+              cbind(data.frame(year = yrs, quant = "B/K"), data.frame(est = exp(lp), lci = exp(lp - 1.96*lps), uci = exp(lp + 1.96*lps), se.log = lps)),
               {   # estimated catch: lognormal CI (delta method: se.log = se/est), so the interval stays positive
                 gc <- if(dat$catch.err || dat$nmiss > 0) g("estC") else NULL
                 sl <- if(is.null(gc)) rep(NA_real_, length(yrs)) else gc[, 2]/pmax(gc[, 1], 1e-12)
-                data.frame(year = yrs, quantity = "Catch", est = rep$estC*mu,
+                data.frame(year = yrs, quant = "Catch", est = rep$estC*mu,
                            lci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(-1.96*sl)),
                            uci = ifelse(is.na(sl), rep$estC*mu, rep$estC*mu*exp(1.96*sl)), se.log = sl) },
-              data.frame(year = yrs, quantity = "Process deviation", est = rep$procdev,
+              data.frame(year = yrs, quant = "Process deviation", est = rep$procdev,
                          lci = if(is.null(pd)) NA else pd[, 1] - 1.96*pd[, 2], uci = if(is.null(pd)) NA else pd[, 1] + 1.96*pd[, 2], se.log = NA),
-              data.frame(year = yrs, quantity = "Process SD", est = rep$sdt, lci = NA, uci = NA, se.log = NA),
-              data.frame(year = yrs, quantity = "Surplus production", est = SP, lci = NA, uci = NA, se.log = NA))
+              data.frame(year = yrs, quant = "Process SD", est = rep$sdt, lci = NA, uci = NA, se.log = NA),
+              data.frame(year = yrs, quant = "Surplus production", est = SP, lci = NA, uci = NA, se.log = NA))
   if(dat$eb.on){
     EB <- B*remv*mu
-    ts <- rbind(ts, data.frame(year = yrs, quantity = "EB", est = EB, lci = NA, uci = NA, se.log = NA))
+    ts <- rbind(ts, data.frame(year = yrs, quant = "EB", est = EB, lci = NA, uci = NA, se.log = NA))
   }
   ts$run <- NA_character_
   # seasonal series (point estimates; B/K with intervals from the state SEs)
   ts.season <- NULL
   if((dat$ns %||% 1) > 1){
     sy <- yrs[dat$stepyear]; ss <- dat$stepseason; tm <- sy + (ss - 1)/dat$ns
-    sq <- function(q, est, lci = NA, uci = NA) data.frame(year = sy, season = ss, time = tm, quantity = q, est = est, lci = lci, uci = uci)
+    sq <- function(q, est, lci = NA, uci = NA) data.frame(year = sy, season = ss, time = tm, quant = q, est = est, lci = lci, uci = uci)
     ts.season <- rbind(sq("B/K", exp(lpS), exp(lpS - 1.96*lpsS), exp(lpS + 1.96*lpsS)),
                        sq("B", exp(lpS)*rep$K*mu, exp(lpS - 1.96*lpsS)*rep$K*mu, exp(lpS + 1.96*lpsS)*rep$K*mu),
                        sq("B/Bmsy", rep$BBmsyS), sq("H", rep$HS), sq("Catch", rep$estCS*mu),

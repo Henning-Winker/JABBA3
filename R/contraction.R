@@ -50,7 +50,7 @@
 #' @param shift.max above this (absolute) a quantity is classed as in conflict with its prior
 #' @param nuts NUTS settings for the prior predictive runs
 #' @param digits rounding (NULL for none)
-#' @return data.frame(run, quantity, prior.median, post.median, contraction, shift, contraction.pdf, class);
+#' @return data.frame(run, quant, prior.median, post.median, contraction, shift, contraction.pdf, class);
 #'   the prior predictive fits are attached as attribute "prior"
 #' @references Betancourt, M. (2018). Calibrating model-based inferences and decisions. arXiv:1803.08393.
 #'   Schad, D.J., Betancourt, M. and Vasishth, S. (2021). Toward a principled Bayesian workflow in cognitive
@@ -80,7 +80,7 @@ jb3_contraction <- function(fit, prior = NULL, quantities = c("K", "r", "MSY", "
       vb <- stats::var(b, na.rm = TRUE)
       if(!is.finite(vb) || vb < 1e-12) return(NULL)
       ps <- pdf.sd(f, q)
-      data.frame(run = names(fit)[k], quantity = q,
+      data.frame(run = names(fit)[k], quant = q,
                  prior.median = stats::median(if(lg) exp(b) else b, na.rm = TRUE), post.median = stats::median(if(lg) exp(a) else a, na.rm = TRUE),
                  contraction = 1 - stats::var(a, na.rm = TRUE)/vb,
                  shift = (mean(a, na.rm = TRUE) - mean(b, na.rm = TRUE))/sqrt(vb),
@@ -121,9 +121,9 @@ jbplot_contraction <- function(x, ...){
     ggplot2::annotate("text", x = 0.5, y = ym*0.97, label = "prior-data conflict", size = 3, colour = "#c51b8a") +
     ggplot2::geom_point(ggplot2::aes(colour = run), size = 2.2)
   if(requireNamespace("ggrepel", quietly = TRUE))
-    g <- g + ggrepel::geom_text_repel(ggplot2::aes(label = quantity, colour = run), size = 2.8, show.legend = FALSE,
+    g <- g + ggrepel::geom_text_repel(ggplot2::aes(label = quant, colour = run), size = 2.8, show.legend = FALSE,
                                       max.overlaps = 30, seed = 1)
-  else g <- g + ggplot2::geom_text(ggplot2::aes(label = quantity, colour = run), size = 2.8, vjust = -0.8, show.legend = FALSE)
+  else g <- g + ggplot2::geom_text(ggplot2::aes(label = quant, colour = run), size = 2.8, vjust = -0.8, show.legend = FALSE)
   if(nlevels(d$run) > 1) g <- g + ggplot2::facet_wrap(~run)
   g + ggplot2::scale_x_continuous(limits = c(xl, 1), breaks = seq(-1, 1, 0.5)) + ggplot2::coord_cartesian(ylim = c(0, ym)) +
     ggplot2::labs(x = "Posterior contraction (1 - var post / var prior predictive)", y = "|Shift| (prior SDs)", colour = NULL) +

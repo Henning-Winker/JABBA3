@@ -12,10 +12,10 @@ test_that("nseason = 1 is the annual model; seasonal steps run and keep catch to
     f4 <- suppressWarnings(jabba3(d, pr, jb3_model(shape = "fox", lag = 2, rho = 0.5, nseason = 4, catch.alloc = alloc), osa = FALSE))
     expect_equal(f4$nseason, 4L)
     expect_true(f4$convergence$tier %in% c("ok", "warning"))
-    cs <- f4$ts.season[f4$ts.season$quantity == "Catch", ]
-    ca <- f4$ts[f4$ts$quantity == "Catch", ]
+    cs <- f4$ts.season[f4$ts.season$quant == "Catch", ]
+    ca <- f4$ts[f4$ts$quant == "Catch", ]
     expect_equal(as.numeric(tapply(cs$est, cs$year, sum)), ca$est, tolerance = 1e-6)    # seasons add up to the annual catch
-    expect_equal(nrow(f4$ts[f4$ts$quantity == "B/Bmsy", ]), length(d$years))           # annual outputs
+    expect_equal(nrow(f4$ts[f4$ts$quant == "B/Bmsy", ]), length(d$years))           # annual outputs
     expect_equal(f4$report$vf, .season_vfac(4, 0.5^(1/4)))
   }
   # legacy state-based equal F ("Fstate"): within-year harvest fraction constant on the states
@@ -27,7 +27,7 @@ test_that("nseason = 1 is the annual model; seasonal steps run and keep catch to
   cs <- matrix(f4$report$estCS, 4)
   expect_equal(colSums(cs), as.numeric(f4$report$estC), tolerance = 1e-8)
   # annual model status close to the seasonal one for a slow stock
-  bb1 <- tail(f1$ts$est[f1$ts$quantity == "B/Bmsy"], 1); bb4 <- tail(f4$ts$est[f4$ts$quantity == "B/Bmsy"], 1)
+  bb1 <- tail(f1$ts$est[f1$ts$quant == "B/Bmsy"], 1); bb4 <- tail(f4$ts$est[f4$ts$quant == "B/Bmsy"], 1)
   expect_lt(abs(log(bb4/bb1)), 0.3)
 })
 

@@ -8,7 +8,7 @@ test_that("bigeye Fox fit converges and reproduces the JABBA 2 RTMB engine", {
   # reference values from JABBA 2.3 + BioProcDyn patch 0013 (engine = "rtmb", sigma.proc.prior FishLife, psi CV 0.25)
   expect_equal(f$pars["K", "est"], 1174749, tolerance = 1e-4)
   expect_equal(f$pars["r", "est"], 0.1929, tolerance = 1e-3)
-  expect_equal(utils::tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1), 0.7973, tolerance = 1e-3)
+  expect_equal(utils::tail(f$ts$est[f$ts$quant == "B/Bmsy"], 1), 0.7973, tolerance = 1e-3)
 })
 
 test_that("OSA residuals are approximately standard normal on a well-specified fit", {
@@ -59,7 +59,7 @@ test_that("jbinput2jabba3 reproduces the JABBA 2 RTMB fit", {
   x <- jbinput2jabba3(jb, verbose = FALSE)
   f <- jabba3(x$data, x$priors, x$model, osa = FALSE)
   expect_equal(f$pars["K", "est"], 1174749, tolerance = 1e-4)
-  expect_equal(utils::tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1), 0.7973, tolerance = 1e-3)
+  expect_equal(utils::tail(f$ts$est[f$ts$quant == "B/Bmsy"], 1), 0.7973, tolerance = 1e-3)
 })
 
 test_that("spictinp2jabba3 converts a SPiCT input list", {

@@ -12,7 +12,7 @@ jb3_nuts_ess(fit, quantities = c("B/Bmsy", "F/Fmsy"))
 \item{quantities}{derived quantities, any of "B/Bmsy", "F/Fmsy", "B/K", "B", "F"}
 }
 \value{
-data.frame(quantity, year, Rhat, ess_bulk, ess_tail, bulk.per1000, tail.per1000); attribute "summary" with
+data.frame(quant, year, Rhat, ess_bulk, ess_tail, bulk.per1000, tail.per1000); attribute "summary" with
   minimum and median by quantity and the run time and parameterisation
 }
 \description{

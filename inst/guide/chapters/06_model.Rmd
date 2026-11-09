@@ -28,7 +28,7 @@ The model structure is set with `jb3_model()`, separately from the priors.
 fits.shape <- lapply(c(schaefer = "schaefer", pella = "pella", fox = "fox"), function(s)
   jabba3(d, pr, jb3_model(shape = s), osa = FALSE))
 t(sapply(fits.shape, function(f) c(Fmsy = f$refpts["Fmsy", "est"], MSY = f$refpts["MSY", "est"],
-                                   BmsyK = f$refpts["BmsyK", "est"], B.Bmsy = tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1))))
+                                   BmsyK = f$refpts["BmsyK", "est"], B.Bmsy = tail(f$ts$est[f$ts$quant == "B/Bmsy"], 1))))
 ```
 
 > With the same r prior the three shapes imply different $F_{MSY}$; convert
