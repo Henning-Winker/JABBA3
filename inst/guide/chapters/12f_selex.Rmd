@@ -145,7 +145,7 @@ jabbaplot3(fk, bthr = NULL, blim = NULL, panels = c("B/Bmsy", "F/Fmsy", "procdev
 The estimated spawning-biomass depletion against the operating-model truth:
 
 ```{r model-kobsim-truth, fig.height = 4, fig.width = 7}
-bkk <- fk$ts[fk$ts$quantity == "B/K", ]
+bkk <- fk$ts[fk$ts$quant == "B/K", ]
 ggplot2::ggplot(bkk, ggplot2::aes(year, est)) +
   ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), fill = "grey80") + ggplot2::geom_line() +
   ggplot2::geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
@@ -198,8 +198,8 @@ fb <- list(
                            jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL", ebsb.catch = "LL"), osa = FALSE),
   selex.numbers   = jabba3(db, jb3_priors(db, r = prb$r, K = Kb),
                            jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL.N", ebsb.catch = "LL"), osa = FALSE))
-t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(round(s$est, 2), s$quantity) }))
+t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quant) }))
 ```
 
 Selectivity is close to maturity here, so the weight curve is nearly flat and

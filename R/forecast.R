@@ -58,10 +58,10 @@
   dr <- if(inherits(x, "jb3ensemble")) x$draws else x$draws %||% NULL
   N <- length(x$years); j <- seq(N - nsq + 1, N)
   cq <- utils::tail(x$data$catch, nsq)
-  if(any(is.na(cq))) cq <- utils::tail(x$ts$est[x$ts$quantity == "Catch"], nsq)      # years without catch: estimated catch
+  if(any(is.na(cq))) cq <- utils::tail(x$ts$est[x$ts$quant == "Catch"], nsq)      # years without catch: estimated catch
   csq <- mean(cq)
   fsq <- if(!is.null(dr)) stats::median(rowMeans(dr$`F/Fmsy`[, j, drop = FALSE]))
-         else mean(x$ts$est[x$ts$quantity == "F/Fmsy"][j])
+         else mean(x$ts$est[x$ts$quant == "F/Fmsy"][j])
   c(Csq = csq, Fsq = fsq)
 }
 
@@ -143,15 +143,15 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
   N <- length(x$years)
   ts <- do.call(rbind, lapply(seq_along(out), function(s) do.call(rbind, lapply(c("B/Bmsy", "B", "Catch", "F/Fmsy", "F"), function(q){
     qs <- apply(out[[s]][[q]], 2, stats::quantile, c(0.025, 0.5, 0.975), na.rm = TRUE)
-    data.frame(scenario = sc$label[s], year = out[[s]]$years, quantity = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ],
+    data.frame(scenario = sc$label[s], year = out[[s]]$years, quant = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ],
                p.above = if(q == "B/Bmsy") colMeans(out[[s]][[q]] >= 1) else if(q == "F/Fmsy") colMeans(out[[s]][[q]] > 1 + 1e-8) else NA)
   }))))
   dr <- if(inherits(x, "jb3ensemble")) x$draws else x$draws %||% NULL
   st <- if(!is.null(dr)) list(`B/Bmsy` = dr$`B/Bmsy`[, N], `F/Fmsy` = dr$`F/Fmsy`[, N], B = dr$`B/Bmsy`[, max(1, N - 1)])
-        else list(`B/Bmsy` = x$ts$est[x$ts$quantity == "B/Bmsy"][N], `F/Fmsy` = x$ts$est[x$ts$quantity == "F/Fmsy"][N])
+        else list(`B/Bmsy` = x$ts$est[x$ts$quant == "B/Bmsy"][N], `F/Fmsy` = x$ts$est[x$ts$quant == "F/Fmsy"][N])
   st$year <- max(x$years)
   names(out) <- sc$label
-  structure(c(list(ts = ts, iters = out, scenarios = sc, run = x$run, fit.ts = x$ts, refpts = x$refpts, status = st), list(...)),
+  structure(c(list(ts = ts, iter = out, scenarios = sc, run = x$run, fit.ts = x$ts, refpts = x$refpts, status = st), list(...)),
             class = "jb3proj")
 }
 
@@ -186,7 +186,7 @@ jb3_fwd <- function(x, fwdctrl, ndraws = 1000, procerr = c("ar1", "mean", "none"
 #'   catch), e.g. \code{list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.8Fmsy" = c(Fmsy = 0.8), "TAC 2000" = c(Catch = 2000))};
 #'   the names label the scenarios in plots and tables. Named \code{fmsy} or \code{catch} vectors are labelled by their
 #'   names too.
-#' @return list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles), \code{iters}, \code{scenarios},
+#' @return list of class \code{jb3proj}: \code{ts} (scenario, year, quant, quantiles), \code{iter}, \code{scenarios},
 #'   \code{status}, \code{ctrl}, \code{tac.year}
 #' @export
 jb3_project <- function(fit, fmsy = NULL, catch = NULL, nyears = 10, ndraws = 1000, procerr = c("ar1", "mean", "none"),
@@ -265,7 +265,7 @@ jb3_ensemble <- function(fits, weights = NULL, ndraws = 3000, seed = 123){
   dr <- lapply(stats::setNames(q, q), function(z) do.call(rbind, lapply(md, `[[`, z)))
   dr$pars <- do.call(rbind, lapply(md, `[[`, "pars")); dr$member <- rep(names(fits), n); dr$type <- "ensemble"
   ts <- do.call(rbind, lapply(q, function(z){ qs <- apply(dr[[z]], 2, stats::quantile, c(0.025, 0.5, 0.975), na.rm = TRUE)
-    data.frame(year = yrs, quantity = z, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = NA_character_) }))
+    data.frame(year = yrs, quant = z, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = NA_character_) }))
   med <- function(v) c(stats::median(v), stats::quantile(v, c(0.025, 0.975), names = FALSE))
   rp <- data.frame(par = c("Bmsy", "Fmsy", "MSY", "K", "BmsyK"), est = NA, lci = NA, uci = NA, se.log = NA, row.names = c("Bmsy", "Fmsy", "MSY", "K", "BmsyK"))
   for(nm in c("Bmsy", "Fmsy", "MSY", "K")) rp[nm, c("est", "lci", "uci")] <- med(dr$pars[[nm]])
@@ -321,7 +321,7 @@ jb3_weights <- function(fits, hindcast = NULL, retro = NULL, rmse.max = 0.3, rho
     runs <- if(is.null(dg)) NA else all(dg$runs.p > 0.05, na.rm = TRUE)
     rmse <- if(is.null(dg)) NA else sqrt(mean(f$index$residual^2, na.rm = TRUE)) < rmse.max
     mase <- if(!is.null(hindcast)) all(hindcast[[i]]$mase$MASE < 1, na.rm = TRUE) else NA
-    mohn <- if(!is.null(retro)){ r <- retro[[i]]$rho$rho[retro[[i]]$rho$quantity == "B/Bmsy"]; r >= rho.lim[1] && r <= rho.lim[2] } else NA
+    mohn <- if(!is.null(retro)){ r <- retro[[i]]$rho$rho[retro[[i]]$rho$quant == "B/Bmsy"]; r >= rho.lim[1] && r <= rho.lim[2] } else NA
     crit <- c(runs, rmse, mase, mohn)
     data.frame(run = nm[i], converged = conv, runs = runs, rmse = rmse, mase = mase, mohn = mohn,
                score = if(conv) mean(crit, na.rm = TRUE) else 0) }))
@@ -369,7 +369,7 @@ jb3_hcr <- function(x, ftgt = 1, btrigger = 0.5, blim = 0.3, bclose = 0, fmin = 
     if(imp.years > 0){ cc$value[seq_len(imp.years)] <- imp.catch %||% 1; cc$quant[seq_len(imp.years)] <- if(is.null(imp.catch)) "Csq" else "Catch" }
     x <- jb3_fwd(x, list(Ftgt = cc), ...)
   }
-  it <- x$iters[[scenario]]; year <- year %||% x$tac.year %||% it$years[1]
+  it <- x$iter[[scenario]]; year <- year %||% x$tac.year %||% it$years[1]
   j <- match(year, it$years); if(is.na(j)) stop("year not in the forecast", call. = FALSE)
   b <- it$`B/Bmsy`[, j]
   fdet <- .hockey(stats::median(b), ftgt, btrigger, bclose, fmin); fpa <- mean(.hockey(b, ftgt, btrigger, bclose, fmin))
@@ -441,14 +441,14 @@ jbplot_hcr <- function(x = NULL, ftgt = 1, btrigger = 0.5, blim = 0.3, bclose = 
 #' @return data.frame with columns Basis, C y, F/Ftgt y, B/Btgt y+1, B change, P(B>Blim), P(B>Bpa), P(B>Btgt)
 #' @export
 jb3_fwdtable <- function(proj, eval.yr = NULL, osa = TRUE, rel = TRUE, bthr = 0.5, blim = 0.3, digits = 3){
-  py <- proj$iters[[1]]$years
+  py <- proj$iter[[1]]$years
   eval.yr <- eval.yr %||% proj$tac.year %||% py[1]
   evalB <- if(osa) eval.yr + 1 else eval.yr
   if(!evalB %in% py) stop("projection too short: biomass in ", evalB, " needed (increase nyears)", call. = FALSE)
   j <- match(eval.yr, py); jb <- match(evalB, py); j0 <- match(eval.yr - 1, py)
-  df <- do.call(rbind, lapply(seq_along(proj$iters), function(s){ it <- proj$iters[[s]]
+  df <- do.call(rbind, lapply(seq_along(proj$iter), function(s){ it <- proj$iter[[s]]
     bb <- it$`B/Bmsy`[, jb]; bref <- if(!is.na(j0)) it[[if(rel) "B/Bmsy" else "B"]][, j0] else
-      if(rel) proj$status$`B/Bmsy` else proj$fit.ts$est[proj$fit.ts$quantity == "B"][length(unique(proj$fit.ts$year))]
+      if(rel) proj$status$`B/Bmsy` else proj$fit.ts$est[proj$fit.ts$quant == "B"][length(unique(proj$fit.ts$year))]
     Bv <- if(rel) bb else it$B[, jb]
     data.frame(Basis = proj$scenarios$label[s],
                C = round(stats::median(it$Catch[, j]), max(0, digits - 3)),
@@ -524,7 +524,7 @@ jb3_advice <- function(fit, fractiles = c(0.35, 0.15), imp.years = 1, imp = c("F
   # step 1-2: intermediate years, then the HCR in the advice year (and the year after, for the biomass)
   hc <- data.frame(year = yrs, value = c(iv, ftgt, ftgt), quant = c(iq, "HCR", "HCR"), stringsAsFactors = FALSE)
   fh <- jb3_fwd(fit, list(HCR = hc), ndraws = ndraws, procerr = procerr, nsq = nsq, hcr = list(btrigger = btrigger), seed = seed)
-  it <- fh$iters[[1]]; j <- match(yadv, it$years); cd <- it$Catch[, j]
+  it <- fh$iter[[1]]; j <- match(yadv, it$years); cd <- it$Catch[, j]
   # step 3: advised catch by fractile, projected as catch scenarios
   fr <- sort(unique(fractiles), decreasing = TRUE)
   adv <- stats::setNames(stats::quantile(cd, fr, names = FALSE), sprintf("HCR, %gth percentile", 100*fr))

@@ -34,7 +34,7 @@ quantities (B/Bmsy, F/Fmsy, B/K)}
 \item{digits}{rounding (NULL for none)}
 }
 \value{
-data.frame(run, quantity, prior.median, post.median, contraction, shift, contraction.pdf, class);
+data.frame(run, quant, prior.median, post.median, contraction, shift, contraction.pdf, class);
   the prior predictive fits are attached as attribute "prior"
 }
 \description{

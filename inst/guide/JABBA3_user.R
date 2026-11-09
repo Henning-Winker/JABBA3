@@ -765,7 +765,7 @@ c(GT = gt, rho = jb3_rho_gt(gt))
 fits.shape <- lapply(c(schaefer = "schaefer", pella = "pella", fox = "fox"), function(s)
   jabba3(d, pr, jb3_model(shape = s), osa = FALSE))
 t(sapply(fits.shape, function(f) c(Fmsy = f$refpts["Fmsy", "est"], MSY = f$refpts["MSY", "est"],
-                                   BmsyK = f$refpts["BmsyK", "est"], B.Bmsy = tail(f$ts$est[f$ts$quantity == "B/Bmsy"], 1))))
+                                   BmsyK = f$refpts["BmsyK", "est"], B.Bmsy = tail(f$ts$est[f$ts$quant == "B/Bmsy"], 1))))
 
 #' 
 #' > With the same r prior the three shapes imply different $F_{MSY}$; convert
@@ -898,7 +898,7 @@ fsp$pars[grep("sdi", rownames(fsp$pars)), c("est", "lci", "uci")]
 fit$time
 fit$pars[, c("est", "lci", "uci")]
 fit$refpts[, c("est", "lci", "uci")]
-head(fit$ts[fit$ts$quantity == "B/Bmsy", ], 3)
+head(fit$ts[fit$ts$quant == "B/Bmsy", ], 3)
 
 #' 
 #' The time series in `fit$ts` hold B, F, B/Bmsy, F/Fmsy, B/K, catch and the
@@ -1422,7 +1422,7 @@ jbplot_kobematrix(kio, colours = "kobe")
 ## ----k2sm-fopt----------------------------------------------------------------
 rp <- fit$refpts
 Fmsy <- rp["Fmsy", "est"]
-Fcur <- mean(tail(fit$ts$est[fit$ts$quantity == "F"], 3))
+Fcur <- mean(tail(fit$ts$est[fit$ts$quant == "F"], 3))
 Fmsy.pa <- exp(qnorm(0.35, log(Fmsy), rp["Fmsy", "se.log"]))
 mult <- c(0, 0.5, 0.75, 1, 1.25, 1.5, 2)
 fopt <- c(setNames(lapply(mult, function(m) c(F = m*Fmsy)),
@@ -1490,7 +1490,7 @@ jbplot_kobematrix(kg, colours = "kobe")
 y0  <- max(fit$years)
 yrs <- y0 + 1:4
 csq <- mean(tail(fit$data$catch, 3))
-fsq <- mean(tail(fit$ts$est[fit$ts$quantity == "F/Fmsy"], 3))
+fsq <- mean(tail(fit$ts$est[fit$ts$quant == "F/Fmsy"], 3))
 ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
 ctrl(1, "Fmsy")
 
@@ -1646,8 +1646,8 @@ sens.sdb <- lapply(c(0.05, 0.1, 0.2), function(s)
 names(sens.r)   <- sapply(sens.r, `[[`, "run")
 names(sens.sdb) <- sapply(sens.sdb, `[[`, "run")
 t(sapply(c(sens.r, sens.sdb), function(f){
-  s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(round(s$est, 2), s$quantity) }))
+  s <- f$ts[f$ts$year == max(f$years) & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quant) }))
 
 #' 
 ## ----cmp-update-plot, fig.width = 10, fig.height = 5--------------------------
@@ -1721,7 +1721,7 @@ jbplot_ensemble(ens)
 y0  <- max(ens$years)
 yrs <- y0 + 1:4
 csq <- mean(tail(fit$data$catch, 3))
-fsq <- mean(tail(ens$ts$est[ens$ts$quantity == "F/Fmsy"], 3))
+fsq <- mean(tail(ens$ts$est[ens$ts$quant == "F/Fmsy"], 3))
 ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
 hcr.ens <- jb3_hcr(jb3_fwd(ens, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.5, blim = 0.3)
 hcr.ens
@@ -1849,7 +1849,7 @@ plot(bum.base)
 #' lag-1 autocorrelation of
 #' 
 ## ----bum-acf, eval = TRUE-----------------------------------------------------
-pd <- bum.base$ts$est[bum.base$ts$quantity == "Process deviation"]
+pd <- bum.base$ts$est[bum.base$ts$quant == "Process deviation"]
 round(acf(pd, plot = FALSE)$acf[2], 2)
 
 #' 
@@ -1945,7 +1945,7 @@ jabbaplot3(bum.runs, panels = c("B/Bmsy", "F/Fmsy", "Catch", "kobe", "spdyn", "p
 bum.hc <- lapply(bum.runs, jb3_hindcast, n = 5)
 bum.rt <- lapply(bum.runs, jb3_retro, n = 5)
 mase <- sapply(bum.hc, function(h){ m <- h$mase; stats::setNames(m$MASE, m$index)[is.finite(m$MASE)] })
-mohn <- sapply(bum.rt, function(r) stats::setNames(r$rho$rho, r$rho$quantity))
+mohn <- sapply(bum.rt, function(r) stats::setNames(r$rho$rho, r$rho$quant))
 knitr::kable(round(rbind(mase, mohn[c("B/Bmsy", "F/Fmsy"), , drop = FALSE]), 2),
              caption = "Hindcast MASE by index and Mohn's rho")
 
@@ -2423,12 +2423,12 @@ knitr::kable(pt[pt$Parameter %in% c("K", "r", "MSY", "qA.effort", "sdA.effort", 
 #' 
 ## ----co-status, fig.height = 3.5, fig.width = 9-------------------------------
 stat <- do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]; ly <- as.character(max(f$years))
-  rbind(data.frame(run = n, quantity = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
-        data.frame(run = n, quantity = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
+  rbind(data.frame(run = n, quant = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
+        data.frame(run = n, quant = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
 stat$run <- factor(stat$run, rev(names(co.runs)))
 ggplot2::ggplot(stat, ggplot2::aes(value, run)) + ggplot2::geom_vline(xintercept = 1, linetype = 2) +
   ggplot2::geom_boxplot(outlier.size = 0.3, fill = "grey85") + ggplot2::scale_x_log10() +
-  ggplot2::facet_wrap(~quantity, scales = "free_x") + ggplot2::labs(x = NULL, y = NULL) + theme_jabba3()
+  ggplot2::facet_wrap(~quant, scales = "free_x") + ggplot2::labs(x = NULL, y = NULL) + theme_jabba3()
 
 #' 
 #' The probability of being overfished, $P(B < B_{MSY})$, and of overfishing,
@@ -2502,7 +2502,7 @@ jbplot_priorpost_trj(co.ppm, co.ie, labels = c("Prior predictive", "Catch + effo
 #' 
 ## ----co-contraction-----------------------------------------------------------
 ct <- jb3_contraction(co.runs[-1], prior = rep(list(co.ppm), length(co.runs) - 1), years = c(1990, 2017))
-w <- reshape(as.data.frame(ct)[c("run", "quantity", "contraction")], idvar = "quantity", timevar = "run", direction = "wide")
+w <- reshape(as.data.frame(ct)[c("run", "quant", "contraction")], idvar = "quant", timevar = "run", direction = "wide")
 names(w) <- sub("^contraction\\.", "", names(w))
 knitr::kable(w, digits = 2, row.names = FALSE, caption = "Contraction relative to the prior predictive run")
 
@@ -2530,7 +2530,7 @@ jbplot_contraction(ct)
 #' 
 ## ----co-contraction-own-------------------------------------------------------
 cb <- jb3_contraction(co.b, nuts = nu)
-knitr::kable(as.data.frame(cb)[c("quantity", "prior.median", "post.median", "contraction", "contraction.pdf", "class")],
+knitr::kable(as.data.frame(cb)[c("quant", "prior.median", "post.median", "contraction", "contraction.pdf", "class")],
              digits = 3, row.names = FALSE)
 
 #' 
@@ -2742,7 +2742,7 @@ jabbaplot3(fk, bthr = NULL, blim = NULL, panels = c("B/Bmsy", "F/Fmsy", "procdev
 #' The estimated spawning-biomass depletion against the operating-model truth:
 #' 
 ## ----model-kobsim-truth, fig.height = 4, fig.width = 7------------------------
-bkk <- fk$ts[fk$ts$quantity == "B/K", ]
+bkk <- fk$ts[fk$ts$quant == "B/K", ]
 ggplot2::ggplot(bkk, ggplot2::aes(year, est)) +
   ggplot2::geom_ribbon(ggplot2::aes(ymin = lci, ymax = uci), fill = "grey80") + ggplot2::geom_line() +
   ggplot2::geom_line(data = data.frame(year = kobsim$truth$year, est = kobsim$truth$SB/kobsim$SB0), colour = "red") +
@@ -2795,8 +2795,8 @@ fb <- list(
                            jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL", ebsb.catch = "LL"), osa = FALSE),
   selex.numbers   = jabba3(db, jb3_priors(db, r = prb$r, K = Kb),
                            jb3_model(BmsyK = prb$BmsyK, ebsb = sxb, ebsb.index = "LL.N", ebsb.catch = "LL"), osa = FALSE))
-t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(round(s$est, 2), s$quantity) }))
+t(sapply(fb, function(f){ s <- f$ts[f$ts$year == max(f$years) & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quant) }))
 
 #' 
 #' Selectivity is close to maturity here, so the weight curve is nearly flat and
@@ -2923,8 +2923,8 @@ jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` =
 #' Terminal status (2021) of the three runs:
 #' 
 ## ----rjc-status---------------------------------------------------------------
-st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quantity) }
+st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quant) }
 noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl), st)))
 
 #' 
@@ -2993,7 +2993,7 @@ adv
 cmp <- function(a, f){
   tb <- a$table; r <- function(b) tb[tb$Basis == b, ]
   fmt <- function(b) sprintf("%s (F/Fmsy %.2f)", format(round(r(b)[[2]]), big.mark = ","), r(b)[[3]])
-  c(`B/Bmsy 2021` = sprintf("%.2f", f$ts$est[f$ts$quantity == "B/Bmsy" & f$ts$year == 2021]),
+  c(`B/Bmsy 2021` = sprintf("%.2f", f$ts$est[f$ts$quant == "B/Bmsy" & f$ts$year == 2021]),
     MSY = format(round(f$refpts["MSY", "est"]), big.mark = ","),
     `CV of the 2023 catch under the HCR` = sprintf("%.2f", stats::sd(log(a$catch))),
     `Median catch 2023` = format(round(stats::median(a$catch)), big.mark = ","),
@@ -3016,7 +3016,7 @@ jbplot_advicecatch(adv)
 #' 
 ## ----rjc-ices-forecast, fig.width = 10, fig.height = 6------------------------
 jbplot_projection(adv$options, nyears = 10)+
-  facet_wrap(~quantity, scales = "free_y", ncol = 3)
+  ggplot2::facet_wrap(~quant, scales = "free_y", ncol = 3)
 
 #' 
 #' and the advice table (`adv$table`):

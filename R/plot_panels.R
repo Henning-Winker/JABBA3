@@ -62,7 +62,7 @@ jabbaplot3 <- function(x, type = c("full", "simple"), panels = NULL, ncol = NULL
       p <- jbplot_trj(if(multi) fl else f1, type = pn, nested = nested && !multi, bthr = bthr, blim = blim, label.size = 2) +
         ggplot2::labs(x = NULL) + th
       if(obs && !multi && pn %in% c("B", "B/Bmsy") && NROW(f1$index) > 0){
-        io <- .index_scaled(f1, rel = pn == "B/Bmsy"); io$quantity <- factor(pn, levels = pn)
+        io <- .index_scaled(f1, rel = pn == "B/Bmsy"); io$quant <- factor(pn, levels = pn)
         p <- p + ggplot2::geom_point(data = io, ggplot2::aes(.data$year, .data$value, fill = .data$index), shape = 21,
                                      size = 1.3, colour = "grey20", inherit.aes = FALSE) +
           ggplot2::scale_fill_manual(values = stats::setNames(jb3cols(length(unique(io$index))), unique(io$index)), name = NULL) +
@@ -108,7 +108,7 @@ plot.jabba3 <- function(x, type = c("full", "simple"), ...) jabbaplot3(x, type =
 
 .kobe_runs <- function(fl){
   d <- do.call(rbind, lapply(names(fl), function(n){ f <- fl[[n]]
-    data.frame(run = n, year = f$years, stock = f$ts$est[f$ts$quantity == "B/Bmsy"], harvest = f$ts$est[f$ts$quantity == "F/Fmsy"]) }))
+    data.frame(run = n, year = f$years, stock = f$ts$est[f$ts$quant == "B/Bmsy"], harvest = f$ts$est[f$ts$quant == "F/Fmsy"]) }))
   d <- d[is.finite(d$harvest), ]; d$run <- factor(d$run, names(fl))
   ends <- do.call(rbind, lapply(split(d, d$run), function(z) z[nrow(z), ]))
   xm <- max(2, d$stock)*1.05; ym <- max(2, d$harvest)*1.05

@@ -52,7 +52,7 @@ the names label the scenarios in plots and tables. Named \code{fmsy} or \code{ca
 names too.}
 }
 \value{
-list of class \code{jb3proj}: \code{ts} (scenario, year, quantity, quantiles), \code{iters}, \code{scenarios},
+list of class \code{jb3proj}: \code{ts} (scenario, year, quant, quantiles), \code{iter}, \code{scenarios},
   \code{status}, \code{ctrl}, \code{tac.year}
 }
 \description{

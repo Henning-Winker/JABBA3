@@ -25,7 +25,7 @@ posterior. Intervals come from the delta method on the log scale.
 fit$time
 fit$pars[, c("est", "lci", "uci")]
 fit$refpts[, c("est", "lci", "uci")]
-head(fit$ts[fit$ts$quantity == "B/Bmsy", ], 3)
+head(fit$ts[fit$ts$quant == "B/Bmsy", ], 3)
 ```
 
 The time series in `fit$ts` hold B, F, B/Bmsy, F/Fmsy, B/K, catch and the

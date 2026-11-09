@@ -124,7 +124,7 @@ jbplot_indices <- function(data){
 #' @export
 jbplot_biplot <- function(fit, ftarget = 0.8, bthreshold = 0.2, npoints = 2000){
   N <- length(fit$years)
-  trj <- data.frame(year = fit$years, stock = fit$ts$est[fit$ts$quantity == "B/Bmsy"], harvest = fit$ts$est[fit$ts$quantity == "F/Fmsy"])
+  trj <- data.frame(year = fit$years, stock = fit$ts$est[fit$ts$quant == "B/Bmsy"], harvest = fit$ts$est[fit$ts$quant == "F/Fmsy"])
   pt <- .kobe_cloud(fit, N, npoints)
   fmax <- max(2, trj$harvest, stats::quantile(pt$harvest, 0.98), na.rm = TRUE)*1.05
   bmax <- max(2, trj$stock, stats::quantile(pt$stock, 0.98), na.rm = TRUE)*1.05
@@ -166,7 +166,7 @@ jbplot_biplot <- function(fit, ftarget = 0.8, bthreshold = 0.2, npoints = 2000){
 #' @param fit a \code{jabba3} fit
 #' @export
 jbplot_catcherror <- function(fit){
-  d <- fit$ts[fit$ts$quantity == "Catch", ]; d$obs <- fit$data$catch[seq_len(nrow(d))]
+  d <- fit$ts[fit$ts$quant == "Catch", ]; d$obs <- fit$data$catch[seq_len(nrow(d))]
   d$lr <- log(d$est/d$obs)
   ce <- isTRUE(fit$model$catch.error)
   miss <- d$year[!is.finite(d$obs)]
@@ -206,7 +206,7 @@ jbplot_bprior <- function(fit){
   qmap <- c(BK = "B/K", BBmsy = "B/Bmsy", FFmsy = "F/Fmsy")
   d <- do.call(rbind, lapply(seq_len(nrow(st)), function(i){
     q <- qmap[[as.character(st$type[i])]]; yi <- match(st$year[i], fit$years)
-    t <- fit$ts[fit$ts$quantity == q & fit$ts$year == st$year[i], ]
+    t <- fit$ts[fit$ts$quant == q & fit$ts$year == st$year[i], ]
     post <- if(!is.null(fit$draws[[q]])) fit$draws[[q]][, yi] else exp(stats::rnorm(5000, log(t$est), t$se.log))
     mu <- log(st$median[i]); s <- st$log.sd[i]
     rng <- range(c(stats::qlnorm(c(0.001, 0.995), mu, s), stats::quantile(post, c(0.001, 0.999), na.rm = TRUE)))
@@ -228,7 +228,7 @@ jbplot_bprior <- function(fit){
 # trajectory draws of one quantity: from the fit's draws, else lognormal per year from se.log
 .trj_draws <- function(fit, q, n = 1000, seed = 1){
   if(!is.null(fit$draws[[q]])){ x <- fit$draws[[q]]; return(x[sample.int(nrow(x), n, replace = nrow(x) < n), , drop = FALSE]) }
-  t <- fit$ts[fit$ts$quantity == q, ]; set.seed(seed)
+  t <- fit$ts[fit$ts$quant == q, ]; set.seed(seed)
   s <- ifelse(is.finite(t$se.log), t$se.log, 0)
   exp(matrix(stats::rnorm(n*nrow(t)), n)*matrix(s, n, nrow(t), byrow = TRUE) + matrix(log(t$est), n, nrow(t), byrow = TRUE))
 }
@@ -257,7 +257,7 @@ jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joi
     d <- do.call(rbind, lapply(type, function(q){
       m <- do.call(rbind, lapply(fl, .trj_draws, q = q, n = ndraws))
       qs <- apply(m, 2, stats::quantile, c(0.025, 0.5, 0.975), na.rm = TRUE)
-      data.frame(year = fl[[1]]$years, quantity = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = "Ensemble") }))
+      data.frame(year = fl[[1]]$years, quant = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = "Ensemble") }))
     ens <- fl[[1]]; ens$ts <- d; ens$run <- "Ensemble"
     ens$refpts[, "est"] <- apply(sapply(fl, function(f) f$refpts[, "est"]), 1, stats::median)
     p1 <- jbplot_trj(ens, type = type, ncol = 2) + ggplot2::labs(subtitle = paste("Ensemble of", nr, "runs (equal weights)"))
@@ -312,7 +312,7 @@ jbplot_ensemble <- function(x, type = c("B/Bmsy", "F/Fmsy", "B/K", "Catch"), joi
 #' @export
 jbplot_crisk <- function(proj, years = NULL, bfrac = 0.5, x = c("value", "ratio"), ref = NULL){
   x <- match.arg(x)
-  it <- proj$iters; sc <- proj$scenarios
+  it <- proj$iter; sc <- proj$scenarios
   type <- unique(sc$type)
   if(length(type) > 1) stop("jbplot_crisk() needs scenarios of one type (catch or F/Fmsy)", call. = FALSE)
   py <- it[[1]]$years
@@ -381,7 +381,7 @@ jbplot_summary <- function(x, steps = FALSE, kobe = TRUE, ndraws = 1000){
 jbplot_ebsb_status <- function(fit){
   d <- fit$setup$dat
   if(!isTRUE(d$eb.on)) stop("jbplot_ebsb_status() needs a Selex fit: jb3_model(ebsb = ...)", call. = FALSE)
-  sb <- fit$ts[fit$ts$quantity == "B/Bmsy", ]; P <- fit$ts$est[fit$ts$quantity == "B/K"]; Pm <- fit$refpts["BmsyK", "est"]
+  sb <- fit$ts[fit$ts$quant == "B/Bmsy", ]; P <- fit$ts$est[fit$ts$quant == "B/K"]; Pm <- fit$refpts["BmsyK", "est"]
   cn <- names(fit$model$ebsb) %||% paste0("sel", seq_len(nrow(d$ebm) - 1))
   eb <- do.call(rbind, lapply(seq_along(cn), function(j) data.frame(year = sb$year, curve = paste("EB/EBmsy:", cn[j]),
     est = sb$est*.rho_curve(P, d$ebm[j, ])/.rho_curve(Pm, d$ebm[j, ]))))

@@ -44,8 +44,8 @@ sens.sdb <- lapply(c(0.05, 0.1, 0.2), function(s)
 names(sens.r)   <- sapply(sens.r, `[[`, "run")
 names(sens.sdb) <- sapply(sens.sdb, `[[`, "run")
 t(sapply(c(sens.r, sens.sdb), function(f){
-  s <- f$ts[f$ts$year == max(f$years) & f$ts$quantity %in% c("B/Bmsy", "F/Fmsy"), ]
-  stats::setNames(round(s$est, 2), s$quantity) }))
+  s <- f$ts[f$ts$year == max(f$years) & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
+  stats::setNames(round(s$est, 2), s$quant) }))
 ```
 
 ```{r cmp-update-plot, fig.width = 10, fig.height = 5}
@@ -119,7 +119,7 @@ $F_{adv}$, $F_{tgt}$, $F_{sq}$, $C_{sq}$ and $F = 0$:
 y0  <- max(ens$years)
 yrs <- y0 + 1:4
 csq <- mean(tail(fit$data$catch, 3))
-fsq <- mean(tail(ens$ts$est[ens$ts$quantity == "F/Fmsy"], 3))
+fsq <- mean(tail(ens$ts$est[ens$ts$quant == "F/Fmsy"], 3))
 ctrl <- function(v, q) data.frame(year = yrs, value = c(csq, csq, v, v), quant = c("Catch", "Catch", q, q))
 hcr.ens <- jb3_hcr(jb3_fwd(ens, list(Ftgt = ctrl(1, "Fmsy"))), ftgt = 1, btrigger = 0.5, blim = 0.3)
 hcr.ens

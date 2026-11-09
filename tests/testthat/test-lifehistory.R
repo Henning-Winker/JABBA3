@@ -76,7 +76,7 @@ test_that("Selex with a removal curve by year on kobsim", {
   m <- jb3_model(BmsyK = pr$BmsyK, sets.q = c(1, 1, 2, 2), ebsb = sx, ebsb.index = c("S1", "S2", "S1", "S2"), ebsb.catch = ec)
   f <- jabba3(d, jb3_priors(d, r = c(pr$r[1], 0.3), K = c(8*max(d$catch), 1)), m, osa = FALSE)
   expect_equal(f$convergence$tier, "ok")
-  bk <- f$ts$est[f$ts$quantity == "B/K"]
+  bk <- f$ts$est[f$ts$quant == "B/K"]
   expect_lt(abs(log(tail(bk, 1)) - log(tail(kobsim$truth$SB, 1)/kobsim$SB0)), 0.25)
   expect_error(jb3_model(ebsb = sx, ebsb.catch = c("S1", "S2")) |> (\(mm) jabba3(d, jb3_priors(d), mm, osa = FALSE))(), "one curve per model year")
 })

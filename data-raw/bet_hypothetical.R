@@ -9,7 +9,7 @@ load("data/iccat.rda")
 bet <- iccat$bet
 d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
 f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), osa = FALSE)
-F <- f$ts[f$ts$quantity == "F", ]; FF <- f$ts[f$ts$quantity == "F/Fmsy", ]
+F <- f$ts[f$ts$quant == "F", ]; FF <- f$ts[f$ts$quant == "F/Fmsy", ]
 set.seed(2025)
 y <- 1960:2017; i <- match(y, F$year)
 eff <- F$est[i]/(1e-4*1.02^(y - 1960))*exp(stats::rnorm(length(y), 0, 0.15))

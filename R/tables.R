@@ -31,7 +31,7 @@ jb3_partable <- function(x, digits = 3, format = c("long", "wide")){
     f <- fl[[n]]; p <- f$pars; rp <- f$refpts
     row <- function(nm, src, lab = nm) if(nm %in% rownames(src)) data.frame(par = lab, est = src[nm, "est"], lci = src[nm, "lci"],
                                                                             uci = src[nm, "uci"], cv = src[nm, "se.log"]) else NULL
-    st <- function(q, lab){ t <- f$ts[f$ts$quantity == q & is.finite(f$ts$est), ]; t <- t[nrow(t), ]
+    st <- function(q, lab){ t <- f$ts[f$ts$quant == q & is.finite(f$ts$est), ]; t <- t[nrow(t), ]
       data.frame(par = paste0(lab, " (", t$year, ")"), est = t$est, lci = t$lci, uci = t$uci, cv = t$se.log) }
     out <- rbind(row("K", p), row("r", p), row("m", p),
                  data.frame(par = "Bmsy/K", est = rp["BmsyK", "est"], lci = NA, uci = NA, cv = NA),
@@ -67,8 +67,8 @@ jb3_tstable <- function(fit, quantities = c("Catch", "B", "F", "B/Bmsy", "F/Fmsy
   yrs <- if(is.null(years)) fit$years else intersect(years, fit$years)
   out <- data.frame(year = yrs)
   for(q in quantities){
-    t <- fit$ts[fit$ts$quantity == q, ]; i <- match(yrs, t$year)
-    if(!nrow(t)) { warning("quantity not found: ", q, call. = FALSE); next }
+    t <- fit$ts[fit$ts$quant == q, ]; i <- match(yrs, t$year)
+    if(!nrow(t)) { warning("quant not found: ", q, call. = FALSE); next }
     out[[q]] <- t$est[i]
     if(ci){ out[[paste0(q, ".lci")]] <- t$lci[i]; out[[paste0(q, ".uci")]] <- t$uci[i] }
   }
@@ -96,11 +96,11 @@ jb3_tstable <- function(fit, quantities = c("Catch", "B", "F", "B/Bmsy", "F/Fmsy
 #' }
 #' @export
 jb3_projtable <- function(proj, years = NULL, digits = 3, blim = 0.3){
-  py <- proj$iters[[1]]$years
+  py <- proj$iter[[1]]$years
   if(is.null(years)) years <- unique(py[c(1, min(5, length(py)), length(py))])
   bb0 <- stats::median(proj$status$`B/Bmsy`)
-  out <- do.call(rbind, lapply(seq_along(proj$iters), function(s){
-    it <- proj$iters[[s]]; sc <- proj$scenarios[s, ]; j <- match(years, it$years)
+  out <- do.call(rbind, lapply(seq_along(proj$iter), function(s){
+    it <- proj$iter[[s]]; sc <- proj$scenarios[s, ]; j <- match(years, it$years)
     r <- data.frame(scenario = sc$label, `F/Fmsy` = stats::median(it$`F/Fmsy`[, 1]), F = stats::median(it$F[, 1]),
                     Catch = stats::median(it$Catch[, 1]), check.names = FALSE)
     for(k in seq_along(j)){ y <- years[k]; b <- it$`B/Bmsy`[, j[k]]; h <- it$`F/Fmsy`[, j[k]]
@@ -176,9 +176,9 @@ jb3_kobematrix <- function(proj, what = c("green", "B", "F", "all"), years = NUL
   if(is.null(bref) && is.null(fref)) stop("at least one of bref and fref is needed", call. = FALSE)
   pl <- if(inherits(proj, "jb3proj")) list(proj) else proj
   if(!all(vapply(pl, inherits, TRUE, "jb3proj"))) stop("proj must be a jb3_project() output or a list of them", call. = FALSE)
-  p1 <- pl[[1]]; yrs <- p1$iters[[1]]$years; sc <- p1$scenarios
+  p1 <- pl[[1]]; yrs <- p1$iter[[1]]$years; sc <- p1$scenarios
   for(p in pl[-1]){
-    if(!identical(p$scenarios$label, sc$label) || !identical(p$iters[[1]]$years, yrs))
+    if(!identical(p$scenarios$label, sc$label) || !identical(p$iter[[1]]$years, yrs))
       stop("projections to combine must have the same scenarios and years", call. = FALSE)
   }
   if(is.null(weights)) weights <- rep(1, length(pl))
@@ -205,7 +205,7 @@ jb3_kobematrix <- function(proj, what = c("green", "B", "F", "all"), years = NUL
   if(is.numeric(lab) && key == "TAC" && all(abs(lab - round(lab)) < 1e-8) && max(abs(lab)) < .Machine$integer.max)
     lab <- as.integer(round(lab))
   one <- function(w){
-    m <- Reduce(`+`, Map(function(p, wt) wt*t(vapply(p$iters, function(it){
+    m <- Reduce(`+`, Map(function(p, wt) wt*t(vapply(p$iter, function(it){
       b <- it$`B/Bmsy`[, j, drop = FALSE] >= (bref %||% 0); h <- it$`F/Fmsy`[, j, drop = FALSE] <= (fref %||% Inf) + 1e-8
       colMeans(switch(w, green = b & h, B = b, F = h))
     }, numeric(length(j)))), pl, weights))
@@ -403,16 +403,16 @@ jbplot_kobematrix <- function(x, what = c("F", "B", "green"), years = NULL, weig
 #' @export
 jb3_kobematrix_iotc <- function(proj, years = NULL, ref.catch = NULL, blim = 0.5, flim = 1.3, weights = NULL, digits = 1){
   pl <- if(inherits(proj, "jb3proj")) list(proj) else proj
-  p1 <- pl[[1]]; yrs <- p1$iters[[1]]$years; sc <- p1$scenarios
-  for(p in pl[-1]) if(!identical(p$scenarios$label, sc$label) || !identical(p$iters[[1]]$years, yrs))
+  p1 <- pl[[1]]; yrs <- p1$iter[[1]]$years; sc <- p1$scenarios
+  for(p in pl[-1]) if(!identical(p$scenarios$label, sc$label) || !identical(p$iter[[1]]$years, yrs))
     stop("projections to combine must have the same scenarios and years", call. = FALSE)
   w <- if(is.null(weights)) rep(1, length(pl)) else weights; w <- w/sum(w)
   if(is.null(years)){ years <- p1$status$year + c(3, 10); if(!all(years %in% yrs)) years <- range(yrs) }
   j <- match(years, yrs); if(anyNA(j)) stop("years not in the projection: ", paste(years[is.na(j)], collapse = ", "), call. = FALSE)
   if(is.null(ref.catch)){
-    ct <- p1$fit.ts[p1$fit.ts$quantity == "Catch", ]; ref.catch <- ct$est[ct$year == p1$status$year]
+    ct <- p1$fit.ts[p1$fit.ts$quant == "Catch", ]; ref.catch <- ct$est[ct$year == p1$status$year]
   }
-  prob <- function(fun, q) 100*Reduce(`+`, Map(function(p, wt) wt*vapply(p$iters, function(it) fun(it[[q]][, j, drop = FALSE]),
+  prob <- function(fun, q) 100*Reduce(`+`, Map(function(p, wt) wt*vapply(p$iter, function(it) fun(it[[q]][, j, drop = FALSE]),
                                                                             numeric(length(j))), pl, w))
   rows <- list(list("MSY", "B < Bmsy", "B/Bmsy", function(m) colMeans(m < 1)),
                list("MSY", "F > Fmsy", "F/Fmsy", function(m) colMeans(m > 1 + 1e-8)),

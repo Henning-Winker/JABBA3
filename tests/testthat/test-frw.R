@@ -6,7 +6,7 @@ test_that("missing catch is estimated with an F random walk (catch.gaps = 'estim
   expect_equal(sum(!d$catch.obs), 5)
   f <- suppressWarnings(jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox"), osa = FALSE))
   expect_true(f$convergence$tier %in% c("ok", "warning"))
-  cc <- f$ts[f$ts$quantity == "Catch", ]; tru <- bet$catch[[2]][bet$catch$year %in% 1990:1994]
+  cc <- f$ts[f$ts$quant == "Catch", ]; tru <- bet$catch[[2]][bet$catch$year %in% 1990:1994]
   ratio <- cc$est[cc$year %in% 1990:1994]/tru
   expect_true(all(ratio > 0.7 & ratio < 1.4))
   expect_true("sdf" %in% rownames(f$pars))

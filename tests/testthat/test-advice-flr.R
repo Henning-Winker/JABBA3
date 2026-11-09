@@ -5,8 +5,8 @@ test_that("jbplot_advice() takes FLStock(R), FLStocks and mixed lists", {
   stk <- jb3_FLStockR(fit, ndraws = 200)
   st1 <- jb3_FLStockR(fit)                                     # single iteration: trajectory only
   f <- JABBA3:::.flr2fit(stk, "x")
-  expect_equal(sort(unique(f$ts$quantity)), sort(c("B/Bmsy", "F/Fmsy", "Catch", "Catch/MSY")))
-  expect_equal(f$ts$est[f$ts$quantity == "B/Bmsy"], fit$ts$est[fit$ts$quantity == "B/Bmsy"], tolerance = 0.1)
+  expect_equal(sort(unique(f$ts$quant)), sort(c("B/Bmsy", "F/Fmsy", "Catch", "Catch/MSY")))
+  expect_equal(f$ts$est[f$ts$quant == "B/Bmsy"], fit$ts$est[fit$ts$quant == "B/Bmsy"], tolerance = 0.1)
   expect_true(all(is.na(JABBA3:::.flr2fit(st1, "y")$ts$lci)))
   cl <- c(JABBA3 = "dodgerblue", Other = "black")
   for(p in list(jbplot_advice(stk), jbplot_advice(FLCore::FLStocks(JABBA3 = stk, Other = st1), colours = cl),

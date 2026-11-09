@@ -129,10 +129,10 @@ jb3_nuts <- function(fit, nuts = list()){
 }
 
 .ts_from_draws <- function(fit, dr, probs = c(0.025, 0.5, 0.975)){
-  keep <- fit$ts[!fit$ts$quantity %in% c("B", "B/Bmsy", "F", "F/Fmsy", "B/K", "Catch", "Process deviation"), ]
+  keep <- fit$ts[!fit$ts$quant %in% c("B", "B/Bmsy", "F", "F/Fmsy", "B/K", "Catch", "Process deviation"), ]
   new <- do.call(rbind, lapply(c("B", "F", "B/Bmsy", "F/Fmsy", "B/K", "Catch", "Process deviation"), function(q){
     x <- dr[[q]]; qs <- apply(x, 2, stats::quantile, probs, na.rm = TRUE)
-    data.frame(year = fit$years, quantity = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = NA_character_)
+    data.frame(year = fit$years, quant = q, est = qs[2, ], lci = qs[1, ], uci = qs[3, ], se.log = NA, run = NA_character_)
   }))
   rbind(new, keep)
 }

@@ -3,7 +3,7 @@
 #' @export
 print.jabba3 <- function(x, ...){
   cv <- x$convergence
-  st <- x$ts[x$ts$quantity %in% c("B/Bmsy", "F/Fmsy") & x$ts$year == max(x$years), ]
+  st <- x$ts[x$ts$quant %in% c("B/Bmsy", "F/Fmsy") & x$ts$year == max(x$years), ]
   cat("JABBA3 fit:", x$run, "(", x$stock, ")  engine:", x$engine,
       if(!is.null(x$draws)) paste0(" + ", nrow(x$draws$B), " ", x$draws$type, " draws") else "", "\n")
   cat("  model:", x$model$shape, if(x$model$lag > 0) paste0("+ lag ", x$model$lag) else "",
@@ -14,8 +14,8 @@ print.jabba3 <- function(x, ...){
   cat("  estimates (", if(x$engine == "nuts") "posterior median, 95% CrI" else "mode, 95% CI", "):\n", sep = "")
   print(signif(rbind(p, rp), 3))
   cat(sprintf("  status %d: B/Bmsy %.2f (%.2f-%.2f), F/Fmsy %.2f (%.2f-%.2f)\n", max(x$years),
-              st$est[st$quantity == "B/Bmsy"], st$lci[st$quantity == "B/Bmsy"], st$uci[st$quantity == "B/Bmsy"],
-              st$est[st$quantity == "F/Fmsy"], st$lci[st$quantity == "F/Fmsy"], st$uci[st$quantity == "F/Fmsy"]))
+              st$est[st$quant == "B/Bmsy"], st$lci[st$quant == "B/Bmsy"], st$uci[st$quant == "B/Bmsy"],
+              st$est[st$quant == "F/Fmsy"], st$lci[st$quant == "F/Fmsy"], st$uci[st$quant == "F/Fmsy"]))
   if(!is.null(x$steps)) cat("  workflow steps:", paste(names(x$steps), collapse = " -> "), "\n")
   invisible(x)
 }
@@ -24,7 +24,7 @@ print.jabba3 <- function(x, ...){
 summary.jabba3 <- function(object, ...){
   out <- list(run = object$run, pars = object$pars, refpts = object$refpts, convergence = jb3_convergence(object),
               diags = if(!is.null(object$osa)) jb3_diags(object) else NULL,
-              status = object$ts[object$ts$year == max(object$years) & object$ts$quantity %in% c("B", "F", "B/Bmsy", "F/Fmsy", "B/K"), ])
+              status = object$ts[object$ts$year == max(object$years) & object$ts$quant %in% c("B", "F", "B/Bmsy", "F/Fmsy", "B/K"), ])
   class(out) <- "summary.jabba3"; out
 }
 
@@ -33,7 +33,7 @@ print.summary.jabba3 <- function(x, ...){
   cat("JABBA3 summary:", x$run, "\n\nConvergence (", attr(x$convergence, "tier"), ")\n", sep = ""); print(x$convergence[, 1:3], row.names = FALSE)
   cat("\nParameters\n"); print(signif(x$pars[, c("est", "lci", "uci")], 3))
   cat("\nReference points\n"); print(signif(x$refpts[, c("est", "lci", "uci")], 3))
-  cat("\nTerminal status\n"); print(x$status[, c("quantity", "est", "lci", "uci")], row.names = FALSE, digits = 3)
+  cat("\nTerminal status\n"); print(x$status[, c("quant", "est", "lci", "uci")], row.names = FALSE, digits = 3)
   if(!is.null(x$diags)){ cat("\nResidual diagnostics (OSA)\n"); print(x$diags, row.names = FALSE, digits = 3) }
   invisible(x)
 }
@@ -45,7 +45,7 @@ print.jb3hindcast <- function(x, ...){ cat("JABBA3 hindcast,", x$n, "peels. MASE
 #' @export
 print.jb3proj <- function(x, ...){
   cat("JABBA3 projections:", nrow(x$scenarios), "scenarios\n")
-  y <- max(x$ts$year); print(x$ts[x$ts$year == y & x$ts$quantity == "B/Bmsy", c("scenario", "year", "est", "lci", "uci", "p.above")], row.names = FALSE, digits = 3)
+  y <- max(x$ts$year); print(x$ts[x$ts$year == y & x$ts$quant == "B/Bmsy", c("scenario", "year", "est", "lci", "uci", "p.above")], row.names = FALSE, digits = 3)
   invisible(x)
 }
 
@@ -61,7 +61,7 @@ jb3_flqs <- function(fit, draws = !is.null(fit$draws)){
   .need("FLCore", "FLR outputs need FLCore")
   yrs <- fit$years
   mk <- function(q){
-    x <- if(draws) t(fit$draws[[q]]) else matrix(fit$ts$est[fit$ts$quantity == q], ncol = 1)
+    x <- if(draws) t(fit$draws[[q]]) else matrix(fit$ts$est[fit$ts$quant == q], ncol = 1)
     FLCore::FLQuant(array(x, dim = c(1, length(yrs), 1, 1, 1, ncol(x))), dimnames = list(age = "all", year = yrs, iter = seq_len(ncol(x))))
   }
   FLCore::FLQuants(stock = mk("B/Bmsy"), harvest = mk("F/Fmsy"), biomass = mk("B"), F = mk("F"), catch = mk("Catch"))
@@ -74,8 +74,8 @@ jb3_flpar <- function(fit){
   rp <- fit$refpts; p <- fit$pars
   FLCore::FLPar(c(K = rp["K", "est"], r = p["r", "est"], m = p["m", "est"], Bmsy = rp["Bmsy", "est"], Fmsy = rp["Fmsy", "est"],
                   MSY = rp["MSY", "est"], BmsyK = rp["BmsyK", "est"], sdb = p["sdb", "est"],
-                  B.Bmsy = utils::tail(fit$ts$est[fit$ts$quantity == "B/Bmsy"], 1),
-                  F.Fmsy = utils::tail(fit$ts$est[fit$ts$quantity == "F/Fmsy"], 1)))
+                  B.Bmsy = utils::tail(fit$ts$est[fit$ts$quant == "B/Bmsy"], 1),
+                  F.Fmsy = utils::tail(fit$ts$est[fit$ts$quant == "F/Fmsy"], 1)))
 }
 
 #' Convert a JABBA3 fit to an FLStockR
@@ -103,7 +103,7 @@ jb3_FLStockR <- function(fit, bthr = 0.5, blim = 0.3, rel = TRUE, draws = !is.nu
   .need("FLCore", "jb3_FLStockR() needs FLCore")
   dr <- if(draws) fit$draws else if(ndraws > 0) jb3_draws(fit, ndraws) else NULL
   yrs <- fit$years; ny <- length(yrs)
-  get <- function(q) if(!is.null(dr)) t(dr[[q]]) else matrix(fit$ts$est[fit$ts$quantity == q], ncol = 1)
+  get <- function(q) if(!is.null(dr)) t(dr[[q]]) else matrix(fit$ts$est[fit$ts$quant == q], ncol = 1)
   B <- get(if(rel) "B/Bmsy" else "B"); H <- get(if(rel) "F/Fmsy" else "F"); C <- get("Catch")
   ni <- ncol(B)
   flq <- function(x, v = NULL) FLCore::FLQuant(if(is.null(v)) array(x, dim = c(1, ny, 1, 1, 1, ni)) else v,

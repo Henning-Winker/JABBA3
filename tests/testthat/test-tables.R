@@ -42,7 +42,7 @@ test_that("tables and F-based projections", {
   expect_s3_class(jbplot_kobematrix(kg), "patchwork"); expect_s3_class(jbplot_kobematrix(ke, colours = "kobe"), "patchwork")
   expect_s3_class(jbplot_kobematrix(pk), "ggplot"); expect_s3_class(jbplot_kobematrix(k2, what = "green", colours = "kobe"), "ggplot")
   pc <- jb3_project(f, catch = 1e7, nyears = 3, ndraws = 100)            # catch capped: F stays finite
-  expect_true(all(is.finite(pc$iters[[1]]$`F/Fmsy`)))
+  expect_true(all(is.finite(pc$iter[[1]]$`F/Fmsy`)))
 })
 
 test_that("FLStockR and procerr options", {

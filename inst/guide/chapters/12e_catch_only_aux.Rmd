@@ -218,12 +218,12 @@ knitr::kable(pt[pt$Parameter %in% c("K", "r", "MSY", "qA.effort", "sdA.effort", 
 
 ```{r co-status, fig.height = 3.5, fig.width = 9}
 stat <- do.call(rbind, lapply(names(co.runs), function(n){ f <- co.runs[[n]]; ly <- as.character(max(f$years))
-  rbind(data.frame(run = n, quantity = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
-        data.frame(run = n, quantity = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
+  rbind(data.frame(run = n, quant = "B/Bmsy 2017", value = f$draws$`B/Bmsy`[, ly]),
+        data.frame(run = n, quant = "F/Fmsy 2017", value = f$draws$`F/Fmsy`[, ly])) }))
 stat$run <- factor(stat$run, rev(names(co.runs)))
 ggplot2::ggplot(stat, ggplot2::aes(value, run)) + ggplot2::geom_vline(xintercept = 1, linetype = 2) +
   ggplot2::geom_boxplot(outlier.size = 0.3, fill = "grey85") + ggplot2::scale_x_log10() +
-  ggplot2::facet_wrap(~quantity, scales = "free_x") + ggplot2::labs(x = NULL, y = NULL) + theme_jabba3()
+  ggplot2::facet_wrap(~quant, scales = "free_x") + ggplot2::labs(x = NULL, y = NULL) + theme_jabba3()
 ```
 
 The probability of being overfished, $P(B < B_{MSY})$, and of overfishing,
@@ -297,7 +297,7 @@ of the tiers:
 
 ```{r co-contraction}
 ct <- jb3_contraction(co.runs[-1], prior = rep(list(co.ppm), length(co.runs) - 1), years = c(1990, 2017))
-w <- reshape(as.data.frame(ct)[c("run", "quantity", "contraction")], idvar = "quantity", timevar = "run", direction = "wide")
+w <- reshape(as.data.frame(ct)[c("run", "quant", "contraction")], idvar = "quant", timevar = "run", direction = "wide")
 names(w) <- sub("^contraction\\.", "", names(w))
 knitr::kable(w, digits = 2, row.names = FALSE, caption = "Contraction relative to the prior predictive run")
 ```
@@ -325,7 +325,7 @@ says so:
 
 ```{r co-contraction-own}
 cb <- jb3_contraction(co.b, nuts = nu)
-knitr::kable(as.data.frame(cb)[c("quantity", "prior.median", "post.median", "contraction", "contraction.pdf", "class")],
+knitr::kable(as.data.frame(cb)[c("quant", "prior.median", "post.median", "contraction", "contraction.pdf", "class")],
              digits = 3, row.names = FALSE)
 ```
 

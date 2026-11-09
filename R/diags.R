@@ -49,11 +49,11 @@ jb3_retro <- function(fit, n = 5){
   fits <- c(list(fit), lapply(seq_len(n), function(p) tryCatch(jabba3(fit$data, fit$priors, fit$model, engine = "rtmb",
                                                                           osa = FALSE, run = fit$run, peels = p), error = function(e) NULL)))
   ts <- do.call(rbind, lapply(seq_along(fits), function(k){ f <- fits[[k]]; if(is.null(f)) return(NULL)
-    d <- f$ts[f$ts$quantity %in% c("B", "F", "B/Bmsy", "F/Fmsy"), ]; d$peel <- k - 1; d }))
-  rho <- do.call(rbind, lapply(split(ts, ts$quantity), function(d){
+    d <- f$ts[f$ts$quant %in% c("B", "F", "B/Bmsy", "F/Fmsy"), ]; d$peel <- k - 1; d }))
+  rho <- do.call(rbind, lapply(split(ts, ts$quant), function(d){
     rel <- vapply(setdiff(unique(d$peel), 0), function(p){ ey <- max(d$year[d$peel == p])
       (d$est[d$peel == p & d$year == ey] - d$est[d$peel == 0 & d$year == ey])/d$est[d$peel == 0 & d$year == ey] }, 0)
-    data.frame(quantity = d$quantity[1], rho = mean(rel)) }))
+    data.frame(quant = d$quant[1], rho = mean(rel)) }))
   structure(list(fits = fits, ts = ts, rho = rho, run = fit$run), class = "jb3retro")
 }
 
