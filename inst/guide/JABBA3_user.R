@@ -3016,7 +3016,7 @@ jbplot_advicecatch(adv)
 #' 
 ## ----rjc-ices-forecast, fig.width = 10, fig.height = 6------------------------
 jbplot_projection(adv$options, nyears = 10)+
-  facet_wrap(~quant, scales = "free_y", ncol = 3)
+  ggplot2::facet_wrap(~quant, scales = "free_y", ncol = 3)
 
 #' 
 #' and the advice table (`adv$table`):
