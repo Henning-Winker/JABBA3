@@ -6,7 +6,8 @@
 #'
 #' @param data optional \code{jb3data}, used for the default K prior (8 x max catch, CV 1, as JABBA)
 #' @param r intrinsic growth rate, on by default
-#' @param K carrying capacity; \code{NULL} = 8 x max catch with log.sd 0.833 (JABBA: CV 1)
+#' @param K carrying capacity prior c(median, log.sd[, on]); \code{NULL} or \code{"jabba"} = 8 x max catch with log.sd 0.833
+#'   (CV 1; the JABBA default, \code{build_jabba(K.prior = NULL)}); \code{"jabbaN"} = N x max catch, CV 1 (e.g. \code{"jabba4"})
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
 #' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
 #'   r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
@@ -27,25 +28,31 @@
 #'   "FFmsy" (lower case and JABBA's "bk", "bbmsy", "ffmsy" accepted; year NA = terminal year of the fit), the output of
 #'   \code{\link{jb3_bprior}()}, or a JABBA \code{b.prior} vector c(mean, cv, year, type) (the cv used as log-scale SD, as
 #'   in JABBA; year NA = terminal year)
-#' @param sdf SD of the random walk in log harvest rate, used for years without catch (\code{jb3_data(catch.gaps =
-#'   "estimate")}): lognormal prior c(median, log.sd, on), default median 0.3 (log.sd 0.5). SPiCT benchmarks often use a loose
-#'   prior with the catch SD fixed, e.g. c(4, 0.5, 1), together with \code{jb3_model(frw.all = TRUE)}.
+#' @param sdf SD of the random walk in log harvest rate (\code{jb3_model(frw = )}): lognormal prior c(median, log.sd, on),
+#'   default LN(0.3, 1) (95\% range about 0.04-2). With \code{frw = "gaps"} the data carry little information on sdf (the
+#'   prior sets it); with \code{"index"} or \code{"all"} and catch known, sdf is estimated from the harvest-rate path
+#'   (typically 0.1-0.4). A prior centred far above that, e.g. SPiCT's c(4, 0.5), pulls the estimate up 1.3-2x.
 #' @param creep normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}
 #' @param psi alias of \code{bkinit} (JABBA name)
 #' @param sdc catch SD prior c(median, log.sd, on) when \code{jb3_model(sdc.est = TRUE)} (off by default: flat on log sdc)
+#' @param maxC the maximum catch used for the K prior and the K.max cap: \code{"max"} (default; maximum annual total catch,
+#'   as JABBA) or \code{"smooth"} (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY /
+#'   \code{JABBA::cmsy2jabba()}; less sensitive to a single peak year)
 #' @param K.max optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
 #'   the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
 #'   the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
 #'   cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
 #'   as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
-#'   \code{NULL} (default) = no cap
+#'   \code{"r"} is the default (it binds only when the data leave K unidentified: K would run to implausibly large
+#'   biomass); \code{NULL} = no cap. Soft: 1.5 x the cap adds 0.9 to the objective, 2 x adds 2.7, 3 x adds 6.7.
 #' @return list of class \code{jb3priors}
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
-                       creep = c(0.02, 0.02), sdf = c(0.3, 0.5, 1), K.max = NULL, sdc = c(0.1, 1, 0)){
+                       creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = "r", sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
+  maxC <- match.arg(maxC)
   args <- .fn_args()
   pr3 <- function(x, nm){
     x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
@@ -54,7 +61,13 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   }
   if(!is.null(psi)) bkinit <- psi
   r <- pr3(r, "r")
-  if(is.null(K)) K <- if(!is.null(data)) c(8*max(data$catch, na.rm = TRUE), cv2sd(1), 1) else c(NA, cv2sd(1), 1)
+  mC <- if(!is.null(data)) .max_catch(data, maxC) else NA
+  if(is.null(K)) K <- "jabba"
+  if(is.character(K)){                           # "jabba" = 8 x max catch, CV 1 (JABBA default); "jabbaN" = N x max catch, CV 1
+    mult <- if(grepl("^jabba[0-9.]+$", K)) as.numeric(sub("^jabba", "", K)) else if(identical(K, "jabba")) 8 else
+      stop("K must be c(median, log.sd[, on]), \"jabba\" (8 x max catch, CV 1) or \"jabbaN\" (N x max catch, CV 1)", call. = FALSE)
+    K <- c(mult*mC, cv2sd(1), 1)
+  }
   K <- pr3(K, "K"); bkinit <- pr3(bkinit, "bkinit")
   sdb.type <- if(is.character(sdb)) match.arg(sdb, c("fishlife", "igamma")) else "lognormal"
   sdb <- if(sdb.type == "fishlife") pr3(c(0.80*sigR*r[["median"]]^0.45, 0.3, 1), "sdb") else
@@ -71,7 +84,8 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
       if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = K.max[1], log.sd = if(length(K.max) > 1) K.max[2] else 0.3, on = 1) }
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
-                 sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max),
+                 sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max,
+                 maxC = maxC, maxC.value = mC),
             class = "jb3priors", args = args)
 }
 
@@ -125,6 +139,7 @@ print.jb3priors <- function(x, ...){
                      igamma = "diffuse inverse-gamma(0.001, 0.001) on the variance (JABBA legacy)", lognormal = "user lognormal"), "\n")
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
   cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
+  if(!is.null(x$maxC.value) && is.finite(x$maxC.value)) cat(sprintf("max catch (%s): %s\n", x$maxC %||% "max", format(signif(x$maxC.value, 4), big.mark = ",")))
   if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K.max: soft upper prior at %.1f x max catch (half-normal on log K above, sd %.2f)\n", x$K.max[1], x$K.max[2]))
   if(!is.null(x$status)){ cat("status priors:\n"); print(x$status) }
   invisible(x)
@@ -137,4 +152,13 @@ print.jb3priors <- function(x, ...){
   x <- matrix(as.numeric(x), ncol = 3, dimnames = list(rownames(x), c("median", "log.sd", "on")))
   if(any(x[, "on"] == 1 & !(x[, "median"] > 0 & x[, "log.sd"] > 0))) stop(nm, " priors need median > 0 and log.sd > 0", call. = FALSE)
   x
+}
+
+# maximum catch for the K prior and the K.max cap: raw maximum (JABBA) or maximum of the kernel-smoothed catch (CMSY, bw 3)
+.max_catch <- function(data, type = "max"){
+  C <- data$catch; ok <- is.finite(C)
+  if(!any(ok)) return(NA_real_)
+  if(type == "max" || sum(ok) < 4) return(max(C[ok]))
+  y <- data$years[ok]
+  max(stats::ksmooth(y, C[ok], kernel = "normal", bandwidth = 3, n.points = length(y))$y)
 }

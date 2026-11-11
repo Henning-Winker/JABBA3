@@ -45,9 +45,10 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     } else SE2[, i] <- (semin %||% 0.1)^2
   }
   # priors (K and q on the catch-scaled internal units)
-  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*max(data$catch, na.rm = TRUE)
+  mC <- priors$maxC.value %||% NA; if(!is.finite(mC)) mC <- .max_catch(data, priors$maxC %||% "max")
+  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*mC
   km <- priors$K.max %||% c(NA, NA, 0)
-  Kmax.pr <- if(km[3] == 1) c(log(km[1]*max(data$catch, na.rm = TRUE)/mucatch), km[2], 1) else c(0, 1, 0)
+  Kmax.pr <- if(km[3] == 1) c(log(km[1]*mC/mucatch), km[2], 1) else c(0, 1, 0)
   q.pr <- if(is.null(priors$q)) matrix(c(1, 1, 0), nq, 3, byrow = TRUE) else {
     x <- priors$q; if(nrow(x) == 1 && nq > 1) x <- x[rep(1, nq), , drop = FALSE]
     if(nrow(x) != nq) stop("q priors: one row per catchability group (", nq, ")", call. = FALSE); x[, 1] <- x[, 1]*mucatch; x }
@@ -106,7 +107,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   }
   dat$msy.guess <- .guess_msy(data)/mucatch
   dat$sdc.rel <- dat$sdc/(model$sdc[1] %||% 0.1)
-  inits <- model$inits %||% (if(priors$K[3] != 1 && !isTRUE((priors$K.max %||% c(NA, NA, 0))[3] == 1)) "best" else "prior")
+  inits <- model$inits %||% (if(priors$K[3] != 1) "best" else "prior")
   par <- jb3_inits(dat, start = if(identical(inits, "spict")) "spict" else "prior")
   map <- list()
   if(!dat$est.m) map$logm <- factor(NA)
