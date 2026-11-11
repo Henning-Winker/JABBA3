@@ -1,0 +1,169 @@
+# JABBA-like or SPiCT-like: the F process, the scale and the K prior
+
+JABBA and SPiCT are both state-space surplus production models, yet on the same
+data they can give very different stock sizes. The reason is where each model
+gets the **scale** (K) from. This chapter explains the mechanism, lists the
+JABBA3 options that control it, gives guidance on which settings suit which kind
+of data, and shows how to set up JABBA3 by hand to reproduce a JABBA assessment
+or to approximate a SPiCT assessment.
+
+## Where the scale comes from
+
+JABBA is **catch-conditioned**: the catch is removed from the biomass each year
+(with a small catch error), and the indices inform the trend. The scale comes
+from the response of the indices to the catch, and, when that response is weak,
+from the K prior (by default 8 × max catch, CV 1).
+
+SPiCT treats fishing mortality as a **random walk**: $\log F_t$ follows
+$\log F_{t-1}$ with SD `sdf`, and the catch is an observation of
+$\int F_t B_t\,dt$. With the catch known, $\log F = \log C - \log B$, so a smooth
+F constrains the biomass path, and with it K. SPiCT therefore identifies K
+without a K prior in many cases where a catch-conditioned model cannot. Removing
+SPiCT's F process (sdf fixed at a large value, annual time step) sends K to
+infinity, exactly as in a catch-conditioned model with a flat K prior.
+
+The time step and SPiCT's stabilising priors do not matter for this; the F
+random walk does. Its information is partly an assumption: in years without an
+index, a smooth F reads a catch trend as a biomass trend. While catches rise in
+the development phase, this produces the upward bend of early biomass often
+seen in SPiCT fits; where catches fall before the index starts, it can be what
+pins K.
+
+## The options
+
+| Option | Values | Default |
+|---|---|---|
+| `jb3_model(frw = )` | `"gaps"`: random walk on log harvest rate only in years without catch (catch-conditioned otherwise, as JABBA); `"index"`: catch-conditioned before the first index year, random walk from there to the end; `"all"`: random walk in all years (SPiCT-like) | `"gaps"` (`spictinp2jabba3()`: `"all"`) |
+| `jb3_priors(sdf = )` | prior on the random-walk SD | LN(0.3, 1) |
+| `jb3_model(sdc = , sdc.est = )` | catch SD fixed (`sdc`, year-specific via `jb3_data(catch.se = )`) or estimated (`sdc.est = TRUE`, prior `jb3_priors(sdc = )`, year-specific SDs as multipliers) | fixed at 0.1 (JABBA `catch.cv = 0.1`) |
+| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1 (e.g. `"jabba4"`) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
+| `jb3_priors(maxC = )` | max catch for the K prior and the cap: `"max"` (annual maximum, as JABBA) or `"smooth"` (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY) | `"max"` |
+| `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `"r"` |
+| `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
+
+**How soft is `K.max`?** There is no penalty below the cap and a half-normal on
+log K (SD 0.3) above it: 1.5 × the cap adds 0.9 to the objective, 2 × adds 2.7,
+3 × adds 6.7. At r = 0.2 the cap is about 19 × max catch, at r = 0.4 about 12 ×,
+at r = 1 about 7.6 ×. It binds only when the data leave K unidentified; with the
+JABBA K prior it rarely matters.
+
+**sdf.** With `frw = "gaps"` the data carry little information on sdf and the
+prior sets it; it affects the estimated catch in the gap years, not the status.
+With `"index"` or `"all"` and catch known, sdf is estimated from the
+harvest-rate path (typically 0.1–0.4). A prior centred far above that, such as
+the LN(4, 0.5) used in many SPiCT benchmarks, pulls the estimate up by 1.3–2 ×
+and acts as a brake on over-smoothing; it is not uninformative.
+
+**Starting values and NUTS.** All NUTS chains start at the optimiser's mode, so
+`inits = "best"` decides which mode they start from but adds nothing to the
+posterior. With a flat K prior the chains can drift towards very large K; for
+NUTS, keep a K prior or `K.max`.
+
+## What to use when
+
+| Data | Suggested settings | Pros | Caveats |
+|---|---|---|---|
+| Long catch series starting lightly exploited, indices starting later (typical tuna and billfish assessments) | `frw = "gaps"`, K prior `"jabba"` or stock-specific, bkinit near unfished, `K.max = "r"` | Reproduces JABBA; no assumption on F in the early period; robust | The scale comes from the index response and the K prior; check K against the cap and the prior (`jbplot_priorpost()`) |
+| Index covering the catch series, stock already fished at the start (typical ICES SPiCT data) | `frw = "all"`, K prior off (or vague), `K.max = "r"`, bkinit prior if known | Identifies K from the catch and a smooth F, as SPiCT | The scale rests partly on the smooth-F assumption; sdf near 0 means an almost constant F, which hands the scale to the assumption |
+| Long catch series before a short index | run `frw = "all"` and `"gaps"` (or `"index"`) side by side | Shows whether the scale comes from the indices or from the early catch trend | A large difference flags that the early catch trend under a smooth F decides the scale (e.g. a stock with catch falling before the index starts) |
+| Years without catch (gaps, catch starting after the index) | `jb3_data(catch.gaps = "estimate")`; any `frw` | Uses the index years without catch; gap catch estimated with intervals | Leading blocks with fast catch growth are hard (catch over-estimated, but covered by the intervals) |
+| Simulation testing, MSE | `frw = "gaps"`, fixed catch SD | Fewer random effects, JABBA-like, fast | Not the place for SPiCT-like scale identification |
+
+`frw = "index"` and `"all"` are identical when an index starts in the first
+catch year. All three modes cost the same (about 0.2 s per fit in RTMB mode).
+
+## Reproducing a JABBA assessment
+
+JABBA's defaults map one to one to JABBA3:
+
+| JABBA (`build_jabba()`) | JABBA3 |
+|---|---|
+| `model.type = "Fox"` / `"Schaefer"` / `"Pella"` | `jb3_model(shape = "fox" / "schaefer" / "pella", BmsyK = )` |
+| `r.prior = c(0.2, 0.5)` | `jb3_priors(r = c(0.2, 0.5))` |
+| `K.prior = NULL` (8 × max catch, CV 1) | `jb3_priors(K = "jabba")` |
+| `psi.prior = c(0.9, 0.25)` (mean, CV) | `jb3_priors(bkinit = c(0.9, 0.246))` |
+| `add.catch.CV = TRUE, catch.cv = 0.1` | `jb3_model(catch.error = TRUE, sdc = 0.1)` |
+| catch-conditioned dynamics | `jb3_model(frw = "gaps")` |
+| inverse-gamma prior on the process variance | FishLife prior on sdb (`jbinput2jabba3()` reports the change) |
+| uniform prior on q | flat prior on log q (`jbinput2jabba3(q.uniform = TRUE)` for the uniform) |
+| no cap on K | `jb3_priors(K.max = NULL)` |
+
+The bigeye quick start written out with JABBA's settings:
+
+```{r jabba-like}
+data(iccat); bet <- iccat$bet
+d   <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
+pr  <- jb3_priors(d, r = c(0.2, 0.5),          # JABBA r.prior
+                  K = "jabba",                 # JABBA K.prior = NULL: 8 x max catch, CV 1
+                  bkinit = c(0.9, 0.246),      # JABBA psi.prior = c(0.9, 0.25)
+                  K.max = NULL)                # JABBA has no cap
+mod <- jb3_model(shape = "fox", catch.error = TRUE, sdc = 0.1, frw = "gaps")
+fj  <- jabba3(d, pr, mod, osa = FALSE)
+signif(fj$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
+```
+
+> This reproduces the conversion of the JABBA run (`jbinput2jabba3()`, chapter
+> *Converters*): K = 1,174,749, $B/B_{MSY}$ = 0.797 in 2017. The JABBA3
+> defaults give the same fit: the default cap (`K.max = "r"`, 19.5 × max catch
+> here) does not bind.
+
+## Approximating a SPiCT assessment
+
+SPiCT settings map to JABBA3 as follows (`spictinp2jabba3()` does this
+automatically):
+
+| SPiCT (`inp`) | JABBA3 |
+|---|---|
+| `obsC`, `timeC` (any time step) | annual catch (summed by calendar year) |
+| `obsI`, `timeI` | annual indices (geometric mean within a year); within-year timing is not used |
+| `stdevfacI` | index SEs as relative weights with `jb3_model(obs.error = "spict")`: SD = sdi × stdevfacI |
+| `stdevfacC` | catch SD multipliers: `jb3_data(catch.se = sdc × stdevfacC)` |
+| F random walk (`logsdf`) | `jb3_model(frw = "all")`; `jb3_priors(sdf = )` from `logsdf`, otherwise no prior |
+| catch observation SD (`logsdc`) | `jb3_model(sdc.est = TRUE)` with `jb3_priors(sdc = )` from `logsdc`; without a SPiCT prior the catch SD stays fixed (its estimate tends to collapse to 0) |
+| no K prior | `jb3_priors(K = c(NA, 0.833, 0))` (off), with `K.max = "r"` and `inits = "best"` |
+| `logr`, `logbkfrac`, `logsdb`, `logsdi`, `logn` | `r`, `bkinit`, `sdb`, `sdi`, `m` (shape) priors |
+| `logngamma` | lognormal prior on m with the same mean and SD of log n |
+| `logalpha`, `logbeta` (ratio priors) | none: use the sdb and sdi priors |
+| `dteuler` | annual model (`jb3_model(nseason = )` for sub-annual steps; it rarely changes the result) |
+
+The thornback ray 8.c of chapter *From SPiCT: North Sea thornback ray*, set up
+by hand from the SPiCT input list:
+
+```{r spict-like}
+data(rjc); inp <- rjc$inp; yrs <- 1989:2021
+gm <- function(t, v){ g <- tapply(v, floor(t), function(z) exp(mean(log(z)))); as.numeric(g[as.character(yrs)]) }
+am <- function(t, v){ g <- tapply(v, floor(t), mean); as.numeric(g[as.character(yrs)]) }
+I  <- data.frame(year = yrs, Q14 = gm(inp$timeI[[1]], inp$obsI[[1]]), Q3 = gm(inp$timeI[[2]], inp$obsI[[2]]))
+W  <- data.frame(year = yrs, Q14 = am(inp$timeI[[1]], inp$stdevfacI[[1]]), Q3 = am(inp$timeI[[2]], inp$stdevfacI[[2]]))
+ds <- jb3_data(data.frame(year = inp$timeC, catch = inp$obsC), I, W,
+               catch.se = data.frame(year = inp$timeC, se = 0.1*inp$stdevfacC),
+               catch.gaps = "estimate", stock = "rjc")
+P  <- function(nm) exp(inp$priors[[nm]][1])    # SPiCT prior medians
+ps <- jb3_priors(ds, r = c(P("logr"), 0.3), K = c(NA, 0.833, 0), bkinit = c(P("logbkfrac"), 0.5),
+                 sdb = c(P("logsdb"), 0.5, 1),
+                 sdi = list(c(exp(inp$priors$logsdi[[1]][1]), 0.2, 1), c(exp(inp$priors$logsdi[[2]][1]), 0.2, 1)),
+                 sdc = c(P("logsdc"), 0.1, 1),
+                 sdf = c(0.3, 1, 0))           # SPiCT has no sdf prior here
+ms <- jb3_model(shape = "schaefer", obs.error = "spict", catch.error = TRUE, sdc = 0.1, sdc.est = TRUE,
+                frw = "all")
+fs <- jabba3(ds, ps, ms, osa = FALSE)
+signif(fs$pars[c("K", "r", "sdb", "sdf", "sdc"), c("est", "lci", "uci")], 3)
+```
+
+The hand-made set-up gives the same fit as `spictinp2jabba3(inp)`
+(K = 84,800, $B/B_{MSY}$ = 1.26 and $F/F_{MSY}$ = 0.38 in 2021). SPiCT itself
+estimates K = 138,000, $B/B_{MSY}$ = 1.06 and $F/F_{MSY}$ = 0.36 (sdf 0.14,
+catch SD 0.09, close to JABBA3's 0.12 and 0.08): the approximation recovers the
+fishing pressure and the scale to within a factor of about 1.6, and the remaining
+difference comes from SPiCT's continuous-time dynamics with the catch
+1989–1998 missing. With the spict package installed:
+
+```{r spict-like-compare, eval = requireNamespace("spict", quietly = TRUE)}
+sp <- spict::fit.spict(inp)
+round(spict::sumspict.states(sp)[3:4, 1:3], 3)
+```
+
+Without the F random walk (`frw = "gaps"`, the catch-conditioned conversion
+`spictinp2jabba3(inp, spict.like = FALSE)`), the scale of such stocks often
+runs to the K prior or, with the K prior off, to the cap: compare the two
+before using a converted SPiCT assessment.

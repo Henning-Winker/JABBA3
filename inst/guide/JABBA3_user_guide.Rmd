@@ -57,6 +57,9 @@ blockquote p { margin-bottom: 0.4em; }
 ```{r child = "chapters/06_model.Rmd"}
 ```
 
+```{r child = "chapters/06b_jabba_spict_like.Rmd"}
+```
+
 ```{r child = "chapters/07_fitting.Rmd"}
 ```
 
