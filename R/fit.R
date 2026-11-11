@@ -102,6 +102,24 @@ jb3_optimise <- function(setup, nstart = 4, silent = TRUE){
   }
   best <- run1(setup$par); nst <- 1
   ok <- function(b) !is.null(b) && b$opt$convergence == 0 && b$opt$maxgrad < 1e-3
+  if(identical(setup$start, "best")){
+    # compare converged fits from the prior-median and spict-like starts (plus nstart - 2 jittered starts) and keep the
+    # lowest objective: guards against accepting a converged local mode
+    cand <- list(best)
+    fix <- setdiff(names(setup$par), c("logK", "logr", "logq", "logP", "lbk"))
+    # SPiCT-like starts (MSY guess) over a range of K (4, 2, 16, 8, 32 x max catch), then jittered prior starts
+    km <- c(4, 2, 16, 8, 32)
+    for(k in seq_len(max(nstart - 1, 1))){
+      p <- if(k <= length(km)) jb3_inits(dat, start = "spict", Kmult = km[k]) else jb3_inits(dat, jitter = 1)
+      p[fix] <- setup$par[fix]
+      cand[[k + 1]] <- run1(p); nst <- nst + 1
+    }
+    oks <- vapply(cand, ok, TRUE)
+    obj <- vapply(cand, function(b) if(is.null(b)) Inf else b$opt$objective, 0)
+    pick <- if(any(oks)) which(oks)[which.min(obj[oks])] else which.min(obj)
+    best <- cand[[pick]]
+    if(!is.null(best)) best$starts <- data.frame(start = seq_along(cand), objective = obj, converged = oks, picked = seq_along(cand) == pick)
+  }
   while(!ok(best) && nst < nstart){
     nst <- nst + 1
     p <- jb3_inits(dat, jitter = 1)
@@ -217,7 +235,8 @@ jb3_output <- function(best, setup, sdreport = TRUE){
                 if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nq), function(j) p1(paste0("q", j), if(is.null(q)) NULL else q[j, , drop = FALSE], rep$q[j], 1/mu))),
                 if(dat$nI > 0) do.call(rbind, lapply(seq_len(dat$nvar), function(j) p1(paste0("sdi", j), if(is.null(sdi)) NULL else sdi[j, , drop = FALSE], rep$sdi[j]))),
                 p1("m", if(dat$est.m) g("logm") else NULL, rep$m),
-                if(dat$nmiss > 0) p1("sdf", g("logsdf"), rep$sdf))
+                if(dat$nmiss > 0 || length(dat$rw_t) > 0) p1("sdf", g("logsdf"), rep$sdf),
+                if(dat$est.sdc) p1("sdc", g("logsdc"), rep$sdc.est))
   if(dat$nA > 0){
     qa <- g("logqA"); sa <- g("logsdA")
     pars <- rbind(pars, do.call(rbind, lapply(seq_len(dat$nA), function(j) rbind(

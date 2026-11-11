@@ -32,6 +32,7 @@
 #'   prior with the catch SD fixed, e.g. c(4, 0.5, 1), together with \code{jb3_model(frw.all = TRUE)}.
 #' @param creep normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}
 #' @param psi alias of \code{bkinit} (JABBA name)
+#' @param sdc catch SD prior c(median, log.sd, on) when \code{jb3_model(sdc.est = TRUE)} (off by default: flat on log sdc)
 #' @param K.max optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
 #'   the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
 #'   the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
@@ -44,7 +45,7 @@
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
-                       creep = c(0.02, 0.02), sdf = c(0.3, 0.5, 1), K.max = NULL){
+                       creep = c(0.02, 0.02), sdf = c(0.3, 0.5, 1), K.max = NULL, sdc = c(0.1, 1, 0)){
   args <- .fn_args()
   pr3 <- function(x, nm){
     x <- as.numeric(x); if(length(x) == 2) x <- c(x, 1)
@@ -70,7 +71,7 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
       if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = K.max[1], log.sd = if(length(K.max) > 1) K.max[2] else 0.3, on = 1) }
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
-                 sdi = sdi, sdf = sdf, status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max),
+                 sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max),
             class = "jb3priors", args = args)
 }
 

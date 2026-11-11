@@ -54,10 +54,19 @@
 #' @param aux.sd additional observation SD of the auxiliary series: \code{NULL} (default) estimates one per series
 #'   (JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series
 #' @param aux.se.min minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)
-#' @param frw.all only with missing catch (\code{jb3_data(catch.gaps = "estimate")}): FALSE (default) applies the random walk on
-#'   log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
-#'   (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
-#'   with catch, which tends to shrink it and smooth F through the gaps)
+#' @param frw.all random walk on the log harvest rate in all years (SPiCT-like F process). With missing catch
+#'   (\code{jb3_data(catch.gaps = "estimate")}) FALSE (default) applies the walk only to increments involving a year without
+#'   catch, so the years with catch stay catch-conditioned (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to
+#'   all years (sdf then informed by the years with catch, which tends to shrink it and smooth F through the gaps). Without
+#'   missing catch, TRUE adds the full random walk on H_y = C_y/(K P_y), with C_y the estimated catch (use with
+#'   \code{catch.error = TRUE}) and P_y the depletion at the start of the year (also with \code{nseason > 1}); FALSE (default)
+#'   keeps the catch-conditioned model without an F process.
+#' @param sdc.est estimate the catch SD (as SPiCT's sdc) instead of fixing it at \code{sdc}; year-specific catch SDs
+#'   (\code{jb3_data(catch.se = )}) then act as relative multipliers (SPiCT stdevfacC), prior \code{jb3_priors(sdc = )}
+#' @param inits starting values for the optimiser: "prior" (default; prior medians of K, r and bkinit), "spict" (as
+#'   \code{spict::check.inp()}: K = 4 x max catch, MSY from spict's catch/index regression, bkinit 0.8), or "best" (fits
+#'   from the prior-median start and SPiCT-like starts with K at 4, 2, 16, 8 and 32 x max catch, then jittered starts,
+#'   \code{nstart} in total, and keeps the converged fit with the lowest objective)
 #' @param nseason number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
 #'   depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
 #'   removed during that step (an Euler scheme with dt = 1/nseason). Process variance per step is set so that the
@@ -78,7 +87,8 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
                       param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE,
-                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
+                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL, inits = c("prior", "spict", "best"), sdc.est = FALSE){
+  inits <- match.arg(inits)
   args <- .fn_args()
   nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
   if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal", "Fstate"))
@@ -106,7 +116,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, nseason = nseason, catch.alloc = catch.alloc,
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, inits = inits, sdc.est = sdc.est, nseason = nseason, catch.alloc = catch.alloc,
                  season.w = season.w, sdb.max = sdb.max),
             class = "jb3model", args = args)
 }
