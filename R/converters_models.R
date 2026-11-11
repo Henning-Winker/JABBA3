@@ -125,11 +125,11 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
 #' @param stock stock name
 #' @param verbose print conversion messages
 #' @param spict.like TRUE (default): SPiCT's process structure as far as JABBA3 has it: random walk on F in all years
-#'   (\code{frw.all = TRUE}; with catch known, the smoothness of F is what identifies the scale K in SPiCT), catch SD
+#'   (\code{frw = "all"}; with catch known, the smoothness of F is what identifies the scale K in SPiCT), catch SD
 #'   estimated when SPiCT has a \code{logsdc} prior (\code{sdc.est = TRUE}; without a prior the estimate tends to collapse
 #'   to 0 in JABBA3, so sdc stays fixed), sdf without prior unless SPiCT has one, and the
-#'   best of prior-median and SPiCT-like starting values (\code{inits = "best"}). FALSE: catch-conditioned JABBA model
-#'   with the catch SD fixed at sdc (earlier behaviour).
+#'   best of prior-median and SPiCT-like starting values when the K prior is off (\code{inits = NULL}). FALSE: catch-
+#'   conditioned JABBA model with the catch SD fixed at sdc (\code{frw = "gaps"}; earlier behaviour).
 #' @return list(data, priors, model)
 #' @export
 spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE, spict.like = TRUE){
@@ -205,9 +205,9 @@ spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE, spict.like = T
   priors <- jb3_priors(data, r = r, K = K, bkinit = bk, sdb = sdb, m = m.pr, sdi = sdi,
                        sdf = if(on(sdf)) sdf else if(spict.like) c(0.3, 0.5, 0) else c(0.3, 0.5, 1), sdc = sdc.pr)
   model <- jb3_model(shape = shape, BmsyK = bmsyk, obs.error = "spict", catch.error = TRUE, sdc = sdc,
-                     sets.var = sets.var, sets.q = sets.q, frw.all = spict.like, sdc.est = spict.like && !sdc.fix && on(pr$logsdc),
+                     sets.var = sets.var, sets.q = sets.q, frw = if(spict.like) "all" else "gaps", sdc.est = spict.like && !sdc.fix && on(pr$logsdc),
                      inits = if(spict.like) NULL else "prior")
-  if(spict.like) msg("SPiCT-like: random walk on F in all years (frw.all = TRUE; sdf ", if(on(sdf)) "with the SPiCT prior" else "without prior",
+  if(spict.like) msg("SPiCT-like: random walk on F in all years (frw = \"all\"; sdf ", if(on(sdf)) "with the SPiCT prior" else "without prior",
                      "); catch SD ", if(on(pr$logsdc) && !sdc.fix) "estimated with the SPiCT logsdc prior (sdc.est = TRUE; stdevfacC as multipliers)" else
                        paste0("fixed at ", signif(sdc, 2), " (no SPiCT logsdc prior: estimated without a prior, sdc tends to collapse to 0)"),
                      "; starting values: best of prior-median and SPiCT-like starts when the K prior is off (inits = NULL)")
