@@ -43,15 +43,16 @@
 #'   the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
 #'   cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
 #'   as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
-#'   \code{"r"} is the default (it binds only when the data leave K unidentified: K would run to implausibly large
-#'   biomass); \code{NULL} = no cap. Soft: 1.5 x the cap adds 0.9 to the objective, 2 x adds 2.7, 3 x adds 6.7.
+#'   \code{NULL} (default) = no cap. Soft: 1.5 x the cap adds 0.9 to the objective, 2 x adds 2.7, 3 x adds 6.7. Not on by
+#'   default because lightly exploited, low-productivity stocks (e.g. rays) can lie well above the r-based cap; instead,
+#'   \code{jabba3()} warns when K exceeds it, and the \code{inits = "best"} search tries a start from a capped fit.
 #' @return list of class \code{jb3priors}
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
-                       creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = "r", sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
+                       creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = NULL, sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
   maxC <- match.arg(maxC)
   args <- .fn_args()
   pr3 <- function(x, nm){

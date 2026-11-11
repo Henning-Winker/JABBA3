@@ -57,6 +57,7 @@ jabba3 <- function(data, priors = jb3_priors(data), model = jb3_model(), engine 
   setup <- jb3_setup(data, priors, model, peels = peels, index.peels = index.peels, prior.only = prior.only)
   opt <- jb3_optimise(setup, nstart = nstart, silent = silent)
   fit <- jb3_output(opt, setup, sdreport = se || engine == "nuts" || ndraws > 0)
+  .kcheck(fit, setup)
   class(fit) <- c("jabba3", "list")
   fit$run <- run %||% data$stock
   fit$priors <- priors; fit$model <- model; fit$engine <- engine; fit$peels <- peels; fit$index.peels <- index.peels
@@ -113,6 +114,28 @@ jb3_optimise <- function(setup, nstart = 4, silent = TRUE){
       p <- if(k <= length(km)) jb3_inits(dat, start = "spict", Kmult = km[k]) else jb3_inits(dat, jitter = 1)
       p[fix] <- setup$par[fix]
       cand[[k + 1]] <- run1(p); nst <- nst + 1
+    }
+    # K-profile starts: fit with K fixed on a grid of multiples of max catch, then release K from each local minimum of
+    # the profile. Finds finite-K modes with a narrow basin that the free optimiser leaves for K -> infinity (e.g. Nephrops
+    # FU32: mode at 6 x max catch; a soft cap at the r-based bound still lands outside its basin). Released fits are
+    # compared on the full objective, so the grid itself never enters the result.
+    if(is.finite(dat$maxC.int %||% NA) && is.null(setup$map$logK)){
+      kg <- c(2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64)
+      p0 <- cand[[which.min(vapply(cand, function(b) if(is.null(b)) Inf else b$opt$objective, 0))]]
+      p0 <- if(is.null(p0)) setup$par else { p0$obj$fn(p0$opt$par); p0$obj$env$parList(p0$opt$par, p0$obj$env$last.par.best)[names(setup$par)] }
+      mp <- c(setup$map, list(logK = factor(NA)))
+      prof <- lapply(kg, function(k){
+        p <- p0; p$logK <- log(k*dat$maxC.int)
+        o <- tryCatch(RTMB::MakeADFun(f, p, random = setup$random, map = mp, silent = silent), error = function(e) NULL)
+        op <- if(is.null(o)) NULL else tryCatch(suppressWarnings(stats::nlminb(o$par, o$fn, o$gr, control = list(iter.max = 500, eval.max = 1000))),
+                                               error = function(e) NULL)
+        if(is.null(op) || !is.finite(op$objective)) return(list(nll = Inf))
+        o$fn(op$par); list(nll = op$objective, par = o$env$parList(op$par, o$env$last.par.best)[names(setup$par)])
+      })
+      pn <- vapply(prof, `[[`, 0, "nll")
+      lm <- which(is.finite(pn) & pn <= c(Inf, pn[-length(pn)]) & pn <= c(pn[-1], Inf))
+      lm <- head(lm[order(pn[lm])], 3)
+      for(j in lm){ cand[[length(cand) + 1]] <- run1(prof[[j]]$par); nst <- nst + 1 }
     }
     oks <- vapply(cand, ok, TRUE)
     obj <- vapply(cand, function(b) if(is.null(b)) Inf else b$opt$objective, 0)
@@ -290,4 +313,17 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   out$residual <- log(out$obs) - log(out$hat)
   out$std.residual <- out$residual/out$sd
   out
+}
+
+# warn when K exceeds the r-based plausibility bound (K.max = "r" level): K may not be identified by the data
+.kcheck <- function(fit, setup){
+  if(isTRUE(setup$dat$Kmax.pr[3] == 1)) return(invisible(NULL))
+  mc <- setup$dat$maxC.int*setup$mucatch; K <- tryCatch(fit$pars["K", "est"], error = function(e) NA)
+  bound <- .kmax_r(setup$dat$r.pr[1])
+  if(is.finite(K) && is.finite(mc) && K > bound*mc)
+    warning(sprintf(paste0("K = %s is %.0f x max catch, above the r-based plausibility bound (%.0f x; 95th percentile of K/max catch ",
+                           "in 72 ICES stocks): check that the data identify K (likelihood profile, frw, K prior or ",
+                           "jb3_priors(K.max = \"r\")). Lightly exploited, low-productivity stocks can legitimately lie above it."),
+                    format(signif(K, 3), big.mark = ","), K/mc, bound), call. = FALSE)
+  invisible(NULL)
 }

@@ -106,6 +106,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     }
   }
   dat$msy.guess <- .guess_msy(data)/mucatch
+  dat$maxC.int <- mC/mucatch                       # max catch (internal units) for the r-based plausibility bound
   dat$sdc.rel <- dat$sdc/(model$sdc[1] %||% 0.1)
   inits <- model$inits %||% (if(priors$K[3] != 1) "best" else "prior")
   par <- jb3_inits(dat, start = if(identical(inits, "spict")) "spict" else "prior")
@@ -461,3 +462,6 @@ jb3_nll <- function(par, dat){
   a <- stats::coef(fit)[1]; b <- stats::coef(fit)[2]; msy <- -0.25*a^2/b
   if(!is.finite(msy) || msy <= 0 || summary(fit)$r.squared < 0.3) mc else unname(msy)
 }
+
+# r-based plausibility bound on K (multiple of max catch): 95th percentile of K/max catch in 72 ICES stocks
+.kmax_r <- function(r) 7.6*r^-0.587

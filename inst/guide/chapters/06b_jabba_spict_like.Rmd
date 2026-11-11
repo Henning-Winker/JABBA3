@@ -38,14 +38,32 @@ pins K.
 | `jb3_model(sdc = , sdc.est = )` | catch SD fixed (`sdc`, year-specific via `jb3_data(catch.se = )`) or estimated (`sdc.est = TRUE`, prior `jb3_priors(sdc = )`, year-specific SDs as multipliers) | fixed at 0.1 (JABBA `catch.cv = 0.1`) |
 | `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1 (e.g. `"jabba4"`) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
 | `jb3_priors(maxC = )` | max catch for the K prior and the cap: `"max"` (annual maximum, as JABBA) or `"smooth"` (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY) | `"max"` |
-| `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `"r"` |
-| `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
+| `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `NULL` (off; `jabba3()` warns when K exceeds the `"r"` bound) |
+| `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts plus K-profile starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
 
 **How soft is `K.max`?** There is no penalty below the cap and a half-normal on
 log K (SD 0.3) above it: 1.5 × the cap adds 0.9 to the objective, 2 × adds 2.7,
 3 × adds 6.7. At r = 0.2 the cap is about 19 × max catch, at r = 0.4 about 12 ×,
-at r = 1 about 7.6 ×. It binds only when the data leave K unidentified; with the
-JABBA K prior it rarely matters.
+at r = 1 about 7.6 ×. That is soft enough to stop a runaway K but firm enough
+to move a well-identified K that lies above it, which is why it is off by
+default: the North Sea thornback ray (`data(rjc)`, SPiCT K = 49 × max catch)
+lies twice above its cap, and the cap lowers $B/B_{MSY}$ in 2021 from 0.99
+(SPiCT 1.06) to 1.26. Lightly exploited, slow-growing stocks (rays, sharks,
+deep-water species) often lie above the bound.
+
+**The K plausibility check.** With `K.max` off, `jabba3()` warns when the K
+estimate exceeds the `"r"` bound. The warning asks for a check, not a fix:
+profile K, compare `frw` modes, and add a K prior or `K.max = "r"` only where
+the data do not identify K.
+
+**K-profile starts.** Some stocks have a finite-K mode with a narrow basin and a
+flat ridge towards K → ∞ that the optimiser finds from most starts. With
+`inits = "best"`, JABBA3 therefore also fits with K fixed at 2–64 × max catch,
+and releases K from each local minimum of that profile; the lowest converged
+objective wins as usual. For Nephrops FU32 (WKBMSYSPiCT3) this finds the mode at
+5.6 × max catch, $B/B_{MSY}$ = 0.14 in 2023 (SPiCT 5.8 ×, 0.13), where all other
+starts gave K → ∞ with a higher objective (11.0 against 14.0). It adds about
+one second to a fit.
 
 **sdf.** With `frw = "gaps"` the data carry little information on sdf and the
 prior sets it; it affects the estimated catch in the gap years, not the status.
@@ -57,14 +75,14 @@ and acts as a brake on over-smoothing; it is not uninformative.
 **Starting values and NUTS.** All NUTS chains start at the optimiser's mode, so
 `inits = "best"` decides which mode they start from but adds nothing to the
 posterior. With a flat K prior the chains can drift towards very large K; for
-NUTS, keep a K prior or `K.max`.
+NUTS, keep a K prior or set `K.max = "r"`.
 
 ## What to use when
 
 | Data | Suggested settings | Pros | Caveats |
 |---|---|---|---|
-| Long catch series starting lightly exploited, indices starting later (typical tuna and billfish assessments) | `frw = "gaps"`, K prior `"jabba"` or stock-specific, bkinit near unfished, `K.max = "r"` | Reproduces JABBA; no assumption on F in the early period; robust | The scale comes from the index response and the K prior; check K against the cap and the prior (`jbplot_priorpost()`) |
-| Index covering the catch series, stock already fished at the start (typical ICES SPiCT data) | `frw = "all"`, K prior off (or vague), `K.max = "r"`, bkinit prior if known | Identifies K from the catch and a smooth F, as SPiCT | The scale rests partly on the smooth-F assumption; sdf near 0 means an almost constant F, which hands the scale to the assumption |
+| Long catch series starting lightly exploited, indices starting later (typical tuna and billfish assessments) | `frw = "gaps"`, K prior `"jabba"` or stock-specific, bkinit near unfished | Reproduces JABBA; no assumption on F in the early period; robust | The scale comes from the index response and the K prior; check K against the prior (`jbplot_priorpost()`) and the plausibility warning |
+| Index covering the catch series, stock already fished at the start (typical ICES SPiCT data) | `frw = "all"`, K prior off (or vague), `inits = "best"`, bkinit prior if known | Identifies K from the catch and a smooth F, as SPiCT | The scale rests partly on the smooth-F assumption; sdf near 0 means an almost constant F, which hands the scale to the assumption |
 | Long catch series before a short index | run `frw = "all"` and `"gaps"` (or `"index"`) side by side | Shows whether the scale comes from the indices or from the early catch trend | A large difference flags that the early catch trend under a smooth F decides the scale (e.g. a stock with catch falling before the index starts) |
 | Years without catch (gaps, catch starting after the index) | `jb3_data(catch.gaps = "estimate")`; any `frw` | Uses the index years without catch; gap catch estimated with intervals | Leading blocks with fast catch growth are hard (catch over-estimated, but covered by the intervals) |
 | Simulation testing, MSE | `frw = "gaps"`, fixed catch SD | Fewer random effects, JABBA-like, fast | Not the place for SPiCT-like scale identification |
@@ -86,7 +104,7 @@ JABBA's defaults map one to one to JABBA3:
 | catch-conditioned dynamics | `jb3_model(frw = "gaps")` |
 | inverse-gamma prior on the process variance | FishLife prior on sdb (`jbinput2jabba3()` reports the change) |
 | uniform prior on q | flat prior on log q (`jbinput2jabba3(q.uniform = TRUE)` for the uniform) |
-| no cap on K | `jb3_priors(K.max = NULL)` |
+| no cap on K | `jb3_priors(K.max = NULL)` (the default) |
 
 The bigeye quick start written out with JABBA's settings:
 
@@ -104,8 +122,8 @@ signif(fj$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 
 > This reproduces the conversion of the JABBA run (`jbinput2jabba3()`, chapter
 > *Converters*): K = 1,174,749, $B/B_{MSY}$ = 0.797 in 2017. The JABBA3
-> defaults give the same fit: the default cap (`K.max = "r"`, 19.5 × max catch
-> here) does not bind.
+> defaults give the same fit (K is 6 × max catch, well below the `"r"` bound of
+> 19.5 ×).
 
 ## Approximating a SPiCT assessment
 
@@ -120,13 +138,13 @@ automatically):
 | `stdevfacC` | catch SD multipliers: `jb3_data(catch.se = sdc × stdevfacC)` |
 | F random walk (`logsdf`) | `jb3_model(frw = "all")`; `jb3_priors(sdf = )` from `logsdf`, otherwise no prior |
 | catch observation SD (`logsdc`) | `jb3_model(sdc.est = TRUE)` with `jb3_priors(sdc = )` from `logsdc`; without a SPiCT prior the catch SD stays fixed (its estimate tends to collapse to 0) |
-| no K prior | `jb3_priors(K = c(NA, 0.833, 0))` (off), with `K.max = "r"` and `inits = "best"` |
+| no K prior | `jb3_priors(K = c(NA, 0.833, 0))` (off), with `inits = "best"`; no cap on K |
 | `logr`, `logbkfrac`, `logsdb`, `logsdi`, `logn` | `r`, `bkinit`, `sdb`, `sdi`, `m` (shape) priors |
 | `logngamma` | lognormal prior on m with the same mean and SD of log n |
 | `logalpha`, `logbeta` (ratio priors) | none: use the sdb and sdi priors |
 | `dteuler` | annual model (`jb3_model(nseason = )` for sub-annual steps; it rarely changes the result) |
 
-The thornback ray 8.c of chapter *From SPiCT: North Sea thornback ray*, set up
+The thornback ray of chapter *From SPiCT: North Sea thornback ray*, set up
 by hand from the SPiCT input list:
 
 ```{r spict-like}
@@ -151,12 +169,11 @@ signif(fs$pars[c("K", "r", "sdb", "sdf", "sdc"), c("est", "lci", "uci")], 3)
 ```
 
 The hand-made set-up gives the same fit as `spictinp2jabba3(inp)`
-(K = 84,800, $B/B_{MSY}$ = 1.26 and $F/F_{MSY}$ = 0.38 in 2021). SPiCT itself
+(K = 148,000, $B/B_{MSY}$ = 0.99 and $F/F_{MSY}$ = 0.35 in 2021). SPiCT itself
 estimates K = 138,000, $B/B_{MSY}$ = 1.06 and $F/F_{MSY}$ = 0.36 (sdf 0.14,
-catch SD 0.09, close to JABBA3's 0.12 and 0.08): the approximation recovers the
-fishing pressure and the scale to within a factor of about 1.6, and the remaining
-difference comes from SPiCT's continuous-time dynamics with the catch
-1989–1998 missing. With the spict package installed:
+catch SD 0.09, close to JABBA3's 0.13 and 0.08). K is 52 × max catch, so
+`jabba3()` warns that it lies above the plausibility bound (24 ×); here the
+SPiCT fit agrees, and the warning can be noted and left. With the spict package installed:
 
 ```{r spict-like-compare, eval = requireNamespace("spict", quietly = TRUE)}
 sp <- spict::fit.spict(inp)
@@ -165,5 +182,6 @@ round(spict::sumspict.states(sp)[3:4, 1:3], 3)
 
 Without the F random walk (`frw = "gaps"`, the catch-conditioned conversion
 `spictinp2jabba3(inp, spict.like = FALSE)`), the scale of such stocks often
-runs to the K prior or, with the K prior off, to the cap: compare the two
+runs to the K prior or, with the K prior off, drifts upwards (thornback ray:
+K = 221,000, 78 × max catch, $F/F_{MSY}$ = 0.28): compare the two
 before using a converted SPiCT assessment.

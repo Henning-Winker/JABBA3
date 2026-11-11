@@ -4,8 +4,8 @@ Thornback ray (*Raja clavata*) in Subarea 4 and divisions 3.a and 7.d (North
 Sea, Skagerrak, Kattegat and eastern English Channel; rjc.27.3a47d) was
 benchmarked at the ICES workshop WKBELASMO with SPiCT (ICES, 2023;
 Pedersen and Berg, 2017). This chapter converts the final SPiCT assessment to JABBA3,
-introduces the hybrid F random walk that JABBA3 uses for index years without
-catch, adds the production lag and AR(1) process error, compares the result with
+introduces the F random walk that JABBA3 uses for SPiCT-like fits and for index
+years without catch, adds the production lag and AR(1) process error, compares the result with
 the SPiCT assessment, and derives the ICES catch advice.
 
 ## The benchmark assessment
@@ -55,12 +55,15 @@ fr <- jabba3(xs$data, xs$priors, xs$model, run = "JABBA3")
 fr$pars[c("K", "r", "bkinit", "sdb", "sdi1", "sdi2", "sdf"), c("est", "lci", "uci")]
 ```
 
-## Special feature: the hybrid F random walk
+## Special feature: the F random walk
 
-JABBA3 is conditioned on catch: the catch of each year enters the biomass
-equation, with lognormal catch error when `catch.error = TRUE`. SPiCT instead
-models fishing mortality as a random walk in all years and treats the catch as
-an observation of it. JABBA3 combines the two when the catch series has gaps or
+By default JABBA3 is conditioned on catch, as JABBA: the catch of each year
+enters the biomass equation, with lognormal catch error when
+`catch.error = TRUE`. SPiCT instead models fishing mortality as a random walk in
+all years and treats the catch as an observation of it. `jb3_model(frw = )`
+chooses between them (chapter *JABBA-like and SPiCT-like set-ups*), and the
+SPiCT conversion uses the SPiCT-like `frw = "all"`. With the JABBA-like
+`frw = "gaps"`, the random walk is used only where the catch series has gaps or
 is shorter than the indices (`jb3_data(catch.gaps = "estimate")`, set here by
 the converter):
 
@@ -74,9 +77,10 @@ the converter):
   information on biomass in 1989–1998 informs the catch in those years.
 - $\sigma_F$ has the prior `jb3_priors(sdf = )` (median 0.3, log-SD 0.5 by
   default; a SPiCT `logsdf` prior is carried over).
-- With `jb3_model(frw.all = TRUE)` the random walk applies to all years
-  (SPiCT-like). $\sigma_F$ is then also informed by the years with catch, which
-  tends to shrink it and to smooth F through the gaps.
+- With `frw = "all"` (the conversion here) the random walk applies to all
+  years. $\sigma_F$ is then also informed by the years with catch, which
+  tends to shrink it and to smooth F through the gaps, and the smooth F
+  together with the catch informs the scale (K).
 
 `jbplot_catcherror()` shows the observed catch (1999–2021) against the
 estimated catch over all model years. The years without catch are shaded: the
@@ -87,16 +91,16 @@ uncertainty narrows towards the first observed catch.
 jbplot_catcherror(fr)
 ```
 
-## Alternative runs: F random walk, lag and AR(1)
+## Alternative runs: catch-conditioned, lag and AR(1)
 
-Two alternatives to the converted run: the random walk on F in all years
-(SPiCT-like), and the protocol for process error of JABBA3, a production lag at
+Two alternatives to the converted run: the JABBA-like catch-conditioned
+dynamics (`frw = "gaps"`), and the protocol for process error of JABBA3, a production lag at
 the age at maturity with AR(1) process deviations. Age at maturity follows from
 the benchmark growth parameters and the length at 50% maturity (73.7 cm), and
 the AR(1) persistence is the default $\rho = 0.75$:
 
 ```{r rjc-alt}
-fa <- update(fr, model = list(frw.all = TRUE), run = "F random walk (all years)")
+fa <- update(fr, model = list(frw = "gaps"), run = "Catch-conditioned (gaps)")
 lh <- rjc$info$lh
 amat <- round(lh[["t0"]] - log(1 - lh[["L50"]]/lh[["Linf"]])/lh[["k"]])
 amat
@@ -104,7 +108,7 @@ fl <- update(fr, model = list(lag = amat, rho = 0.75), run = "Lag 6 + AR(1)")
 ```
 
 ```{r rjc-alt-plot, fig.width = 10, fig.height = 6.5}
-jabbaplot3(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl),
+jabbaplot3(list(JABBA3 = fr, `Catch-conditioned (gaps)` = fa, `Lag 6 + AR(1)` = fl),
            bthr = NULL, blim = NULL, panels = c("Catch", "F/Fmsy", "B/Bmsy", "procdev"))
 ```
 
@@ -113,14 +117,19 @@ Terminal status (2021) of the three runs:
 ```{r rjc-status}
 st <- function(f){ x <- f$ts[f$ts$year == 2021 & f$ts$quant %in% c("B/Bmsy", "F/Fmsy"), ]
   stats::setNames(sprintf("%.2f (%.2f-%.2f)", x$est, x$lci, x$uci), x$quant) }
-noquote(t(sapply(list(JABBA3 = fr, `F random walk (all years)` = fa, `Lag 6 + AR(1)` = fl), st)))
+noquote(t(sapply(list(JABBA3 = fr, `Catch-conditioned (gaps)` = fa, `Lag 6 + AR(1)` = fl), st)))
 ```
 
 The converted run reproduces the SPiCT perception: depleted in the 1990s, F
 below $F_{MSY}$ since the mid-2000s and a rebuilding stock close to $B_{MSY}$
-in 2021 ($B/B_{MSY}$ 1.03 in SPiCT at the start of 2021). It is slightly lower
-in both $B/B_{MSY}$ and $F/F_{MSY}$, mainly because of the annual time step and
-the index timing. The random walk on all years changes little. With the lag
+in 2021 ($B/B_{MSY}$ 0.99 and $F/F_{MSY}$ 0.35, against 1.03 and 0.36 in SPiCT
+at the start of 2021), with K close to SPiCT's (148,000 t against 138,000 t).
+K is 52 × the maximum catch, so `jabba3()` warns that it lies above the
+plausibility bound (24 ×) for this r; a slow-growing ray can be that large
+relative to its catch, and SPiCT agrees, so the warning is noted here. The
+catch-conditioned run puts K higher still (78 × max catch) and F lower
+($F/F_{MSY}$ 0.28): without the random walk the scale is less constrained by
+the catch. With the lag
 and AR(1) process error, the process deviations become persistent (below
 average production in the 1990s, above average from the mid-2000s, when the
 stock rebuilt), status is slightly higher, and the intervals are wider: the
@@ -219,15 +228,16 @@ What the comparison shows:
   forecast catch is much less certain. The persistent process deviations carry
   into the forecast years, so the CV of the advice-year catch nearly doubles.
 - **The fractile takes a larger cut where the uncertainty is larger.** The 35th
-  percentile is about 90% of the median catch in the converted run and about
-  83% with lag + AR(1); the 15th percentile about 75% and 61%. The fractile
+  percentile is about 93% of the median catch in the converted run and about
+  85% with lag + AR(1); the 15th percentile about 82% and 66%. The fractile
   acts through the uncertainty, not the point estimate, which is how the rule
   is meant to work.
-- **The lag + AR(1) advice is close to the SPiCT advice.** WKBELASMO gave
-  8051 t at the 35th percentile (F/Fmsy 0.92, B/Bmsy 1.14 at the start of
-  2024), 7074 t at the 15th percentile and 3441 t for a 20% increase on the
-  realised removals.
+- **The SPiCT advice lies between the two runs.** WKBELASMO gave 8051 t at the
+  35th percentile (F/Fmsy 0.92, B/Bmsy 1.14 at the start of 2024), 7074 t at
+  the 15th percentile and 3441 t for a 20% increase on the realised removals.
+  The converted run gives about 8,500 t and the lag + AR(1) run about 6,800 t
+  at the 35th percentile.
 - **With the uncertainty modelled, a very low fractile may be overly
   cautious.** Allowing for persistence widens the forecast uncertainty, and with
   a fixed fractile that turns directly into precaution, so a 15th percentile on
-  top of it lowers F to about 0.6 $F_{MSY}$.
+  top of it lowers F to about 0.65 $F_{MSY}$.
