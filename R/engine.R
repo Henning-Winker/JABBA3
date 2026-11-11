@@ -71,7 +71,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   ax <- .aux_setup(data, model, priors, Ny)
   dat <- list(
     N = N, TC = pmax(ifelse(cobs, data$catch/mucatch, 1), 1e-8),
-    nmiss = nmiss, miss_t = if(nmiss) as.integer(cmiss) else 1L, rw_t = .frw_steps(cobs, isTRUE(model$frw.all)),
+    nmiss = nmiss, miss_t = if(nmiss) as.integer(cmiss) else 1L, rw_t = .frw_steps(cobs, .frw_mode(model), if(nrow(ok)) as.integer(sst$stepyear[fi]) else 1L),
     sdf.pr = priors$sdf %||% c(0.3, 1, 0), cobs = as.integer(cobs), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
     SE2 = SE2, W = W, nI = nI, nq = nq, nvar = nvar, sets.q = as.integer(factor(sets.q)), sets.var = as.integer(factor(sets.var)),
     lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
@@ -106,7 +106,8 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   }
   dat$msy.guess <- .guess_msy(data)/mucatch
   dat$sdc.rel <- dat$sdc/(model$sdc[1] %||% 0.1)
-  par <- jb3_inits(dat, start = if(identical(model$inits, "spict")) "spict" else "prior")
+  inits <- model$inits %||% (if(priors$K[3] != 1 && !isTRUE((priors$K.max %||% c(NA, NA, 0))[3] == 1)) "best" else "prior")
+  par <- jb3_inits(dat, start = if(identical(inits, "spict")) "spict" else "prior")
   map <- list()
   if(!dat$est.m) map$logm <- factor(NA)
   if(!dat$est.sdb) map$logsdb <- factor(NA)
@@ -122,7 +123,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   if(!dat$est.creep) map$creep <- factor(NA)
   if(dat$nc){ par$zP <- rep(0, N); par$logP <- NULL }
   random <- c(if(dat$nc) "zP" else "logP", if(dat$catch.err) "cdev", if(nmiss > 0) "lH")
-  list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok, nseason = ns, start = model$inits %||% "prior",
+  list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok, nseason = ns, start = inits,
        index.names = colnames(data$I), data = data)
 }
 
@@ -381,12 +382,20 @@ jb3_nll <- function(par, dat){
   nll
 }
 
-# steps t (2..N) whose harvest-rate increment enters the F random walk: only increments involving a year without catch
-# (default), or all steps when all = TRUE (SPiCT-like; sdf informed by the years with catch). With all = TRUE the walk
-# also applies when every year has catch (full random walk on the harvest rate implied by the estimated catch).
-.frw_steps <- function(cobs, all = FALSE){
-  N <- length(cobs); if(N < 2 || (all(cobs) && !all)) return(integer(0))
-  t <- 2:N; as.integer(if(all) t else t[!cobs[t] | !cobs[t - 1]])
+# steps t (2..Ny) whose harvest-rate increment enters the F random walk:
+#   "gaps"  only increments involving a year without catch (JABBA-like, catch-conditioned otherwise)
+#   "index" from the first index year to the end (and gaps): catch-conditioned before the indices, SPiCT-like after
+#   "all"   all steps (SPiCT-like)
+# The walk acts on log H_y = estimated catch / (K P_y); with "index" or "all" it applies also when every year has catch.
+.frw_steps <- function(cobs, mode = "gaps", fy = 1L){
+  N <- length(cobs); if(N < 2) return(integer(0))
+  t <- 2:N; gap <- t[!cobs[t] | !cobs[t - 1]]
+  as.integer(switch(mode, all = t, index = sort(unique(c(gap, t[t - 1 >= fy]))), gap))
+}
+# F random-walk mode: model$frw ("gaps", "index", "all"); legacy frw.all = TRUE -> "all"
+.frw_mode <- function(model){
+  m <- model$frw %||% (if(isTRUE(model$frw.all)) "all" else "gaps")
+  match.arg(m, c("gaps", "index", "all"))
 }
 
 # year-specific catch SD (log scale): data$catch.se (from jb3_data(catch.se =), NA = model sdc) or a vector sdc in the model

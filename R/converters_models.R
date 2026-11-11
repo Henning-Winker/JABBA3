@@ -206,11 +206,11 @@ spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE, spict.like = T
                        sdf = if(on(sdf)) sdf else if(spict.like) c(0.3, 0.5, 0) else c(0.3, 0.5, 1), sdc = sdc.pr)
   model <- jb3_model(shape = shape, BmsyK = bmsyk, obs.error = "spict", catch.error = TRUE, sdc = sdc,
                      sets.var = sets.var, sets.q = sets.q, frw.all = spict.like, sdc.est = spict.like && !sdc.fix && on(pr$logsdc),
-                     inits = if(spict.like) "best" else "prior")
+                     inits = if(spict.like) NULL else "prior")
   if(spict.like) msg("SPiCT-like: random walk on F in all years (frw.all = TRUE; sdf ", if(on(sdf)) "with the SPiCT prior" else "without prior",
                      "); catch SD ", if(on(pr$logsdc) && !sdc.fix) "estimated with the SPiCT logsdc prior (sdc.est = TRUE; stdevfacC as multipliers)" else
                        paste0("fixed at ", signif(sdc, 2), " (no SPiCT logsdc prior: estimated without a prior, sdc tends to collapse to 0)"),
-                     "; best of prior-median and SPiCT-like starts (inits = \"best\")")
+                     "; starting values: best of prior-median and SPiCT-like starts when the K prior is off (inits = NULL)")
   else msg("catch error: sdc = ", signif(sdc, 2), if(any(sfC != 1)) paste0(" x stdevfacC (catch SD ", paste(signif(range(sdc*sfC), 2), collapse = "-"), ")"),
       "; the F process is only modelled in years without catch")
   list(data = data, priors = priors, model = model)
