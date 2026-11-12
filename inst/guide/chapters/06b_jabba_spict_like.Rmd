@@ -147,6 +147,73 @@ near the unfished state. Otherwise keep it weak, or state it as $B/B_{MSY}$ with
 `bbmsyinit` (chapter *Priors*), which keeps the initial status the same when the
 shape changes in a sensitivity run.
 
+## Three examples, one per mode
+
+**`"gaps"`: South Atlantic swordfish, the JABBA paper example.** Catch from 1950
+starting near unfished, CPUE indices from the 1970s–1990s: the tRFMO case. The
+original example of Winker et al. (2018), set up by hand with its JABBA settings
+(Pella, $B_{MSY}/K$ = 0.4; r LN(0.42, 0.37); K LN(250,000, CV 1); ψ LN(1, CV 0.25);
+fixed observation error 0.2; no catch error; process error from the first index
+year; the inverse-gamma(4, 0.01) process-variance prior matched by LN(0.0534, 0.266)):
+
+```{r swos-paper}
+data(iccat); sw <- iccat$swos
+dsw  <- jb3_data(sw$catch, sw$cpue, sw$se, stock = "swos")
+psw  <- jb3_priors(dsw, r = c(0.42, 0.37), K = c(250000, sqrt(log(2))), bkinit = c(1, sqrt(log(1 + 0.25^2))),
+                   sdb = c(0.0534, 0.266, 1))
+msw  <- jb3_model(shape = "pella", BmsyK = 0.4, catch.error = FALSE, se.min = 0.2, start = "index",
+                  P.bound = c(0.02, 1.1), frw = "gaps")
+fsw  <- jabba3(dsw, psw, msw, osa = FALSE)
+fsw$ts[fsw$ts$year == 2015 & fsw$ts$quant %in% c("B/Bmsy", "F/Fmsy"), c("quant", "est", "lci", "uci")]
+```
+
+JABBA3 gives $B/B_{MSY}$ = 0.79 (0.58–1.07) and $F/F_{MSY}$ = 0.97 in 2015,
+against 0.75 (0.55–1.02) and 0.99 (0.72–1.31) published (JAGS posterior
+medians; K and r differ along the r–K ridge, mode against median: K 134,700
+against 111,500). With the indices covering the decline from a near-unfished
+start, the three modes give the same result:
+
+```{r fig-swos, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("figures/swos_frw_modes.png")
+```
+
+**`"all"`: WKBMSYSPiCT3 stocks.** Catch and survey or commercial indices
+starting together at an exploited level, the ICES SPiCT case. For four accepted
+benchmark assessments (`spictinp2jabba3()` on the benchmark inputs), the
+SPiCT-type conversion (`frw = "all"`, no K prior) reproduces SPiCT, while the
+JABBA-like set-up (`frw = "gaps"`, K prior 6 × max catch) lacks information on
+depletion and scale: for the depleted Nephrops FU32 and coastal cod it is far
+too optimistic (terminal $B/B_{MSY}$ 1.48 and 0.92, against 0.12 and 0.41 from
+SPiCT), and only for dab, whose series starts near unfished, does it agree:
+
+| Stock | SPiCT | JABBA3 `"all"` | JABBA3 `"gaps"` (K prior 6 ×) |
+|---|---|---|---|
+| nep FU32 | 0.12 / 2.31 | 0.14 / 2.28 | 1.48 / 0.08 |
+| cod.27.2.coastS | 0.41 / 1.60 | 0.43 / 1.59 | 0.92 / 0.59 |
+| aru.27.1234a | 1.15 / 0.80 | 1.11 / 0.71 | 1.60 / 0.31 |
+| dab.27.22-32 | 2.28 / 0.03 | 1.95 / 0.03 | 2.37 / 0.03 |
+
+(terminal $B/B_{MSY}$ / $F/F_{MSY}$; without the K prior, `"gaps"` runs K to
+infinity for nep and aru.)
+
+```{r fig-spict-modes, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("figures/spict_vs_jabba3_modes.png")
+```
+
+**`"index"`: blackspot seabream (GFCM GSA 1 and 3).** Catch from 1983, two
+fishery CPUE indices from 2009 only, compared with the 2025 SS3 assessment on the
+GFCM reference points ($B_{tgt} = B_{35}$; JABBA3: 0.35 K). With the rebuilding
+protocol (lag 4 + AR(1) 0.82), `"index"` follows SS3 in both biomass and
+fishing mortality ($B/B_{tgt}$ 2024 0.08 against 0.06; $F/F_{tgt}$ 1.91 against
+2.00). `"all"` produces the spurious early pattern discussed above, a rise of
+biomass to 3.7 $B_{tgt}$ before the first index year; `"gaps"` places F about
+30% below SS3 ($F/F_{tgt}$ 1.40). The data, code and SS3 comparison are in
+BioProcDyn (`ss3sbr/example`).
+
+```{r fig-sbr-modes, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("figures/fig_sbr_frw_modes.png")
+```
+
 ## What changed from JABBA
 
 | Topic | JABBA | JABBA3 |
