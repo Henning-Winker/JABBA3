@@ -76,6 +76,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     sdf.pr = priors$sdf %||% c(0.3, 1, 0), cobs = as.integer(cobs), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
     SE2 = SE2, W = W, nI = nI, nq = nq, nvar = nvar, sets.q = as.integer(factor(sets.q)), sets.var = as.integer(factor(sets.var)),
     lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
+    pew = .pe_ramp(model$pe.ramp, data$years[sst$stepyear]),
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
     r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
@@ -222,13 +223,13 @@ jb3_nll <- function(par, dat){
     # non-centred: standard normal innovations zP; the states follow from the process equation (same model as centred)
     sdf1 <- if(dyn) sdb*lclamp(bk/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb
     logP <- 0*zP
-    logP[1] <- lbk + sqrt(if(stI > 1) 1e-4 else sdf1^2)*zP[1]
+    logP[1] <- lbk + sqrt(if(stI > 1) 1e-4 else (sdf1*pew[1])^2 + 1e-8)*zP[1]
     dprev <- 0*lbk
     if(N > 1) for(t in 2:N){
       Pp <- exp(logP[t - 1]); Pl <- exp(logP[lagidx[t - 1]])
       remt <- if(eb.rem) rhof(Pp, ebcc[t - 1]) else 1
       pm <- log(smax(Pp + gfac[t - 1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - estCS[t - 1]/(K*remt), 0.001, 1e-7))
-      sdp <- if(dyn) sdb*lclamp(Pp/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb
+      sdp <- (if(dyn) sdb*lclamp(Pp/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb)*pew[t]
       vt <- if(t < stI) 1e-4 + 0*sdb else sdp^2/vf
       mut <- if(biascor) pm - 0.5*vt else pm
       dt <- if(t == 2 || (!rw && !(est.rho || rho.fix > 0))) sqrt(vt)*zP[t] else
@@ -281,6 +282,7 @@ jb3_nll <- function(par, dat){
   #--- process variance (v[t] applies to the transition into year t)
   if(dyn){ sdt <- sdb*lclamp(BBmsy, xlim[1], xlim[2])^(-kdyn); sd1 <- sdb*lclamp(bk/BmsyK, xlim[1], xlim[2])^(-kdyn) }
   else { sdt <- sdb + 0*P; sd1 <- sdb }
+  sd1 <- sd1*pew[1]; if(N > 1) sdt[1:(N - 1)] <- sdt[1:(N - 1)]*pew[2:N]   # process-error ramp (pe.ramp): SD of the transition into t
   v <- 0*P
   v[1] <- if(stI > 1) 1e-4 else sd1^2
   if(N > 1) v[2:N] <- sdt[1:(N - 1)]^2/vf
@@ -465,3 +467,11 @@ jb3_nll <- function(par, dat){
 
 # r-based plausibility bound on K (multiple of max catch): 95th percentile of K/max catch in 72 ICES stocks
 .kmax_r <- function(r) 7.6*r^-0.587
+
+# process-error ramp (as the SS3 recruitment-deviation bias ramp): SD multiplier w_t by model step, linear from wmin at
+# year y1 to 1 at year y2 (w = wmin before y1, 1 from y2); NULL = 1 in all steps
+.pe_ramp <- function(ramp, years){
+  if(is.null(ramp)) return(rep(1, length(years)))
+  y1 <- ramp[1]; y2 <- ramp[2]; wmin <- if(length(ramp) > 2) ramp[3] else 0.01
+  pmin(1, pmax(wmin, wmin + (1 - wmin)*(years - y1)/(y2 - y1)))
+}

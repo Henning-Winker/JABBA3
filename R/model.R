@@ -15,6 +15,10 @@
 #' @param rw.scale innovation SD of the random walk relative to sdb (e.g. sqrt(1 - 0.7^2) to match AR(1) rho = 0.7)
 #' @param biascor lognormal process error bias correction (log mean - var/2)
 #' @param start "all" (default): process error in all years; "index": deterministic before the first index year
+#' @param pe.ramp NULL (default) or c(y1, y2[, wmin]): ramp on the process-error SD, as the SS3 bias ramp for early
+#'   recruitment deviations: multiplier wmin (default 0.01) up to year y1, rising linearly to 1 at year y2 and 1 after.
+#'   For a gradual transition from near-deterministic early dynamics (long catch series) to full process error by the
+#'   first index year, e.g. \code{pe.ramp = c(1957, 1990)}; with \code{start = "all"}.
 #'   (JABBA \code{proc.dev.all = FALSE})
 #' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)
 #' @param se.min fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)
@@ -89,7 +93,7 @@
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
-                      sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, rw = FALSE, rw.scale = 1, biascor = FALSE, start = c("all", "index"),
+                      sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, rw = FALSE, rw.scale = 1, biascor = FALSE, start = c("all", "index"), pe.ramp = NULL,
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
@@ -119,7 +123,7 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
   }
   if(rho < 0 || rho >= 1) stop("rho must be in [0, 1)", call. = FALSE)
   structure(list(shape = shape, rho = rho, rw = rw, rw.scale = rw.scale, BmsyK = BmsyK, m = m, lag = lag, sdb.form = sdb.form, sdb.fixed = sdb.fixed, xlim = xlim,
-                 biascor = biascor, start = start, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
+                 biascor = biascor, start = start, pe.ramp = pe.ramp, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
@@ -134,6 +138,7 @@ print.jb3model <- function(x, ...){
       "\n  production lag:", x$lag, "\n  process error:", if(x$sdb.form == "const") "constant sdb" else "dynamic sdb x (B/Bmsy)^-k",
       if(!is.null(x$sdb.fixed)) sprintf("(level fixed at %.3f)", x$sdb.fixed) else "", if(x$biascor) "+ bias correction" else "", if(x$rho > 0) sprintf("+ AR(1) rho = %.2f", x$rho) else "",
       if(x$start == "index") "\n  deterministic before the first index year" else "",
+      if(!is.null(x$pe.ramp)) sprintf("\n  process-error ramp: SD x %.2f up to %d, x 1 from %d", if(length(x$pe.ramp) > 2) x$pe.ramp[3] else 0.01, as.integer(x$pe.ramp[1]), as.integer(x$pe.ramp[2])) else "",
       "\n  index error:", x$obs.error, if(x$catch.error) sprintf("\n  catch error: sdc = %s", if(length(x$sdc) > 1) paste(range(signif(x$sdc, 2)), collapse = "-") else sprintf("%.2f", x$sdc)) else "",
       if(identical(x$param, "noncentred")) "\n  non-centred process deviations" else "",
       if(!identical(x$effort.creep, 0)) paste0("\n  effort creep: ", if(is.numeric(x$effort.creep)) x$effort.creep else "estimated") else "",
