@@ -178,18 +178,17 @@ knitr::include_graphics("figures/swos_frw_modes.png")
 ```
 
 **`"all"`: WKBMSYSPiCT3 stocks.** Catch and survey or commercial indices
-starting together at an exploited level, the ICES SPiCT case. For four accepted
+starting together at an exploited level, the ICES SPiCT case. For three accepted
 benchmark assessments (`spictinp2jabba3()` on the benchmark inputs), the
 SPiCT-type conversion (`frw = "all"`, no K prior) reproduces SPiCT, while the
 JABBA-like set-up (`frw = "gaps"`, K prior 6 × max catch) lacks information on
-depletion and scale: for the depleted Nephrops FU32 and coastal cod it is far
-too optimistic (terminal $B/B_{MSY}$ 1.48 and 0.92, against 0.12 and 0.41 from
-SPiCT), and only for dab, whose series starts near unfished, does it agree:
+depletion and scale: it is far too optimistic for the depleted Nephrops FU32
+(terminal $B/B_{MSY}$ 1.48 against 0.12 from SPiCT) and for anglerfish (1.60
+against 1.15), and only for dab, whose series starts near unfished, does it agree:
 
 | Stock | SPiCT | JABBA3 `"all"` | JABBA3 `"gaps"` (K prior 6 ×) |
 |---|---|---|---|
 | nep FU32 | 0.12 / 2.31 | 0.14 / 2.28 | 1.48 / 0.08 |
-| cod.27.2.coastS | 0.41 / 1.60 | 0.43 / 1.59 | 0.92 / 0.59 |
 | aru.27.1234a | 1.15 / 0.80 | 1.11 / 0.71 | 1.60 / 0.31 |
 | dab.27.22-32 | 2.28 / 0.03 | 1.95 / 0.03 | 2.37 / 0.03 |
 
