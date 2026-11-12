@@ -120,22 +120,40 @@ jb3_optimise <- function(setup, nstart = 4, silent = TRUE){
     # FU32: mode at 6 x max catch; a soft cap at the r-based bound still lands outside its basin). Released fits are
     # compared on the full objective, so the grid itself never enters the result.
     if(is.finite(dat$maxC.int %||% NA) && is.null(setup$map$logK)){
-      kg <- c(2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64)
+      kg <- 2*1.2^(0:24)                                   # 2 to 159 x max catch, ratio 1.2 (narrow K basins)
       p0 <- cand[[which.min(vapply(cand, function(b) if(is.null(b)) Inf else b$opt$objective, 0))]]
       p0 <- if(is.null(p0)) setup$par else { p0$obj$fn(p0$opt$par); p0$obj$env$parList(p0$opt$par, p0$obj$env$last.par.best)[names(setup$par)] }
       mp <- c(setup$map, list(logK = factor(NA)))
-      prof <- lapply(kg, function(k){
-        p <- p0; p$logK <- log(k*dat$maxC.int)
+      # each grid point from the best fit so far and from the prior-median start (zero process deviations): the best
+      # fit can sit in a mode where process deviations in years without indices lift B above K (blackspot seabream
+      # GSA 1-3), and a profile started only from it never leaves that mode
+      prof1 <- function(p){
         o <- tryCatch(RTMB::MakeADFun(f, p, random = setup$random, map = mp, silent = silent), error = function(e) NULL)
         op <- if(is.null(o)) NULL else tryCatch(suppressWarnings(stats::nlminb(o$par, o$fn, o$gr, control = list(iter.max = 500, eval.max = 1000))),
                                                error = function(e) NULL)
         if(is.null(op) || !is.finite(op$objective)) return(list(nll = Inf))
         o$fn(op$par); list(nll = op$objective, par = o$env$parList(op$par, o$env$last.par.best)[names(setup$par)])
+      }
+      prof <- lapply(kg, function(k){
+        pa <- p0; pa$logK <- log(k*dat$maxC.int); pb <- setup$par; pb$logK <- log(k*dat$maxC.int)
+        a <- prof1(pa); b <- prof1(pb); if(b$nll < a$nll) b else a
       })
       pn <- vapply(prof, `[[`, 0, "nll")
       lm <- which(is.finite(pn) & pn <= c(Inf, pn[-length(pn)]) & pn <= c(pn[-1], Inf))
       lm <- head(lm[order(pn[lm])], 3)
       for(j in lm){ cand[[length(cand) + 1]] <- run1(prof[[j]]$par); nst <- nst + 1 }
+    }
+    # near-deterministic start: fit with the process SD fixed at 0.02, then release it. The free optimiser can settle in a
+    # mode where process deviations in years without indices lift B above K and leave the catch without effect; the
+    # catch-driven mode next to it can have a narrow basin that no K start reaches (blackspot seabream GSA 1-3)
+    if(dat$est.sdb && is.null(setup$map$logsdb)){
+      p <- setup$par; p$logsdb <- log(0.02)
+      o <- tryCatch(RTMB::MakeADFun(f, p, random = setup$random, map = c(setup$map, list(logsdb = factor(NA))), silent = silent), error = function(e) NULL)
+      op <- if(is.null(o)) NULL else tryCatch(suppressWarnings(stats::nlminb(o$par, o$fn, o$gr, control = list(iter.max = 1000, eval.max = 2000))), error = function(e) NULL)
+      if(!is.null(op) && is.finite(op$objective)){
+        o$fn(op$par); p <- o$env$parList(op$par, o$env$last.par.best)[names(setup$par)]
+        for(sd0 in c(0.05, 0.1)){ p$logsdb <- log(sd0); cand[[length(cand) + 1]] <- run1(p); nst <- nst + 1 }
+      }
     }
     oks <- vapply(cand, ok, TRUE)
     obj <- vapply(cand, function(b) if(is.null(b)) Inf else b$opt$objective, 0)
