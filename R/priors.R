@@ -34,6 +34,9 @@
 #'   (typically 0.1-0.4). A prior centred far above that, e.g. SPiCT's c(4, 0.5), pulls the estimate up 1.3-2x.
 #' @param creep normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}
 #' @param psi alias of \code{bkinit} (JABBA name)
+#' @param bbmsyinit initial status as B/Bmsy instead of B/K: c(median, log.sd), lognormal on B/Bmsy in the first year (a
+#'   status prior; the bkinit prior is switched off). With a fixed shape it is equivalent to bkinit = median x BmsyK, but it
+#'   keeps the initial status the same across shapes, e.g. for a BmsyK sensitivity; needs \code{data}
 #' @param sdc catch SD prior c(median, log.sd, on) when \code{jb3_model(sdc.est = TRUE)} (off by default: flat on log sdc)
 #' @param maxC the maximum catch used for the K prior and the K.max cap: \code{"max"} (default; maximum annual total catch,
 #'   as JABBA) or \code{"smooth"} (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY /
@@ -51,7 +54,7 @@
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
 jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
-                       q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL,
+                       q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL, bbmsyinit = NULL,
                        creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = NULL, sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
   maxC <- match.arg(maxC)
   args <- .fn_args()
@@ -80,6 +83,12 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   sdi <- if(is.list(sdi) || is.matrix(sdi)) .pr_rows(sdi, "sdi") else pr3(sdi, "sdi"); sdf <- pr3(sdf, "sdf")
   rho <- stats::setNames(as.numeric(c(rho, 1)[1:3]), c("mean", "sd", "on"))
   status <- .status_df(status)
+  if(!is.null(bbmsyinit)){                       # initial status as B/Bmsy instead of B/K: status prior in the first year, bkinit off
+    if(is.null(data)) stop("bbmsyinit needs data (to set the first year)", call. = FALSE)
+    b <- as.numeric(bbmsyinit); if(length(b) < 2) stop("bbmsyinit must be c(median, log.sd)", call. = FALSE)
+    status <- rbind(status, data.frame(year = min(data$years), type = "BBmsy", median = b[1], log.sd = b[2]))
+    bkinit[["on"]] <- 0
+  }
   K.max <- if(is.null(K.max)) c(mult = NA, log.sd = NA, on = 0) else if(identical(K.max, "r"))
     c(mult = 7.6*r[["median"]]^-0.587, log.sd = 0.3, on = 1) else {
       if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)

@@ -22,6 +22,7 @@ pr
 | `kdyn` | `max(0, 0.064 - 0.155 log r)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only) |
 | `sdi` | off | index SD prior, used with `obs.error = "spict"` |
 | `status` | `NULL` | data.frame(year, type, median, log.sd); type `"BK"`, `"BBmsy"` or `"FFmsy"` |
+| `bbmsyinit` | `NULL` | initial status as $B_1/B_{MSY}$ instead of $B_1/K$: c(median, log.sd); switches `bkinit` off |
 
 ## Process error: the FishLife prior
 
@@ -71,6 +72,19 @@ knowledge or a CMSY-type analysis) is added as a data frame:
 pr.st <- jb3_priors(d, r = c(0.2, 0.5),
                     status = data.frame(year = 2010, type = "BBmsy", median = 1, log.sd = 0.3))
 pr.st$status
+```
+
+### Initial status as B/B~MSY~ (`bbmsyinit`)
+
+The initial depletion can be given as $B_1/B_{MSY}$ rather than $B_1/K$. `bbmsyinit = c(median, log.sd)` adds a status prior
+on $B/B_{MSY}$ in the first year and switches the `bkinit` prior off. With a fixed shape the two are equivalent
+(`bkinit` = median $\times B_{MSY}/K$), but `bbmsyinit` keeps the initial status the same when the shape changes, which is
+usually what is intended in a shape sensitivity: with `bkinit = c(0.8, 0.25)`, $B_{MSY}/K$ = 0.3, 0.4 and 0.5 imply an
+initial $B/B_{MSY}$ of 2.7, 2.0 and 1.6, so that the shape and the initial status change together.
+
+```{r priors-bbmsyinit}
+pr.b0 <- jb3_priors(d, r = c(0.2, 0.5), bbmsyinit = c(2, 0.25))
+pr.b0$status
 ```
 
 After fitting, `jbplot_bprior()` compares each status prior with the posterior
