@@ -1,4 +1,4 @@
-# JABBA-like or SPiCT-like: the F process, the scale and the K prior
+# JABBA-like or SPiCT-like: the F process, the scale, the K prior and recommended settings
 
 JABBA and SPiCT are both state-space surplus production models, yet on the same
 data they can give very different stock sizes. The reason is where each model
@@ -36,7 +36,7 @@ pins K.
 | `jb3_model(frw = )` | `"gaps"`: random walk on log harvest rate only in years without catch (catch-conditioned otherwise, as JABBA); `"index"`: catch-conditioned before the first index year, random walk from there to the end; `"all"`: random walk in all years (SPiCT-like) | `"gaps"` (`spictinp2jabba3()`: `"all"`) |
 | `jb3_priors(sdf = )` | prior on the random-walk SD | LN(0.3, 1) |
 | `jb3_model(sdc = , sdc.est = )` | catch SD fixed (`sdc`, year-specific via `jb3_data(catch.se = )`) or estimated (`sdc.est = TRUE`, prior `jb3_priors(sdc = )`, year-specific SDs as multipliers) | fixed at 0.1 (JABBA `catch.cv = 0.1`) |
-| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1 (e.g. `"jabba4"`) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
+| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1 (e.g. `"jabba6"`, the recommended starting point; see *The K prior* below) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
 | `jb3_priors(maxC = )` | max catch for the K prior and the cap: `"max"` (annual maximum, as JABBA) or `"smooth"` (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY) | `"max"` |
 | `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `NULL` (off; `jabba3()` warns when K exceeds the `"r"` bound) |
 | `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts plus K-profile starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
@@ -58,12 +58,20 @@ the data do not identify K.
 
 **K-profile starts.** Some stocks have a finite-K mode with a narrow basin and a
 flat ridge towards K → ∞ that the optimiser finds from most starts. With
-`inits = "best"`, JABBA3 therefore also fits with K fixed at 2–64 × max catch,
-and releases K from each local minimum of that profile; the lowest converged
-objective wins as usual. For Nephrops FU32 (WKBMSYSPiCT3) this finds the mode at
-5.6 × max catch, $B/B_{MSY}$ = 0.14 in 2023 (SPiCT 5.8 ×, 0.13), where all other
-starts gave K → ∞ with a higher objective (11.0 against 14.0). It adds about
-one second to a fit.
+`inits = "best"`, JABBA3 therefore also fits with K fixed on a grid from 2 to
+159 × max catch (ratio 1.2), each grid point started both from the best fit so
+far and from the prior medians, and releases K from each local minimum of that
+profile; a near-deterministic start (process SD fixed at 0.02, then released) is
+added as well. The lowest converged objective wins as usual. For Nephrops FU32
+(WKBMSYSPiCT3) this finds the mode at 5.6 × max catch, $B/B_{MSY}$ = 0.14 in 2023
+(SPiCT 5.8 ×, 0.13), where all other starts gave K → ∞ with a higher objective
+(11.0 against 14.0). For blackspot seabream (GFCM GSA 1 and 3), the free fit
+settled in a mode where process deviations before the first index year lifted
+biomass above K; the catch-driven mode (K about 5.5 × max catch) had a better
+objective (17.0 against 18.8) but a basin narrow enough to fall between coarser
+grid points. The starts add a few seconds to a fit. With a K prior on, the
+default start is `"prior"`: set `inits = "best"` explicitly when the fit looks
+suspicious.
 
 **sdf.** With `frw = "gaps"` the data carry little information on sdf and the
 prior sets it; it affects the estimated catch in the gap years, not the status.
@@ -79,16 +87,86 @@ NUTS, keep a K prior or set `K.max = "r"`.
 
 ## What to use when
 
-| Data | Suggested settings | Pros | Caveats |
+The choice of `frw` follows from where the information on depletion and scale is
+in the data:
+
+| Data | `frw` | Initial depletion | Why |
 |---|---|---|---|
-| Long catch series starting lightly exploited, indices starting later (typical tuna and billfish assessments) | `frw = "gaps"`, K prior `"jabba"` or stock-specific, bkinit near unfished | Reproduces JABBA; no assumption on F in the early period; robust | The scale comes from the index response and the K prior; check K against the prior (`jbplot_priorpost()`) and the plausibility warning |
-| Index covering the catch series, stock already fished at the start (typical ICES SPiCT data) | `frw = "all"`, K prior off (or vague), `inits = "best"`, bkinit prior if known | Identifies K from the catch and a smooth F, as SPiCT | The scale rests partly on the smooth-F assumption; sdf near 0 means an almost constant F, which hands the scale to the assumption |
-| Long catch series before a short index | run `frw = "all"` and `"gaps"` (or `"index"`) side by side | Shows whether the scale comes from the indices or from the early catch trend | A large difference flags that the early catch trend under a smooth F decides the scale (e.g. a stock with catch falling before the index starts) |
-| Years without catch (gaps, catch starting after the index) | `jb3_data(catch.gaps = "estimate")`; any `frw` | Uses the index years without catch; gap catch estimated with intervals | Leading blocks with fast catch growth are hard (catch over-estimated, but covered by the intervals) |
-| Simulation testing, MSE | `frw = "gaps"`, fixed catch SD | Fewer random effects, JABBA-like, fast | Not the place for SPiCT-like scale identification |
+| Long catch series starting lightly exploited (e.g. from 1950–1970), indices from the 1980s–1990s (typical tRFMO tuna and billfish assessments) | `"gaps"` (JABBA-like) | prior near unfished (`bkinit = c(0.9, 0.246)`) is defensible | The catch drives the decline from a known start and the indices inform the response; no assumption on F where there is no index |
+| Catch and indices (incl. surveys) starting together, stock already exploited at the start (typical coastal and ICES data) | `"all"` (SPiCT-like) | weakly informed only (wide `bkinit` or `bbmsyinit`), so that the prior does not predetermine the outcome | `"gaps"` lacks information on the initial depletion and the scale; the smooth F supplies it |
+| Long or reconstructed catch series before the first index year | `"index"` (hybrid) | weakly informed | A random walk before the index can only be informed by the catch, and the pattern it produces there is spurious; `"index"` keeps the random walk where the index informs it and conditions on the catch before |
+| Years without catch (gaps, catch starting after the index) | any, with `jb3_data(catch.gaps = "estimate")` | as above | Uses the index years without catch; gap catch estimated with intervals (leading blocks with fast catch growth are hard) |
+| Simulation testing, MSE | `"gaps"`, fixed catch SD | | Fewer random effects, JABBA-like, fast |
 
 `frw = "index"` and `"all"` are identical when an index starts in the first
 catch year. All three modes cost the same (about 0.2 s per fit in RTMB mode).
+
+**Too much freedom.** A random walk on F, like process error, can absorb misfit
+that belongs elsewhere: F, the process deviations, the production parameters and
+the initial depletion trade off against each other. Where only the catch is
+observed, nothing constrains that trade-off, and the model can compensate for a
+spurious early pattern elsewhere. The terminal years may still look fine, but the
+fit can become unstable (in the blackspot seabream example, `frw = "all"`
+produced an early rise of biomass above K before the first index year; `"index"`
+did not). That is why `"index"` is the sensible compromise when the catch series
+extends well before the indices.
+
+**Comparisons with age-structured assessments.** Integrated assessments such as
+SS3 are, for many stocks, largely stochastic age-structured production models
+driven by the indices, with little information from the size compositions. Where
+the series starts at an exploited state, `"all"` or `"index"` usually agree
+better with them than `"gaps"`, because the scale is informed by the index and F
+together rather than by a catch-conditioned path from an assumed initial
+depletion.
+
+**Simulation evidence.** Nine age-structured operating models (BioProcDyn,
+20 iterations, data 1981–2025; median log error in terminal $B/B_{MSY}$, positive =
+optimistic; current practice and the lag + persistence protocol of chapter
+*Workflows*):
+
+| Data | `frw` | Current practice | Protocol |
+|---|---|---|---|
+| Catch and index from 1981, initial-depletion prior | `"gaps"` | +0.29 | +0.05 |
+| | `"all"` | +0.19 | 0.00 |
+| Catch and index from 1991 (stock already at 0.18 K), no initial-depletion prior | `"gaps"` | +0.59 | +0.63 |
+| | `"all"` | +0.42 | +0.26 |
+| Catch from 1981, index from 2005 | `"gaps"` | +0.72 | +0.90 |
+| | `"index"` | +0.49 | +0.70 |
+
+With an index over the whole series, the mode matters little. With a short
+series that starts depleted and no prior on the initial depletion, `"gaps"`
+cannot identify the starting level (estimated $B/K$ about 0.45 against 0.18),
+whereas the F random walk brings it closer (0.29–0.35), and only then does the
+protocol remove most of the bias for intermediate- and late-maturing stocks.
+No mode recovers a depletion that happened before the first index year: this is
+an information limit, which length data (e.g. an SPR-based depletion estimate)
+or an informative status prior must fill.
+
+**Initial depletion.** Inform it strongly only where the catch series starts
+near the unfished state. Otherwise keep it weak, or state it as $B/B_{MSY}$ with
+`bbmsyinit` (chapter *Priors*), which keeps the initial status the same when the
+shape changes in a sensitivity run.
+
+## What changed from JABBA
+
+| Topic | JABBA | JABBA3 |
+|---|---|---|
+| Estimation | JAGS (MCMC) | RTMB: posterior mode with Laplace approximation of the states (fast), NUTS (`tmbstan`) for full posteriors |
+| Process error | inverse-gamma prior on the variance, iid deviations, production from the previous year | life-history (FishLife) prior on sdb; optional AR(1) persistence (`rho`), production lag (`lag`), state-dependent variance, SD ramps (`pe.ramp`) |
+| Catch dynamics | catch-conditioned | catch-conditioned (`frw = "gaps"`), hybrid (`"index"`) or F random walk in all years (`"all"`) |
+| Missing catch | not allowed | `jb3_data(catch.gaps = "estimate")`: catch estimated with a random walk on log F in years without catch |
+| K prior | 8 × max catch, CV 1 | `"jabba"` (8 ×, CV 1), `"jabbaN"` (N × max catch), any lognormal or off; recommended starting points below |
+| Starting values | fixed inits | `inits = "best"`: multi-start with K-profile and near-deterministic starts |
+| K cap | none | `K.max` (off by default; plausibility warning above the r-based bound) |
+| Initial status | ψ = B~1~/K | `bkinit`, or `bbmsyinit` (B~1~/B~MSY~) |
+| Observation error | input SE + one estimated extra SD per index (`sigma.est`) | the same, or input SEs only (`sdi.est = FALSE`), or per index (`sdi.est = c(FALSE, TRUE)`), or SPiCT-like (`obs.error = "spict"`) |
+| Seasons, Selex | annual; JABBA-Select separate | `nseason`; Selex routine (chapter *Special feature: Selex*) |
+
+**Index weighting.** When an extra observation SD is estimated for each index, a
+flat and smooth index can take almost all the weight (its extra SD goes to zero)
+and a declining index is treated as noise. Where that happens, keep the input SEs
+(`sdi.est = FALSE`) and down-weight the suspect index, e.g. for hyperstability,
+or estimate the extra SD only for selected indices.
 
 ## Reproducing a JABBA assessment
 
@@ -124,6 +202,46 @@ signif(fj$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 > *Converters*): K = 1,174,749, $B/B_{MSY}$ = 0.797 in 2017. The JABBA3
 > defaults give the same fit (K is 6 × max catch, well below the `"r"` bound of
 > 19.5 ×).
+
+## The K prior: recommended starting points
+
+JABBA's default K prior, 8 × max catch with CV 1, tends to be too high as a
+centre. Across 73 ICES stocks, the unfished exploitable biomass (Beverton–Holt
+equilibrium) was a median of 5.9 × the maximum catch (interquartile range
+3.8–8.2 ×), and the ratio declined with productivity: about 3 × for stocks with
+generation times up to 4 years, 5 × for 4–8 years and 6–7 × for longer
+generation times. As starting points:
+
+| Situation | K prior | Shortcut |
+|---|---|---|
+| Default starting point | 6 × max catch, CV 1 | `K = "jabba6"` |
+| Short generation time / high productivity (GT < 5 years, r > 0.5) | 4 × max catch, CV 1 | `K = "jabba4"` |
+| Series that mostly reflect depleted or rebuilding states (the maximum catch was taken from an already reduced stock) | 4 × max catch, CV 1 | `K = "jabba4"` |
+| Reproducing a JABBA assessment | 8 × max catch, CV 1 | `K = "jabba"` |
+
+A predictive prior can be computed externally from the same relations, given the
+median of the r prior or the generation time (ICES stocks; residual log-SD 0.55
+and 0.57):
+
+$$K/C_{max} = 3.04\, r^{-0.583}, \qquad K/C_{max} = 1.71\, GT^{0.58}$$
+
+```{r kprior-predictive}
+mC   <- jb3_priors(d)$maxC.value                 # max catch used by the K prior
+r.md <- 0.2                                      # median of the r prior
+K.r  <- c(median = 3.04*r.md^-0.583*mC, log.sd = 0.55, on = 1)
+GT   <- 10                                       # or from the generation time (e.g. jb3_leslie())
+K.gt <- c(median = 1.71*GT^0.58*mC, log.sd = 0.57, on = 1)
+round(rbind(r = K.r, GT = K.gt), 2)
+pr.k <- jb3_priors(d, r = c(0.2, 0.5), K = K.r)
+```
+
+The r-based `K.max = "r"` bound (7.6 × max catch × r^-0.587) has the same slope
+and lies about 2.5 × above the median relation, at the 95th percentile. These
+relations describe exploited ICES stocks, most of which were fished below
+0.2 K at some point; lightly exploited, slow-growing stocks (rays, sharks,
+deep-water species) can lie well above them. Check the fit with
+`jbplot_priorpost()`: if the posterior of K sits on the prior, the data do not
+inform the scale, and the K prior (or the choice of `frw`) decides the status.
 
 ## Approximating a SPiCT assessment
 
