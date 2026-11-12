@@ -92,7 +92,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     eb.on = eb.on, ebm = ebm, ebci = as.integer(ei), ebcc = as.integer(ec), eb.rem = eb.on && isTRUE(model$ebsb.removal),
     nst = if(is.null(st)) 0L else nrow(st), st.t = if(is.null(st)) 1L else match(st$year, data$years),
     st.type = if(is.null(st)) "BK" else as.character(st$type), st.pr = if(is.null(st)) matrix(1, 1, 2) else cbind(st$median, st$log.sd),
-    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound,
+    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound, est.sdi = !isFALSE(model$sdi.est),
     sdb.max = if(is.null(model$sdb.max)) -1 else model$sdb.max,
     prior.only = isTRUE(prior.only), nc = isTRUE(nc)
   )
@@ -197,7 +197,7 @@ jb3_nll <- function(par, dat){
   }
   sdi <- exp(logsdi)
   if(spict) nll <- nll - sum(sdi.pr[, 3]*dnorm(logsdi, log(sdi.pr[, 1]), sdi.pr[, 2], TRUE))
-  else nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))         # JABBA: gamma(0.001, 0.001) on 1/sdi^2
+  else if(est.sdi) nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))   # JABBA: gamma(0.001, 0.001) on 1/sdi^2 (only when sdi is estimated)
   if(dyn){
     if(est.k){ pk <- 1/(1 + exp(-tk)); kdyn <- -0.5 + 2.5*pk
       nll <- nll - dnorm(kdyn, kd.pr[1], kd.pr[2], TRUE) - log(2.5*pk*(1 - pk)) } else kdyn <- kd.pr[1]
