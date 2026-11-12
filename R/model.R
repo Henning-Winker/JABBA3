@@ -39,7 +39,9 @@
 #' @param q.uniform legacy JABBA uniform prior on q (density proportional to q on log q)
 #' @param P.bound,K.bound soft bounds on B/K and K (JABBA defaults)
 #' @param sdi.bound soft upper bound on sdi (JABBA: 1)
-#' @param sdi.est estimate the additional observation SD of the indices (default); FALSE uses the input SEs
+#' @param sdi.est estimate the additional observation SD of the indices (default); FALSE uses the input SEs; or one
+#'   logical per variance group (\code{sets.var}; by default one per index), e.g. \code{c(FALSE, TRUE)} to keep the
+#'   input SEs of index 1 and estimate extra variance for index 2
 #'   (or \code{se.min}) only, as JABBA with \code{fixed.obsE} and \code{sigma.est = FALSE}
 #' @param param parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
 #'   sampled directly) or \code{"noncentred"} (standard normal innovations z_t ~ N(0, 1) are sampled, and

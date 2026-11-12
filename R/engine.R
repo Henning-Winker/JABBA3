@@ -92,7 +92,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     eb.on = eb.on, ebm = ebm, ebci = as.integer(ei), ebcc = as.integer(ec), eb.rem = eb.on && isTRUE(model$ebsb.removal),
     nst = if(is.null(st)) 0L else nrow(st), st.t = if(is.null(st)) 1L else match(st$year, data$years),
     st.type = if(is.null(st)) "BK" else as.character(st$type), st.pr = if(is.null(st)) matrix(1, 1, 2) else cbind(st$median, st$log.sd),
-    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound, est.sdi = !isFALSE(model$sdi.est),
+    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound, est.sdi = .sdi_est(model$sdi.est, nvar),
     sdb.max = if(is.null(model$sdb.max)) -1 else model$sdb.max,
     prior.only = isTRUE(prior.only), nc = isTRUE(nc)
   )
@@ -120,7 +120,8 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   if(nmiss == 0){ map$lH <- factor(NA); if(length(dat$rw_t) == 0) map$logsdf <- factor(NA) }
   if(!dat$est.sdc) map$logsdc <- factor(NA)
   if(nI == 0 || dat$prior.only){ map$logq <- factor(rep(NA, nq)); map$logsdi <- factor(rep(NA, nvar)) }
-  if(nI > 0 && isFALSE(model$sdi.est)){ map$logsdi <- factor(rep(NA, nvar)); par$logsdi <- rep(log(1e-4), nvar) }
+  if(nI > 0 && !all(dat$est.sdi == 1)){ e <- dat$est.sdi == 1                       # per variance group: input SEs only where FALSE
+    map$logsdi <- factor(ifelse(e, cumsum(e), NA)); par$logsdi[!e] <- log(1e-4) }
   map$logqA <- factor(ifelse(dat$est.qA & !dat$prior.only, seq_along(dat$est.qA), NA))
   map$logsdA <- factor(ifelse(dat$est.sdA & !dat$prior.only, seq_along(dat$est.sdA), NA))
   if(!dat$est.creep) map$creep <- factor(NA)
@@ -197,7 +198,7 @@ jb3_nll <- function(par, dat){
   }
   sdi <- exp(logsdi)
   if(spict) nll <- nll - sum(sdi.pr[, 3]*dnorm(logsdi, log(sdi.pr[, 1]), sdi.pr[, 2], TRUE))
-  else if(est.sdi) nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))   # JABBA: gamma(0.001, 0.001) on 1/sdi^2 (only when sdi is estimated)
+  else nll <- nll - sum(est.sdi*(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi)))   # JABBA: gamma(0.001, 0.001) on 1/sdi^2 (only where sdi is estimated)
   if(dyn){
     if(est.k){ pk <- 1/(1 + exp(-tk)); kdyn <- -0.5 + 2.5*pk
       nll <- nll - dnorm(kdyn, kd.pr[1], kd.pr[2], TRUE) - log(2.5*pk*(1 - pk)) } else kdyn <- kd.pr[1]
@@ -474,4 +475,12 @@ jb3_nll <- function(par, dat){
   if(is.null(ramp)) return(rep(1, length(years)))
   y1 <- ramp[1]; y2 <- ramp[2]; wmin <- if(length(ramp) > 2) ramp[3] else 0.01
   pmin(1, pmax(wmin, wmin + (1 - wmin)*(years - y1)/(y2 - y1)))
+}
+
+# sdi.est: TRUE/FALSE for all indices, or one logical per variance group (sets.var; default one group per index)
+.sdi_est <- function(x, nvar){
+  if(is.null(x)) x <- TRUE
+  if(length(x) == 1) x <- rep(x, nvar)
+  if(length(x) != nvar) stop("sdi.est: give one value or one per variance group (", nvar, ")", call. = FALSE)
+  as.numeric(as.logical(x))
 }

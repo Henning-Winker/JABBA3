@@ -1,0 +1,11 @@
+test_that("sdi.est per index: input SEs for index 1, extra SD estimated for index 2", {
+  set.seed(1); y <- 1990:2015; n <- length(y)
+  B <- 1000*exp(-0.04*(seq_len(n) - 1))
+  dfI <- data.frame(year = y, I1 = B*exp(rnorm(n, 0, 0.1))/1000, I2 = B*exp(rnorm(n, 0, 0.3))/800)
+  se <- data.frame(year = y, I1 = 0.1, I2 = 0.1)
+  d <- jb3_data(data.frame(year = y, catch = 40 + 2*seq_len(n)), dfI, se = se)
+  f <- suppressWarnings(jabba3(d, jb3_priors(d, r = c(0.3, 0.3)), jb3_model(sdi.est = c(FALSE, TRUE), se.min = 0.001), osa = FALSE))
+  sdi <- exp(f$obj$env$parList()$logsdi)
+  expect_lt(sdi[1], 1e-3); expect_gt(sdi[2], 0.05)
+  expect_error(jabba3(d, jb3_priors(d), jb3_model(sdi.est = c(TRUE, FALSE, TRUE)), osa = FALSE), "sdi.est")
+})
