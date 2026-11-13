@@ -36,25 +36,31 @@ pins K.
 | `jb3_model(frw = )` | `"gaps"`: random walk on log harvest rate only in years without catch (catch-conditioned otherwise, as JABBA); `"index"`: catch-conditioned before the first index year, random walk from there to the end; `"all"`: random walk in all years (SPiCT-like) | `"gaps"` (`spictinp2jabba3()`: `"all"`) |
 | `jb3_priors(sdf = )` | prior on the random-walk SD | LN(0.3, 1) |
 | `jb3_model(sdc = , sdc.est = )` | catch SD fixed (`sdc`, year-specific via `jb3_data(catch.se = )`) or estimated (`sdc.est = TRUE`, prior `jb3_priors(sdc = )`, year-specific SDs as multipliers) | fixed at 0.1 (JABBA `catch.cv = 0.1`) |
-| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1; `"halfN"` = one-sided at N × max catch (`"half6"` recommended; see *The K prior* below) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
+| `jb3_priors(K = )` | `"halfN"`: one-sided lognormal, N × max catch as the expected value (flat below the bias-corrected median, half-normal on log K above; see *The K prior* below); `"half+r"`: location from r (`jb3_kr()`); `"jabba"` / `"jabbaN"`: two-sided lognormal, 8 (N) × max catch as the median, CV 1 (as JABBA); `c(median, log.sd)`; `NULL`: no K prior | `"half8"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
+| `jb3_priors(K.cv = )` | CV of the one-sided prior (log-SD $\sqrt{\log(1 + CV^2)}$) | 1 (log-SD 0.83, as JABBA) |
 | `jb3_priors(maxC = )` | max catch for the K prior and the cap: `"max"` (annual maximum, as JABBA) or `"smooth"` (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY) | `"max"` |
-| `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `NULL` (off; `jabba3()` warns when K exceeds the `"r"` bound) |
+| `jb3_priors(K.max = )` | deprecated (use `K = "halfN"` with `K.cv`): upper cap at a multiple of max catch or `"r"` (7.6 × r^-0.587), half-normal SD 0.3 above | `NULL` |
 | `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts plus K-profile starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
 
-**How soft is `K.max`?** There is no penalty below the cap and a half-normal on
-log K (SD 0.3) above it: 1.5 × the cap adds 0.9 to the objective, 2 × adds 2.7,
-3 × adds 6.7. At r = 0.2 the cap is about 19 × max catch, at r = 0.4 about 12 ×,
-at r = 1 about 7.6 ×. That is soft enough to stop a runaway K but firm enough
-to move a well-identified K that lies above it, which is why it is off by
-default: the North Sea thornback ray (`data(rjc)`, SPiCT K = 49 × max catch)
-lies twice above its cap, and the cap lowers $B/B_{MSY}$ in 2021 from 0.99
-(SPiCT 1.06) to 1.26. Lightly exploited, slow-growing stocks (rays, sharks,
-deep-water species) often lie above the bound.
+**How soft is the default K prior?** `K = "half8"` adds nothing below
+5.7 × max catch (8 × as the expected value of a lognormal with CV 1,
+bias-corrected to the median) and a half-normal on log K (SD 0.83) above it:
+1.5 × that location adds 0.12 to the objective, 2 × adds 0.35, 3 × adds 0.87,
+5 × adds 1.9. That only stops a runaway K along a flat ridge and leaves a K that
+the data identify where it is. A tighter prior, `K.cv = 0.3` (location 7.7 ×,
+log-SD 0.29), adds 0.95 at 1.5 × and 2.8 at 2 ×: informative, for stocks where
+the data do not identify the scale. The bigeye quick start gives K = 8.4 × max
+catch with the default and 8.7 × with JABBA's two-sided prior, and the same
+$B/B_{MSY}$ (0.80).
 
-**The K plausibility check.** With `K.max` off, `jabba3()` warns when the K
-estimate exceeds the `"r"` bound. The warning asks for a check, not a fix:
-profile K, compare `frw` modes, and add a K prior or `K.max = "r"` only where
-the data do not identify K.
+**The K plausibility check.** Without a one-sided K prior (`K = NULL`, a
+two-sided prior, or a SPiCT conversion), `jabba3()` warns when the K estimate
+exceeds the r-based bound (7.6 × max catch × r^-0.587, the 95th percentile of
+K/max catch in 72 ICES stocks). The warning asks for a check, not a fix: profile
+K, compare `frw` modes, and add a K prior only where the data do not identify K.
+Lightly exploited, slow-growing stocks (rays, sharks, deep-water species) often
+lie above the bound: North Sea thornback ray (`data(rjc)`) has a SPiCT K of
+49 × max catch.
 
 **K-profile starts.** Some stocks have a finite-K mode with a narrow basin and a
 flat ridge towards K → ∞ that the optimiser finds from most starts. With
@@ -69,7 +75,8 @@ added as well. The lowest converged objective wins as usual. For Nephrops FU32
 settled in a mode where process deviations before the first index year lifted
 biomass above K; the catch-driven mode (K about 5.5 × max catch) had a better
 objective (17.0 against 18.8) but a basin narrow enough to fall between coarser
-grid points. The starts add a few seconds to a fit. With a K prior on, the
+grid points. The starts add a few seconds to a fit. They are the default
+with the one-sided K prior or none; with a two-sided K prior (e.g. `"jabba"`) the
 default start is `"prior"`: set `inits = "best"` explicitly when the fit looks
 suspicious.
 
@@ -83,7 +90,7 @@ and acts as a brake on over-smoothing; it is not uninformative.
 **Starting values and NUTS.** All NUTS chains start at the optimiser's mode, so
 `inits = "best"` decides which mode they start from but adds nothing to the
 posterior. With a flat K prior the chains can drift towards very large K; for
-NUTS, keep a K prior or set `K.max = "r"`.
+NUTS, keep the one-sided K prior (the default).
 
 ## What to use when
 
@@ -193,7 +200,18 @@ against 1.15), and only for dab, whose series starts near unfished, does it agre
 | dab.27.22-32 | 2.28 / 0.03 | 1.95 / 0.03 | 2.37 / 0.03 |
 
 (terminal $B/B_{MSY}$ / $F/F_{MSY}$; without the K prior, `"gaps"` runs K to
-infinity for nep and aru.)
+infinity for nep and aru.) The benchmark inputs and the SPiCT trajectories are in
+`data(spict_examples)`:
+
+```{r spict-dab}
+data(spict_examples); x <- spict_examples$dab
+xs <- spictinp2jabba3(x$inp, stock = x$stock)
+fd <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
+yl <- max(x$spict$year)
+tl <- rbind(JABBA3 = fd$ts$est[fd$ts$year == yl & fd$ts$quant %in% c("B/Bmsy", "F/Fmsy")],
+            SPiCT  = x$spict$est[x$spict$year == yl])
+colnames(tl) <- paste(c("B/Bmsy", "F/Fmsy"), yl); round(tl, 2)   # SPiCT: B at the start of the year, F as the yearly mean
+```
 
 ```{r fig-spict-modes, echo = FALSE, out.width = "100%"}
 knitr::include_graphics("figures/spict_vs_jabba3_modes.png")
@@ -207,7 +225,8 @@ fishing mortality ($B/B_{tgt}$ 2024 0.08 against 0.06; $F/F_{tgt}$ 1.91 against
 2.00). `"all"` produces the spurious early pattern discussed above, a rise of
 biomass to 3.7 $B_{tgt}$ before the first index year; `"gaps"` places F about
 30% below SS3 ($F/F_{tgt}$ 1.40). The data, code and SS3 comparison are in
-BioProcDyn (`ss3sbr/example`).
+BioProcDyn (`ss3sbr/example`); the inputs, priors, SS3 trajectories and the GFCM
+forecast table are in `data(ss3_examples)` (element `sbr`).
 
 ```{r fig-sbr-modes, echo = FALSE, out.width = "100%"}
 knitr::include_graphics("figures/fig_sbr_frw_modes.png")
@@ -221,9 +240,9 @@ knitr::include_graphics("figures/fig_sbr_frw_modes.png")
 | Process error | inverse-gamma prior on the variance, iid deviations, production from the previous year | life-history (FishLife) prior on sdb; optional AR(1) persistence (`rho`), production lag (`lag`), state-dependent variance, SD ramps (`pe.ramp`) |
 | Catch dynamics | catch-conditioned | catch-conditioned (`frw = "gaps"`), hybrid (`"index"`) or F random walk in all years (`"all"`) |
 | Missing catch | not allowed | `jb3_data(catch.gaps = "estimate")`: catch estimated with a random walk on log F in years without catch |
-| K prior | 8 × max catch, CV 1 | `"jabba"` (8 ×, CV 1), `"jabbaN"`, one-sided `"halfN"` / `"half+r"` (recommended `"half6"`), any lognormal or off |
+| K prior | 8 × max catch, CV 1, used as the median | one-sided `"half8"` by default (8 × as the expected value, CV 1, flat below 5.7 ×), `"halfN"` / `"half+r"` / `K.cv`; `"jabba"` reproduces JABBA; any lognormal or off (`NULL`) |
 | Starting values | fixed inits | `inits = "best"`: multi-start with K-profile and near-deterministic starts |
-| K cap | none | `K.max` (off by default; plausibility warning above the r-based bound) |
+| K cap | none | the upper half of the default K prior; `K.max` deprecated; plausibility warning above the r-based bound when no one-sided prior is used |
 | Initial status | ψ = B~1~/K | `bkinit`, or `bbmsyinit` (B~1~/B~MSY~) |
 | Observation error | input SE + one estimated extra SD per index (`sigma.est`) | the same, or input SEs only (`sdi.est = FALSE`), or per index (`sdi.est = c(FALSE, TRUE)`), or SPiCT-like (`obs.error = "spict"`) |
 | Seasons, Selex | annual; JABBA-Select separate | `nseason`; Selex routine (chapter *Special feature: Selex*) |
@@ -248,7 +267,7 @@ JABBA's defaults map one to one to JABBA3:
 | catch-conditioned dynamics | `jb3_model(frw = "gaps")` |
 | inverse-gamma prior on the process variance | FishLife prior on sdb (`jbinput2jabba3()` reports the change) |
 | uniform prior on q | flat prior on log q (`jbinput2jabba3(q.uniform = TRUE)` for the uniform) |
-| no cap on K | `jb3_priors(K.max = NULL)` (the default) |
+| two-sided K prior, no cap | `jb3_priors(K = "jabba")` (switches the one-sided default off) |
 
 The bigeye quick start written out with JABBA's settings:
 
@@ -256,20 +275,18 @@ The bigeye quick start written out with JABBA's settings:
 data(iccat); bet <- iccat$bet
 d   <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
 pr  <- jb3_priors(d, r = c(0.2, 0.5),          # JABBA r.prior
-                  K = "jabba",                 # JABBA K.prior = NULL: 8 x max catch, CV 1
-                  bkinit = c(0.9, 0.246),      # JABBA psi.prior = c(0.9, 0.25)
-                  K.max = NULL)                # JABBA has no cap
+                  K = "jabba",                 # JABBA K.prior = NULL: 8 x max catch (median), CV 1
+                  bkinit = c(0.9, 0.246))      # JABBA psi.prior = c(0.9, 0.25)
 mod <- jb3_model(shape = "fox", catch.error = TRUE, sdc = 0.1, frw = "gaps")
 fj  <- jabba3(d, pr, mod, osa = FALSE)
 signif(fj$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 ```
 
 > This reproduces the conversion of the JABBA run (`jbinput2jabba3()`, chapter
-> *Converters*): K = 1,174,749, $B/B_{MSY}$ = 0.797 in 2017. The JABBA3
-> defaults give the same fit (K is 6 × max catch, well below the `"r"` bound of
-> 19.5 ×).
+> *Converters*): K = 1,174,749, $B/B_{MSY}$ = 0.797 in 2017. With the JABBA3
+> default (`K = "half8"`), K = 1,132,824 (8.4 × max catch) and $B/B_{MSY}$ = 0.798.
 
-## The K prior: recommended starting points
+## The K prior: default and recommended settings
 
 **Where the information on K is.** The profile likelihood of K is asymmetric: a
 steep wall on the left, because the observed catches cannot be taken from a stock
@@ -291,49 +308,70 @@ with productivity (about 3 × for generation times up to 4 years, 5 × for 4–8
 years, 6–7 × for longer ones). JABBA's 8 × max catch with CV 1 is right as an
 *expected value*: bias-corrected to the median of a lognormal,
 $8 \times e^{-\sigma^2/2}$ = 5.7 × for σ = 0.83, almost the empirical median. JABBA
-uses 8 × as the median, which shifts the whole prior right by $e^{\sigma^2/2}$ = 1.41.
+documents 8 × as the mean but uses it as the median (the bias correction is
+commented out in `build_jabba()`), which shifts the whole prior right by
+$e^{\sigma^2/2}$ = 1.41.
 
-**One-sided empirical prior (`K = "halfN"`).** Combining both points: no penalty
-below N × max catch and a half-normal on log K above it, with the empirical
-between-stock log-SD of 0.55. The location is a median; for an expected value E
-use $E\,e^{-\sigma^2/2}$.
+**The default: one-sided, bias-corrected (`K = "half8"`).** Combining both
+points, the JABBA3 default keeps JABBA's scale and CV but applies them only where
+the data are weak: no penalty below the bias-corrected median and a half-normal
+on log K above it (a half-lognormal on K),
+
+$$
+-\log p(K) = \tfrac{1}{2}\left(\frac{\max\{0,\ \log K - \log(N C_{max}\, e^{-\sigma^2/2})\}}{\sigma}\right)^2,
+\qquad \sigma = \sqrt{\log(1 + CV^2)} .
+$$
+
+N is the expected value as a multiple of max catch (`"half8"`: 8 ×, located at
+5.7 ×), `K.cv` sets the CV (1 by default, as JABBA). On default it acts as an
+upper control, as the old two-sided default did, without pulling a K that the
+data identify; `K = NULL` switches it off.
 
 | Situation | K prior |
 |---|---|
-| Recommended starting point | `K = "half6"` (or `"half"`): flat below 6 × max catch, half-normal (log-SD 0.55) above |
-| Short generation time / high productivity (GT < 5 years, r > 0.5); series that mostly reflect depleted or rebuilding states (the maximum catch was taken from an already reduced stock) | `K = "half4"` |
-| Location predicted from r | `K = "half+r"`: 3.04 r^-0.583 × max catch (`jb3_kr()`) |
-| Two-sided lognormal at a chosen scale | `K = "jabbaN"` (N × max catch, CV 1) or `K = c(median, log.sd)` |
+| Default, upper control | `K = "half8"` (8 × max catch as expected value, CV 1: flat below 5.7 ×) |
+| Intermediate starting point | `K = "half6"` (flat below 4.2 ×) |
+| Short generation time / high productivity (GT < 5 years, r > 0.5); series that mostly reflect depleted or rebuilding states (the maximum catch was taken from an already reduced stock) | `K = "half4"` (flat below 2.8 ×) |
+| Location predicted from r | `K = "half+r"`: median 3.04 r^-0.583 × max catch (`jb3_kr()`) |
+| The data do not identify the scale | tighten: `K.cv = 0.3` (log-SD 0.29; `"half8"` then sits at 7.7 ×) |
+| Two-sided lognormal at a chosen scale | `K = "jabbaN"` (N × max catch as median, CV 1) or `K = c(median, log.sd)` |
 | Reproducing a JABBA assessment | `K = "jabba"` (8 × max catch as median, CV 1) |
+| No K prior | `K = NULL` |
+
+`K.max` (an upper cap at a multiple of max catch with a half-normal SD of 0.3)
+is kept for old scripts but deprecated: it is the same one-sided prior, now set
+with `K = "halfN"` and `K.cv`.
 
 Posterior mode of K / max catch (profile likelihood + prior) against the K of the
 reference assessment:
 
-| Stock (reference) | Reference | No prior | `"jabba"` (8 ×, CV 1) | `"half6"` |
-|---|---|---|---|---|
-| Blackspot seabream (SS3) | 8.1 | 10.5 | 9.6 | 8.3 |
-| North Sea sole (SS3) | 6.7 | 12.3 | 10.6 | 9.3 |
-| Nephrops FU32 (SPiCT) | 5.8 | 5.6 | 5.7 | 5.6 |
-| Anglerfish aru.27.1234a (SPiCT) | 6.2 | 6.5 | 6.8 | 6.3 |
+| Stock (reference) | Reference | No prior | `"jabba"` (8 ×, CV 1) | `"half8"` (default) | `"half8"`, `K.cv = 0.3` |
+|---|---|---|---|---|---|
+| Blackspot seabream (SS3) | 8.1 | 10.5 | 9.6 | 9.0 | 8.6 |
+| North Sea sole (SS3) | 6.7 | 12.3 | 10.6 | 9.7 | 9.2 |
+| Nephrops FU32 (SPiCT) | 5.8 | 5.6 | 5.7 | 5.6 | 5.6 |
+| Anglerfish aru.27.1234a (SPiCT) | 6.2 | 6.5 | 6.8 | 6.3 | 6.5 |
 
-In full fits, `K = "half6"` gives blackspot seabream $B/B_{MSY}$ 0.08 and
-$F/F_{MSY}$ 2.06 (SS3 0.08 and 1.65), North Sea sole 1.02 and 0.16 (SS3 1.03 and
-0.17), leaves the SPiCT-type fits of Nephrops and anglerfish unchanged, and turns
-the JABBA-like fit of Nephrops FU32 from $B/B_{MSY}$ 1.48 (two-sided 6 × prior) to
-0.13 (SPiCT 0.12).
+In full fits, the default leaves the SPiCT-type fits of Nephrops and anglerfish
+unchanged, gives blackspot seabream $B/B_{MSY}$ 0.07 and $F/F_{MSY}$ 2.11 (SS3
+0.08 and 1.65; two-sided `"jabba"`: 0.07 and 2.16), and turns the JABBA-like fit
+of Nephrops FU32 from $B/B_{MSY}$ 1.48 (two-sided 6 × prior) to 0.13 (SPiCT
+0.12): the two-sided prior pushed K up, the one-sided prior does not.
 
 `jb3_kr()` returns the predicted median and log-SD from r or the generation time
 (73 ICES stocks: $K/C_{max} = 3.04\, r^{-0.583}$, residual log-SD 0.55;
-$K/C_{max} = 1.71\, GT^{0.58}$, 0.57), for use as a location (`K.max`) or as a
-two-sided prior:
+$K/C_{max} = 1.71\, GT^{0.58}$, 0.57), computed outside the fit, for use as the
+location of the one-sided prior or as a two-sided prior:
 
 ```{r kprior-predictive}
 jb3_kr(r = 0.2)                                     # median multiple of max catch, log-SD
 mC  <- jb3_priors(d)$maxC.value
 kr  <- jb3_kr(GT = 10, maxC = mC)
-pr.half <- jb3_priors(d, r = c(0.2, 0.5), K = "half6")             # one-sided, recommended
-pr.gt   <- jb3_priors(d, r = c(0.2, 0.5), K.max = kr[c("median", "log.sd")], K = c(NA, 1, 0))  # one-sided at the GT prediction
-pr.two  <- jb3_priors(d, r = c(0.2, 0.5), K = c(kr[["K"]], kr[["log.sd"]]))                     # two-sided lognormal
+pr.def  <- jb3_priors(d, r = c(0.2, 0.5))                                  # default: K = "half8", K.cv = 1
+pr.inf  <- jb3_priors(d, r = c(0.2, 0.5), K.cv = 0.3)                      # informative upper side
+pr.r    <- jb3_priors(d, r = c(0.2, 0.5), K = "half+r")                    # one-sided at the r prediction
+pr.gt   <- jb3_priors(d, r = c(0.2, 0.5), K = paste0("half", round(kr[["median"]]*exp(0.833^2/2), 1)))  # at the GT prediction
+pr.two  <- jb3_priors(d, r = c(0.2, 0.5), K = c(kr[["K"]], kr[["log.sd"]]))  # two-sided lognormal
 ```
 
 These relations describe exploited ICES stocks, most fished below 0.2 K at some
@@ -344,6 +382,44 @@ years predicts 8.2 ×, the generation time 5.1 ×). Check the fit with
 `jbplot_priorpost()` and a K profile: if the posterior of K sits on the prior,
 the data do not inform the scale, and the K prior (or the choice of `frw`) decides
 the status.
+
+### Example: North Sea sole, a K that the data do not identify
+
+North Sea sole (`data(ss3_examples)`, element `sol`) is assessed with a fully
+age-structured SS3 model with empirical weight-at-age. The catch starts in 1957
+near unfished, the two surveys (BTS and COAST) only in 1990, and the K profile is
+flat to 80 × max catch: the information on the scale is weak, so the K prior and
+the process model decide. Set-up as for an index-type stock: F random walk and
+process error from the first survey year (`frw = "index", start = "index"`), r
+and $B_{MSY}/K$ from the age-structured equilibrium of the 1970–80 biology:
+
+```{r sole-kprior}
+data(ss3_examples); s <- ss3_examples$sol
+ds  <- jb3_data(s$catch, s$cpue, s$se, stock = "sol.27.4")
+ms  <- jb3_model(BmsyK = s$info$priors$BmsyK, frw = "index", start = "index")
+f.def <- jabba3(ds, jb3_priors(ds, r = s$info$priors$r), ms, osa = FALSE)               # K = "half8", K.cv = 1
+f.inf <- jabba3(ds, jb3_priors(ds, r = s$info$priors$r, K.cv = 0.3), ms, osa = FALSE)   # informative upper side
+mCs <- jb3_priors(ds)$maxC.value
+st  <- function(f) c(K.maxC = f$pars["K", "est"]/mCs,
+  setNames(f$ts$est[f$ts$year == 2025 & f$ts$quant %in% c("B/Bmsy", "F/Fmsy")], c("B/Bmsy", "F/Fmsy")))
+round(rbind(`half8, K.cv 1` = st(f.def), `half8, K.cv 0.3` = st(f.inf),
+            SS3 = c(6.7, s$ss3$est[s$ss3$year == 2025 & s$ss3$quant %in% c("B/Bmsy", "F/Fmsy")])), 2)
+```
+
+With the default, K runs to 15 × max catch and the stock looks lightly exploited
+($B/B_{MSY}$ 2.05, $F/F_{MSY}$ 0.05 in 2025). With `K.cv = 0.3`, K comes down to
+10 × and the fit follows SS3 over the whole survey period ($B/B_{MSY}$ 0.96,
+$F/F_{MSY}$ 0.20; SS3 1.03 and 0.17). The BioProcDyn protocol (lag 2 = age at
+maturity, AR(1) ρ = 0.72 from the generation time) is robust to the K prior
+(K 9–10 × either way): it rescues the default fit, but with the informative K
+prior the plain model tracks SS3 more closely, especially F. The persistence term
+identifies MSY (about 27,000 t against 20,000 t in SS3) rather than K, which
+places $F/F_{MSY}$ about 30% low; the protocol is the better choice here only
+when the K prior is weak.
+
+```{r fig-sole, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("figures/sol_kprior_protocol.png")
+```
 
 ## Approximating a SPiCT assessment
 
