@@ -69,8 +69,9 @@
 #'   keeps the catch-conditioned model without an F process.
 #' @param sdc.est estimate the catch SD (as SPiCT's sdc) instead of fixing it at \code{sdc}; year-specific catch SDs
 #'   (\code{jb3_data(catch.se = )}) then act as relative multipliers (SPiCT stdevfacC), prior \code{jb3_priors(sdc = )}
-#' @param inits starting values for the optimiser: NULL (default) = "best" when the K prior is off (\code{jb3_priors(K = )}
-#'   with on = 0, e.g. from \code{spictinp2jabba3()} without a SPiCT logK prior), otherwise "prior";
+#' @param inits starting values for the optimiser: NULL (default) = "best" unless a two-sided K prior is on (the default
+#'   one-sided \code{K = "half8"}, \code{K = NULL} or \code{spictinp2jabba3()} without a SPiCT logK prior), "prior" with a
+#'   two-sided K prior (e.g. \code{K = "jabba"});
 #'   "prior" (prior medians of K, r and bkinit), "spict" (as
 #'   \code{spict::check.inp()}: K = 4 x max catch, MSY from spict's catch/index regression, bkinit 0.8), or "best" (fits
 #'   from the prior-median start and SPiCT-like starts with K at 4, 2, 16, 8 and 32 x max catch, then jittered starts,

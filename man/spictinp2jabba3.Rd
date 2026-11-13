@@ -4,7 +4,7 @@
 \alias{spictinp2jabba3}
 \title{Convert a SPiCT input list to JABBA3}
 \usage{
-spictinp2jabba3(inp, stock = "stock", verbose = TRUE)
+spictinp2jabba3(inp, stock = "stock", verbose = TRUE, spict.like = TRUE)
 }
 \arguments{
 \item{inp}{SPiCT input list}
@@ -12,6 +12,13 @@ spictinp2jabba3(inp, stock = "stock", verbose = TRUE)
 \item{stock}{stock name}
 
 \item{verbose}{print conversion messages}
+
+\item{spict.like}{TRUE (default): SPiCT's process structure as far as JABBA3 has it: random walk on F in all years
+(\code{frw = "all"}; with catch known, the smoothness of F is what identifies the scale K in SPiCT), catch SD
+estimated when SPiCT has a \code{logsdc} prior (\code{sdc.est = TRUE}; without a prior the estimate tends to collapse
+to 0 in JABBA3, so sdc stays fixed), sdf without prior unless SPiCT has one, and the
+best of prior-median and SPiCT-like starting values when the K prior is off (\code{inits = NULL}). FALSE: catch-
+conditioned JABBA model with the catch SD fixed at sdc (\code{frw = "gaps"}; earlier behaviour).}
 }
 \value{
 list(data, priors, model)

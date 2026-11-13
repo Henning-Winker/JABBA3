@@ -333,15 +333,15 @@ jb3_output <- function(best, setup, sdreport = TRUE){
   out
 }
 
-# warn when K exceeds the r-based plausibility bound (K.max = "r" level): K may not be identified by the data
+# warn (only without a one-sided K prior) when K exceeds the r-based plausibility bound: K may not be identified by the data
 .kcheck <- function(fit, setup){
   if(isTRUE(setup$dat$Kmax.pr[3] == 1)) return(invisible(NULL))
   mc <- setup$dat$maxC.int*setup$mucatch; K <- tryCatch(fit$pars["K", "est"], error = function(e) NA)
   bound <- .kmax_r(setup$dat$r.pr[1])
   if(is.finite(K) && is.finite(mc) && K > bound*mc)
     warning(sprintf(paste0("K = %s is %.0f x max catch, above the r-based plausibility bound (%.0f x; 95th percentile of K/max catch ",
-                           "in 72 ICES stocks): check that the data identify K (likelihood profile, frw, K prior or ",
-                           "jb3_priors(K.max = \"r\")). Lightly exploited, low-productivity stocks can legitimately lie above it."),
+                           "in 72 ICES stocks): check that the data identify K (likelihood profile, frw, or the one-sided K prior ",
+                           "jb3_priors(K = \"half8\")). Lightly exploited, low-productivity stocks can legitimately lie above it."),
                     format(signif(K, 3), big.mark = ","), K/mc, bound), call. = FALSE)
   invisible(NULL)
 }

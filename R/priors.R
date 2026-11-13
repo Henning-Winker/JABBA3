@@ -4,16 +4,19 @@
 #' on/off switch (\code{on = 0} gives a flat prior on the log scale). The defaults follow JABBA
 #' (\code{build_jabba()}), except the process error prior.
 #'
-#' @param data optional \code{jb3data}, used for the default K prior (8 x max catch, CV 1, as JABBA)
+#' @param data optional \code{jb3data}, used for the K prior scale (maximum catch)
 #' @param r intrinsic growth rate, on by default
-#' @param K carrying capacity prior c(median, log.sd[, on]); \code{NULL} or \code{"jabba"} = 8 x max catch with log.sd 0.833
-#'   (CV 1; the JABBA default, \code{build_jabba(K.prior = NULL)}); \code{"jabbaN"} = N x max catch, CV 1 (e.g. \code{"jabba4"})
-#'   \code{"half6"} (or \code{"half"}) = one-sided empirical prior: flat below 6 x max catch and a half-normal on log K above
-#'   it with log-SD 0.55 (median 5.9 and between-stock log-SD 0.55 of K / max catch in 73 ICES stocks; the data supply the
-#'   lower bound, so only the upper side needs a prior); \code{"halfN"} = the same at N x max catch (e.g. \code{"half4"} for
-#'   short generation times or series that mostly reflect depleted or rebuilding states); \code{"half+r"} = at the median
-#'   predicted from r, \code{jb3_kr(r)} (3.04 x r^-0.583 x max catch, r = median of the r prior). Implemented through \code{K.max} (the K prior is off). The
-#'   location is a median: for an expected value E (e.g. JABBA's 8 x with CV 1), use E x exp(-log.sd^2/2) (8 x gives 5.7 x)
+#' @param K carrying capacity prior. Default \code{"half8"}: one-sided lognormal, flat below the location and a half-normal
+#'   on log K above it (the data supply the lower bound of K, so only the upper side needs a prior). In \code{"halfN"},
+#'   N x max catch is the expected value with CV \code{K.cv} (JABBA's convention: 8 x max catch, CV 1), bias-corrected to
+#'   the median location N x exp(-log.sd^2/2): \code{"half8"} sits at 5.7 x max catch, close to the median 5.9 of K / max
+#'   catch in 73 ICES stocks; \code{"half4"} (2.8 x) for short generation times or series that mostly reflect depleted or
+#'   rebuilding states. \code{"half+r"} = location at the median predicted from r, \code{jb3_kr(r)}.
+#'   \code{"jabba"} = two-sided lognormal with 8 x max catch as the median and CV 1, as JABBA implements it (reproduces
+#'   JABBA; its documented "mean" is used as the median, i.e. not bias-corrected); \code{"jabbaN"} = N x max catch.
+#'   \code{c(median, log.sd[, on])} = manual two-sided lognormal. \code{NULL} = no K prior and no upper control.
+#' @param K.cv CV of the one-sided K prior (default 1, as JABBA); log-SD = sqrt(log(1 + CV^2)). Tighten (e.g. 0.3) when
+#'   the K profile is flat towards large K and the prior decides the scale
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
 #' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
 #'   r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
@@ -47,19 +50,15 @@
 #' @param maxC the maximum catch used for the K prior and the K.max cap: \code{"max"} (default; maximum annual total catch,
 #'   as JABBA) or \code{"smooth"} (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY /
 #'   \code{JABBA::cmsy2jabba()}; less sensitive to a single peak year)
-#' @param K.max optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
-#'   the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
-#'   the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
-#'   cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
-#'   as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
-#'   \code{NULL} (default) = no cap. Soft: 1.5 x the cap adds 0.9 to the objective, 2 x adds 2.7, 3 x adds 6.7. Not on by
-#'   default because lightly exploited, low-productivity stocks (e.g. rays) can lie well above the r-based cap; instead,
-#'   \code{jabba3()} warns when K exceeds it, and the \code{inits = "best"} search tries a start from a capped fit.
+#' @param K.max deprecated (use \code{K = "halfN"}): soft upper prior on K, flat below the cap and a half-normal on log K
+#'   above it; \code{"r"} = cap at 7.6 x max catch x r^-0.587 (95th percentile of K / max catch across 72 ICES stocks), a
+#'   number = cap as a multiple of max catch (median scale, log-SD 0.3), \code{c(multiple, log.sd)}. Replaces the default
+#'   K prior when given
 #' @return list of class \code{jb3priors}
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
-jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
+jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL, bbmsyinit = NULL,
                        creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = NULL, sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
   maxC <- match.arg(maxC)
@@ -72,17 +71,24 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   if(!is.null(psi)) bkinit <- psi
   r <- pr3(r, "r")
   mC <- if(!is.null(data)) .max_catch(data, maxC) else NA
-  if(is.null(K)) K <- "jabba"
-  if(is.character(K) && grepl("^half", K)){      # one-sided empirical K prior: flat below, half-normal on log K above
-    loc <- if(identical(K, "half")) 6 else if(K %in% c("half+r", "half.r")) jb3_kr(r = as.numeric(r[1]))[["median"]] else
-      if(grepl("^half[0-9.]+$", K)) as.numeric(sub("^half", "", K)) else
-      stop("K: \"half\", \"halfN\" (e.g. \"half6\", \"half4\") or \"half+r\"", call. = FALSE)
-    if(!is.null(K.max)) warning("K = \"", K, "\" replaces K.max", call. = FALSE)
-    K.max <- c(loc, 0.55); K <- c(loc*mC, 0.55, 0)
+  kmax.user <- K.max
+  if(!is.null(K.max)){                           # deprecated: K.max is the one-sided prior of K = "halfN"
+    message("jb3_priors(): K.max is deprecated; use K = \"halfN\" (one-sided K prior) with K.cv")
+    if(is.null(K) || identical(K, "half8")) K <- c(NA, 1, 0)      # old behaviour: K.max replaces the default K prior
   }
-  if(is.character(K)){                           # "jabba" = 8 x max catch, CV 1 (JABBA default); "jabbaN" = N x max catch, CV 1
+  ks <- sqrt(log(1 + K.cv^2))                     # log-SD of the half-lognormal
+  K.half <- NULL
+  if(is.null(K)) K <- c(NA, 1, 0)                 # NULL: no K prior, no upper control
+  if(is.character(K) && grepl("^half", K)){      # one-sided K prior: flat below the location, half-normal on log K above
+    loc <- if(identical(K, "half")) 8*exp(-ks^2/2) else if(K %in% c("half+r", "half.r")) jb3_kr(r = as.numeric(r[1]))[["median"]] else
+      if(grepl("^half[0-9.]+$", K)) as.numeric(sub("^half", "", K))*exp(-ks^2/2) else      # N = expected value, bias-corrected to the median
+      stop("K: \"halfN\" (N x max catch as expected value, e.g. \"half8\"), \"half+r\", \"jabba\", \"jabbaN\", c(median, log.sd) or NULL", call. = FALSE)
+    K.half <- c(mult = loc, log.sd = ks, on = 1, expected = if(K %in% c("half+r", "half.r")) NA else loc*exp(ks^2/2))
+    K <- c(loc*mC, ks, 0)
+  }
+  if(is.character(K)){                           # "jabba" = 8 x max catch as median, CV 1 (JABBA default); "jabbaN" = N x max catch, CV 1
     mult <- if(grepl("^jabba[0-9.]+$", K)) as.numeric(sub("^jabba", "", K)) else if(identical(K, "jabba")) 8 else
-      stop("K must be c(median, log.sd[, on]), \"jabba\" (8 x max catch, CV 1), \"jabbaN\" (N x max catch, CV 1), \"halfN\" or \"half+r\"", call. = FALSE)
+      stop("K: \"halfN\", \"half+r\", \"jabba\", \"jabbaN\", c(median, log.sd[, on]) or NULL", call. = FALSE)
     K <- c(mult*mC, cv2sd(1), 1)
   }
   K <- pr3(K, "K"); bkinit <- pr3(bkinit, "bkinit")
@@ -102,10 +108,11 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
     status <- rbind(status, data.frame(year = min(data$years), type = "BBmsy", median = b[1], log.sd = b[2]))
     bkinit[["on"]] <- 0
   }
-  K.max <- if(is.null(K.max)) c(mult = NA, log.sd = NA, on = 0) else if(identical(K.max, "r"))
+  K.max <- if(!is.null(K.half)) K.half[1:3] else if(is.null(kmax.user)) c(mult = NA, log.sd = NA, on = 0) else if(identical(kmax.user, "r"))
     c(mult = 7.6*r[["median"]]^-0.587, log.sd = 0.3, on = 1) else {
-      if(!is.numeric(K.max) || K.max[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
-      c(mult = K.max[1], log.sd = if(length(K.max) > 1) K.max[2] else 0.3, on = 1) }
+      if(!is.numeric(kmax.user) || kmax.user[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
+      c(mult = kmax.user[1], log.sd = if(length(kmax.user) > 1) kmax.user[2] else 0.3, on = 1) }
+  K.max <- stats::setNames(as.numeric(K.max), c("mult", "log.sd", "on"))
   structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
                  sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max,
                  maxC = maxC, maxC.value = mC),
@@ -163,7 +170,8 @@ print.jb3priors <- function(x, ...){
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
   cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
   if(!is.null(x$maxC.value) && is.finite(x$maxC.value)) cat(sprintf("max catch (%s): %s\n", x$maxC %||% "max", format(signif(x$maxC.value, 4), big.mark = ",")))
-  if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K.max: soft upper prior at %.1f x max catch (half-normal on log K above, sd %.2f)\n", x$K.max[1], x$K.max[2]))
+  if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K: one-sided lognormal, flat below %.1f x max catch, half-normal on log K above (log-SD %.2f, CV %.2f)\n",
+                                                       x$K.max[1], x$K.max[2], sqrt(exp(x$K.max[2]^2) - 1)))
   if(!is.null(x$status)){ cat("status priors:\n"); print(x$status) }
   invisible(x)
 }

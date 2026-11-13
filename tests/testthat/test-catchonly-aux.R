@@ -24,12 +24,12 @@ test_that("non-centred states reproduce the centred process model", {
   d <- jb3_data(bet$catch, bet$cpue, bet$se, stock = "bet")
   for(m in list(jb3_model(shape = "fox"), jb3_model(shape = "fox", rho = 0.6, lag = 2, biascor = TRUE),
                 jb3_model(shape = "fox", rw = TRUE, start = "index"), jb3_model(shape = "fox", sdb.form = "dyn"))){
-    f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), m, osa = FALSE, se = FALSE)
+    f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5), K = "jabba"), m, osa = FALSE, se = FALSE)
     o <- JABBA3:::.nc_obj(f)
     expect_equal(o$report(o$env$par)$P, f$report$P, tolerance = 1e-8)
   }
   # mode fits are unchanged by the parameterisation (always centred)
-  f1 <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5)), jb3_model(shape = "fox", param = "noncentred"), osa = FALSE)
+  f1 <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5), K = "jabba"), jb3_model(shape = "fox", param = "noncentred"), osa = FALSE)
   expect_equal(f1$pars["K", "est"], 1174749, tolerance = 1e-4)
 })
 

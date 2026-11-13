@@ -16,6 +16,7 @@ jb3_model(
   rw.scale = 1,
   biascor = FALSE,
   start = c("all", "index"),
+  pe.ramp = NULL,
   obs.error = c("additive", "spict"),
   se.min = NULL,
   se.na = 0.3,
@@ -38,10 +39,13 @@ jb3_model(
   aux.sd = NULL,
   aux.se.min = NULL,
   frw.all = FALSE,
+  frw = NULL,
   nseason = 1,
   catch.alloc = "F",
   season.w = NULL,
-  sdb.max = NULL
+  sdb.max = NULL,
+  inits = NULL,
+  sdc.est = FALSE
 )
 }
 \arguments{
@@ -67,7 +71,12 @@ d_t ~ N(rho d_{t-1}, sdb_t^2 (1 - rho^2)). Estimated instead when \code{priors$r
 
 \item{biascor}{lognormal process error bias correction (log mean - var/2)}
 
-\item{start}{"all" (default): process error in all years; "index": deterministic before the first index year
+\item{start}{"all" (default): process error in all years; "index": deterministic before the first index year}
+
+\item{pe.ramp}{NULL (default) or c(y1, y2[, wmin]): ramp on the process-error SD, as the SS3 bias ramp for early
+recruitment deviations: multiplier wmin (default 0.01) up to year y1, rising linearly to 1 at year y2 and 1 after.
+For a gradual transition from near-deterministic early dynamics (long catch series) to full process error by the
+first index year, e.g. \code{pe.ramp = c(1957, 1990)}; with \code{start = "all"}.
 (JABBA \code{proc.dev.all = FALSE})}
 
 \item{obs.error}{"additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)}
@@ -102,7 +111,9 @@ curve of the last year}
 
 \item{sdi.bound}{soft upper bound on sdi (JABBA: 1)}
 
-\item{sdi.est}{estimate the additional observation SD of the indices (default); FALSE uses the input SEs
+\item{sdi.est}{estimate the additional observation SD of the indices (default); FALSE uses the input SEs; or one
+logical per variance group (\code{sets.var}; by default one per index), e.g. \code{c(FALSE, TRUE)} to keep the
+input SEs of index 1 and estimate extra variance for index 2
 (or \code{se.min}) only, as JABBA with \code{fixed.obsE} and \code{sigma.est = FALSE}}
 
 \item{param}{parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
@@ -127,10 +138,19 @@ types the observation is q times the model quantity.}
 
 \item{aux.se.min}{minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)}
 
-\item{frw.all}{only with missing catch (\code{jb3_data(catch.gaps = "estimate")}): FALSE (default) applies the random walk on
-log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
-(sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
-with catch, which tends to shrink it and smooth F through the gaps)}
+\item{frw.all}{random walk on the log harvest rate in all years (SPiCT-like F process). With missing catch
+(\code{jb3_data(catch.gaps = "estimate")}) FALSE (default) applies the walk only to increments involving a year without
+catch, so the years with catch stay catch-conditioned (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to
+all years (sdf then informed by the years with catch, which tends to shrink it and smooth F through the gaps). Without
+missing catch, TRUE adds the full random walk on H_y = C_y/(K P_y), with C_y the estimated catch (use with
+\code{catch.error = TRUE}) and P_y the depletion at the start of the year (also with \code{nseason > 1}); FALSE (default)
+keeps the catch-conditioned model without an F process.}
+
+\item{frw}{random walk on the log harvest rate H_y = estimated catch / (K P_y): "gaps" (years without catch only;
+catch-conditioned otherwise, as JABBA; for simulation and MSE), "index" (from the first index year to the end:
+catch-conditioned before the indices, F random walk where the indices inform biomass), or "all" (SPiCT-like).
+NULL = "all" if \code{frw.all = TRUE}, else "gaps". With "index" or "all", sdf is estimated (prior
+\code{jb3_priors(sdf = )}); the smoothness of F is what identifies the scale K when the data say little about it.}
 
 \item{nseason}{number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
 depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
@@ -147,6 +167,17 @@ F x B), "equal" (catch / nseason), or a vector of shares (one per season, e.g. f
 pulse \code{c(0, 3, 1, 0)}}
 
 \item{sdb.max}{optional upper cap on the process error SD sdb (soft bound, as \code{sdi.bound}); NULL = none}
+
+\item{inits}{starting values for the optimiser: NULL (default) = "best" unless a two-sided K prior is on (the default
+one-sided \code{K = "half8"}, \code{K = NULL} or \code{spictinp2jabba3()} without a SPiCT logK prior), "prior" with a
+two-sided K prior (e.g. \code{K = "jabba"});
+"prior" (prior medians of K, r and bkinit), "spict" (as
+\code{spict::check.inp()}: K = 4 x max catch, MSY from spict's catch/index regression, bkinit 0.8), or "best" (fits
+from the prior-median start and SPiCT-like starts with K at 4, 2, 16, 8 and 32 x max catch, then jittered starts,
+\code{nstart} in total, and keeps the converged fit with the lowest objective)}
+
+\item{sdc.est}{estimate the catch SD (as SPiCT's sdc) instead of fixing it at \code{sdc}; year-specific catch SDs
+(\code{jb3_data(catch.se = )}) then act as relative multipliers (SPiCT stdevfacC), prior \code{jb3_priors(sdc = )}}
 }
 \value{
 list of class \code{jb3model}
