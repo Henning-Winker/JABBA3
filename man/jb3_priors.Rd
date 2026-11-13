@@ -7,7 +7,8 @@
 jb3_priors(
   data = NULL,
   r = c(0.2, 0.5, 1),
-  K = NULL,
+  K = "half8",
+  K.cv = 1,
   bkinit = c(0.9, 0.246, 1),
   sdb = "fishlife",
   sigR = 0.5,
@@ -18,17 +19,31 @@ jb3_priors(
   sdi = c(0.2, 0.5, 0),
   status = NULL,
   psi = NULL,
+  bbmsyinit = NULL,
   creep = c(0.02, 0.02),
-  sdf = c(0.3, 0.5, 1),
-  K.max = NULL
+  sdf = c(0.3, 1, 1),
+  K.max = NULL,
+  sdc = c(0.1, 1, 0),
+  maxC = c("max", "smooth")
 )
 }
 \arguments{
-\item{data}{optional \code{jb3data}, used for the default K prior (8 x max catch, CV 1, as JABBA)}
+\item{data}{optional \code{jb3data}, used for the K prior scale (maximum catch)}
 
 \item{r}{intrinsic growth rate, on by default}
 
-\item{K}{carrying capacity; \code{NULL} = 8 x max catch with log.sd 0.833 (JABBA: CV 1)}
+\item{K}{carrying capacity prior. Default \code{"half8"}: one-sided lognormal, flat below the location and a half-normal
+on log K above it (the data supply the lower bound of K, so only the upper side needs a prior). In \code{"halfN"},
+N x max catch is the expected value with CV \code{K.cv} (JABBA's convention: 8 x max catch, CV 1), bias-corrected to
+the median location N x exp(-log.sd^2/2): \code{"half8"} sits at 5.7 x max catch, close to the median 5.9 of K / max
+catch in 73 ICES stocks; \code{"half4"} (2.8 x) for short generation times or series that mostly reflect depleted or
+rebuilding states. \code{"half+r"} = location at the median predicted from r, \code{jb3_kr(r)}.
+\code{"jabba"} = two-sided lognormal with 8 x max catch as the median and CV 1, as JABBA implements it (reproduces
+JABBA; its documented "mean" is used as the median, i.e. not bias-corrected); \code{"jabbaN"} = N x max catch.
+\code{c(median, log.sd[, on])} = manual two-sided lognormal. \code{NULL} = no K prior and no upper control.}
+
+\item{K.cv}{CV of the one-sided K prior (default 1, as JABBA); log-SD = sqrt(log(1 + CV^2)). Tighten (e.g. 0.3) when
+the K profile is flat towards large K and the prior decides the scale}
 
 \item{bkinit}{initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)}
 
@@ -61,18 +76,27 @@ in JABBA; year NA = terminal year)}
 
 \item{psi}{alias of \code{bkinit} (JABBA name)}
 
+\item{bbmsyinit}{initial status as B/Bmsy instead of B/K: c(median, log.sd), lognormal on B/Bmsy in the first year (a
+status prior; the bkinit prior is switched off). With a fixed shape it is equivalent to bkinit = median x BmsyK, but it
+keeps the initial status the same across shapes, e.g. for a BmsyK sensitivity; needs \code{data}}
+
 \item{creep}{normal prior c(mean, sd) on the annual effort creep, used with \code{jb3_model(effort.creep = "estimate")}}
 
-\item{sdf}{SD of the random walk in log harvest rate, used for years without catch (\code{jb3_data(catch.gaps =
-"estimate")}): lognormal prior c(median, log.sd, on), default median 0.3 (log.sd 0.5). SPiCT benchmarks often use a loose
-prior with the catch SD fixed, e.g. c(4, 0.5, 1), together with \code{jb3_model(frw.all = TRUE)}.}
+\item{sdf}{SD of the random walk in log harvest rate (\code{jb3_model(frw = )}): lognormal prior c(median, log.sd, on),
+default LN(0.3, 1) (95\% range about 0.04-2). With \code{frw = "gaps"} the data carry little information on sdf (the
+prior sets it); with \code{"index"} or \code{"all"} and catch known, sdf is estimated from the harvest-rate path
+(typically 0.1-0.4). A prior centred far above that, e.g. SPiCT's c(4, 0.5), pulls the estimate up 1.3-2x.}
 
-\item{K.max}{optional soft upper prior on K, to avoid implausibly large biomass when the data say little about
-the scale: no penalty below the cap, and a half-normal on log K above it. \code{"r"} sets the cap from r (the median of
-the r prior) at the 95th percentile of K / max catch across 72 ICES stocks (K = unfished exploitable biomass):
-cap = 7.6 x max catch x r^-0.587 (about 19 x max catch at r = 0.2, 12 x at 0.4, 7.6 x at 1); a number gives the cap
-as a multiple of the maximum catch; \code{c(multiple, log.sd)} also sets the SD of the half-normal (default 0.3).
-\code{NULL} (default) = no cap}
+\item{K.max}{deprecated (use \code{K = "halfN"}): soft upper prior on K, flat below the cap and a half-normal on log K
+above it; \code{"r"} = cap at 7.6 x max catch x r^-0.587 (95th percentile of K / max catch across 72 ICES stocks), a
+number = cap as a multiple of max catch (median scale, log-SD 0.3), \code{c(multiple, log.sd)}. Replaces the default
+K prior when given}
+
+\item{sdc}{catch SD prior c(median, log.sd, on) when \code{jb3_model(sdc.est = TRUE)} (off by default: flat on log sdc)}
+
+\item{maxC}{the maximum catch used for the K prior and the K.max cap: \code{"max"} (default; maximum annual total catch,
+as JABBA) or \code{"smooth"} (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY /
+\code{JABBA::cmsy2jabba()}; less sensitive to a single peak year)}
 }
 \value{
 list of class \code{jb3priors}

@@ -1,0 +1,10 @@
+test_that("bbmsyinit: status prior on B/Bmsy in the first year, bkinit off, same initial B/Bmsy across shapes", {
+  set.seed(2); y <- 1990:2015; n <- length(y); B <- 1000*exp(-0.04*(seq_len(n) - 1))
+  d <- jb3_data(data.frame(year = y, catch = 40 + 2*seq_len(n)), data.frame(year = y, I = B*exp(rnorm(n, 0, 0.15))/1000))
+  p <- jb3_priors(d, r = c(0.3, 0.3), bbmsyinit = c(2, 0.1))
+  expect_equal(p$status$year, 1990); expect_equal(p$status$type, "BBmsy"); expect_equal(p$bkinit[["on"]], 0)
+  b1 <- sapply(c(0.3, 0.5), function(bk){ f <- suppressWarnings(jabba3(d, p, jb3_model(BmsyK = bk), osa = FALSE))
+    f$ts$est[f$ts$quant == "B/Bmsy" & f$ts$year == 1990] })
+  expect_lt(abs(log(b1[1]/b1[2])), 0.25)
+  expect_error(jb3_priors(bbmsyinit = c(2, 0.2)), "needs data")
+})

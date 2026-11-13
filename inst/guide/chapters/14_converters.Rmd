@@ -38,11 +38,18 @@ walk (see the thornback ray chapter). SPiCT's observation-error form is used
 (`obs.error = "spict"`): the observation SD is `sdi[index] * stdevfacI`, and
 the catch SD `sdc * stdevfacC`. The priors `logr`, `logK`, `logbkfrac`,
 `logsdb`, `logn`, `logsdi` (one prior per index when given by index) and
-`logsdf` carry over with their on/off switches, and a fixed `n` (phase -1)
-fixes the shape. The `alpha` and `beta` priors (ratios of observation to
-process SDs) and the F process in years with catch have no JABBA3 equivalent
-and are reported as dropped. The thornback ray chapter converts a full ICES
-benchmark assessment.
+`logsdf` carry over with their on/off switches, a fixed `n` (phase -1)
+fixes the shape, and `logngamma` becomes a lognormal prior on m. By default
+(`spict.like = TRUE`) the conversion keeps SPiCT's process structure: a random
+walk on F in all years (`frw = "all"`), which is how SPiCT identifies the scale
+when the catch is known; the catch SD estimated when SPiCT has a `logsdc` prior;
+no K prior unless SPiCT has one, no cap on K, and the best of several starting
+values (including K-profile starts); `jabba3()` warns when K exceeds the
+r-based plausibility bound. `spict.like = FALSE` gives the catch-conditioned
+(JABBA-like) conversion. The `alpha` and `beta` priors (ratios of observation
+to process SDs) have no JABBA3 equivalent and are reported as dropped. Chapter
+*JABBA-like or SPiCT-like* explains the settings and shows the manual set-up;
+the thornback ray chapter converts a full ICES benchmark assessment.
 
 A SPiCT-style input list built from the bigeye data:
 

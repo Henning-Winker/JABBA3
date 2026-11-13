@@ -15,6 +15,10 @@
 #' @param rw.scale innovation SD of the random walk relative to sdb (e.g. sqrt(1 - 0.7^2) to match AR(1) rho = 0.7)
 #' @param biascor lognormal process error bias correction (log mean - var/2)
 #' @param start "all" (default): process error in all years; "index": deterministic before the first index year
+#' @param pe.ramp NULL (default) or c(y1, y2[, wmin]): ramp on the process-error SD, as the SS3 bias ramp for early
+#'   recruitment deviations: multiplier wmin (default 0.01) up to year y1, rising linearly to 1 at year y2 and 1 after.
+#'   For a gradual transition from near-deterministic early dynamics (long catch series) to full process error by the
+#'   first index year, e.g. \code{pe.ramp = c(1957, 1990)}; with \code{start = "all"}.
 #'   (JABBA \code{proc.dev.all = FALSE})
 #' @param obs.error "additive" (default, JABBA): total SD = sqrt(se^2 + sdi^2); "spict": SD = sdi x se, with the se as multipliers of sdi (SPiCT stdevfacI; missing = 1)
 #' @param se.min fixed minimum observation SD; NULL = JABBA default (0.1 without SEs, 0.001 with SEs)
@@ -35,7 +39,9 @@
 #' @param q.uniform legacy JABBA uniform prior on q (density proportional to q on log q)
 #' @param P.bound,K.bound soft bounds on B/K and K (JABBA defaults)
 #' @param sdi.bound soft upper bound on sdi (JABBA: 1)
-#' @param sdi.est estimate the additional observation SD of the indices (default); FALSE uses the input SEs
+#' @param sdi.est estimate the additional observation SD of the indices (default); FALSE uses the input SEs; or one
+#'   logical per variance group (\code{sets.var}; by default one per index), e.g. \code{c(FALSE, TRUE)} to keep the
+#'   input SEs of index 1 and estimate extra variance for index 2
 #'   (or \code{se.min}) only, as JABBA with \code{fixed.obsE} and \code{sigma.est = FALSE}
 #' @param param parameterisation of the process deviations for NUTS: \code{"centred"} (default; the states log(B/K) are
 #'   sampled directly) or \code{"noncentred"} (standard normal innovations z_t ~ N(0, 1) are sampled, and
@@ -54,10 +60,27 @@
 #' @param aux.sd additional observation SD of the auxiliary series: \code{NULL} (default) estimates one per series
 #'   (JABBA \code{auxiliary.sigma = TRUE}, diffuse inverse-gamma prior as for the indices); or fixed value(s) per series
 #' @param aux.se.min minimum observation SD of the auxiliary series, NULL = JABBA default (0.1 without SEs, 0.001 with)
-#' @param frw.all only with missing catch (\code{jb3_data(catch.gaps = "estimate")}): FALSE (default) applies the random walk on
-#'   log harvest rate only to increments involving a year without catch, so the years with catch stay catch-conditioned as before
-#'   (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to all years (SPiCT-like; sdf then informed by the years
-#'   with catch, which tends to shrink it and smooth F through the gaps)
+#' @param frw.all random walk on the log harvest rate in all years (SPiCT-like F process). With missing catch
+#'   (\code{jb3_data(catch.gaps = "estimate")}) FALSE (default) applies the walk only to increments involving a year without
+#'   catch, so the years with catch stay catch-conditioned (sdf from its prior, \code{jb3_priors(sdf = )}); TRUE applies it to
+#'   all years (sdf then informed by the years with catch, which tends to shrink it and smooth F through the gaps). Without
+#'   missing catch, TRUE adds the full random walk on H_y = C_y/(K P_y), with C_y the estimated catch (use with
+#'   \code{catch.error = TRUE}) and P_y the depletion at the start of the year (also with \code{nseason > 1}); FALSE (default)
+#'   keeps the catch-conditioned model without an F process.
+#' @param sdc.est estimate the catch SD (as SPiCT's sdc) instead of fixing it at \code{sdc}; year-specific catch SDs
+#'   (\code{jb3_data(catch.se = )}) then act as relative multipliers (SPiCT stdevfacC), prior \code{jb3_priors(sdc = )}
+#' @param inits starting values for the optimiser: NULL (default) = "best" unless a two-sided K prior is on (the default
+#'   one-sided \code{K = "half8"}, \code{K = NULL} or \code{spictinp2jabba3()} without a SPiCT logK prior), "prior" with a
+#'   two-sided K prior (e.g. \code{K = "jabba"});
+#'   "prior" (prior medians of K, r and bkinit), "spict" (as
+#'   \code{spict::check.inp()}: K = 4 x max catch, MSY from spict's catch/index regression, bkinit 0.8), or "best" (fits
+#'   from the prior-median start and SPiCT-like starts with K at 4, 2, 16, 8 and 32 x max catch, then jittered starts,
+#'   \code{nstart} in total, and keeps the converged fit with the lowest objective)
+#' @param frw random walk on the log harvest rate H_y = estimated catch / (K P_y): "gaps" (years without catch only;
+#'   catch-conditioned otherwise, as JABBA; for simulation and MSE), "index" (from the first index year to the end:
+#'   catch-conditioned before the indices, F random walk where the indices inform biomass), or "all" (SPiCT-like).
+#'   NULL = "all" if \code{frw.all = TRUE}, else "gaps". With "index" or "all", sdf is estimated (prior
+#'   \code{jb3_priors(sdf = )}); the smoothness of F is what identifies the scale K when the data say little about it.
 #' @param nseason number of seasonal time steps per year (1 = annual model, as JABBA). The state of each step is the
 #'   depletion at the start of the season; production per step is r/nseason (times \code{season.w}), catch of a step is
 #'   removed during that step (an Euler scheme with dt = 1/nseason). Process variance per step is set so that the
@@ -73,12 +96,13 @@
 #' @return list of class \code{jb3model}
 #' @export
 jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 0, sdb.form = c("const", "dyn"),
-                      sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, rw = FALSE, rw.scale = 1, biascor = FALSE, start = c("all", "index"),
+                      sdb.fixed = NULL, xlim = c(0.2, 3), rho = 0, rw = FALSE, rw.scale = 1, biascor = FALSE, start = c("all", "index"), pe.ramp = NULL,
                       obs.error = c("additive", "spict"), se.min = NULL, se.na = 0.3, sets.q = NULL, sets.var = NULL,
                       catch.error = TRUE, sdc = 0.1, ebsb = NULL, ebsb.index = NULL, ebsb.catch = 1, ebsb.removal = TRUE,
                       q.uniform = FALSE, P.bound = c(0.02, 1.3), K.bound = c(0.01, 1e10), sdi.bound = 1, sdi.est = TRUE,
-                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE,
-                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL){
+                      param = c("centred", "noncentred"), effort.creep = 0, aux.q = NULL, aux.sd = NULL, aux.se.min = NULL, frw.all = FALSE, frw = NULL,
+                      nseason = 1, catch.alloc = "F", season.w = NULL, sdb.max = NULL, inits = NULL, sdc.est = FALSE){
+  if(!is.null(inits)) inits <- match.arg(inits, c("prior", "spict", "best"))
   args <- .fn_args()
   nseason <- as.integer(nseason); if(length(nseason) != 1 || nseason < 1) stop("nseason must be a positive integer", call. = FALSE)
   if(!is.numeric(catch.alloc)) catch.alloc <- match.arg(catch.alloc, c("F", "equal", "Fstate"))
@@ -102,11 +126,11 @@ jb3_model <- function(shape = c("pella", "schaefer", "fox"), BmsyK = 0.4, lag = 
   }
   if(rho < 0 || rho >= 1) stop("rho must be in [0, 1)", call. = FALSE)
   structure(list(shape = shape, rho = rho, rw = rw, rw.scale = rw.scale, BmsyK = BmsyK, m = m, lag = lag, sdb.form = sdb.form, sdb.fixed = sdb.fixed, xlim = xlim,
-                 biascor = biascor, start = start, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
+                 biascor = biascor, start = start, pe.ramp = pe.ramp, obs.error = obs.error, se.min = se.min, se.na = se.na, sets.q = sets.q,
                  sets.var = sets.var, catch.error = catch.error, sdc = sdc, ebsb = ebsb, ebsb.index = ebsb.index,
                  ebsb.catch = ebsb.catch, ebsb.removal = ebsb.removal, q.uniform = q.uniform, P.bound = P.bound,
                  K.bound = K.bound, sdi.bound = sdi.bound, sdi.est = sdi.est, param = param, effort.creep = effort.creep, aux.q = aux.q,
-                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, nseason = nseason, catch.alloc = catch.alloc,
+                 aux.sd = aux.sd, aux.se.min = aux.se.min, frw.all = frw.all, frw = if(is.null(frw)) NULL else match.arg(frw, c("gaps", "index", "all")), inits = inits, sdc.est = sdc.est, nseason = nseason, catch.alloc = catch.alloc,
                  season.w = season.w, sdb.max = sdb.max),
             class = "jb3model", args = args)
 }
@@ -117,6 +141,7 @@ print.jb3model <- function(x, ...){
       "\n  production lag:", x$lag, "\n  process error:", if(x$sdb.form == "const") "constant sdb" else "dynamic sdb x (B/Bmsy)^-k",
       if(!is.null(x$sdb.fixed)) sprintf("(level fixed at %.3f)", x$sdb.fixed) else "", if(x$biascor) "+ bias correction" else "", if(x$rho > 0) sprintf("+ AR(1) rho = %.2f", x$rho) else "",
       if(x$start == "index") "\n  deterministic before the first index year" else "",
+      if(!is.null(x$pe.ramp)) sprintf("\n  process-error ramp: SD x %.2f up to %d, x 1 from %d", if(length(x$pe.ramp) > 2) x$pe.ramp[3] else 0.01, as.integer(x$pe.ramp[1]), as.integer(x$pe.ramp[2])) else "",
       "\n  index error:", x$obs.error, if(x$catch.error) sprintf("\n  catch error: sdc = %s", if(length(x$sdc) > 1) paste(range(signif(x$sdc, 2)), collapse = "-") else sprintf("%.2f", x$sdc)) else "",
       if(identical(x$param, "noncentred")) "\n  non-centred process deviations" else "",
       if(!identical(x$effort.creep, 0)) paste0("\n  effort creep: ", if(is.numeric(x$effort.creep)) x$effort.creep else "estimated") else "",

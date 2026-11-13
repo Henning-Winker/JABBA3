@@ -27,7 +27,7 @@ test_that("tables and F-based projections", {
   expect_equal(names(kb), c("F<Fmsy", "B>Btrigger", "F<Fmsy & B>Btrigger"))
   kl <- jb3_kobematrix(pk, percent = TRUE, bref = c(Blim = 0.3), fref = NULL, risk = TRUE)
   expect_equal(attr(kl, "condition"), "B<Blim")
-  expect_equal(kl[, -1], 100 - jb3_kobematrix(pk, percent = TRUE, bref = c(Blim = 0.3), fref = NULL)[, -1])
+  expect_true(all(abs(as.matrix(kl[, -1]) - (100 - as.matrix(jb3_kobematrix(pk, percent = TRUE, bref = c(Blim = 0.3), fref = NULL)[, -1]))) <= 1))  # rounded percentages
   expect_error(jb3_kobematrix(pk, what = "F", fref = NULL))
   expect_s3_class(jbplot_kobematrix(pk, bref = c(Blim = 0.3), fref = NULL, risk = TRUE), "ggplot")
   pr <- jb3_project(f, scenarios = list(Fmsy = c(Fmsy = 1), Fcur = c(Fsq = 1), "0.8Fmsy" = c(Fmsy = 0.8), TAC = c(Catch = 6e4)),

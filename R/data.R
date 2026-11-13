@@ -363,3 +363,57 @@ print.jb3data <- function(x, ...){
 #' fit <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
 #' }
 "rjc"
+
+#' Two SS3 assessments with JABBA3 inputs: North Sea sole and blackspot seabream
+#'
+#' JABBA3 inputs and the SS3 "truth" for two stocks used in the user guide to compare JABBA3 with an integrated
+#' age-structured assessment. North Sea sole (\code{sol}, ICES sol.27.4) is a fully age-structured SS3 with empirical
+#' weight-at-age, a catch series from 1957 and two surveys from 1990. Blackspot seabream (\code{sbr}, GFCM GSA 1 and 3,
+#' sbr.37.1-3) is an ASPM-like SS3 (two sexes, protandric hermaphrodite) with catch from 1983 and two fishery CPUE
+#' series from 2009. Built by \code{data-raw/ss3_spict_examples.R} from the BioProcDyn analyses (\code{ss3sol},
+#' \code{ss3sbr}); indices were extracted from the SS3 output with \code{ss3diags2::ss2jabba3}.
+#' @format list with elements \code{sol} and \code{sbr}, each a list with
+#' \describe{
+#'   \item{stock}{stock name}
+#'   \item{catch}{data.frame(year, catch): total dead catch (t)}
+#'   \item{cpue, se}{data.frames (year, one column per index) of the indices and their log-scale SEs}
+#'   \item{info}{assessment summary, catch and index definitions, the priors used in the guide (\code{r} as
+#'     c(median, log.sd), \code{BmsyK}, \code{lag} = age at 50\% maturity, \code{rho} = exp(-2.2/GT)), SS3 reference
+#'     points (\code{refpts}), steepness \code{h} and, for \code{sbr}, the GFCM short-term forecast table
+#'     (\code{forecast}: catch and B/Btgt in 2027 and 2030 by F scenario)}
+#'   \item{biology}{biology and selectivity at age from the SS3 model}
+#'   \item{ss3}{SS3 trajectories: data.frame(year, quant = "B/Bmsy", "F/Fmsy" or "B/K", est, lci, uci), with 95\% CIs}
+#' }
+#' @examples
+#' data(ss3_examples)
+#' s <- ss3_examples$sol
+#' d <- jb3_data(s$catch, s$cpue, s$se, stock = "sol.27.4")
+#' \donttest{
+#' fit <- jabba3(d, jb3_priors(d, r = s$info$priors$r, K.cv = 0.3),
+#'               jb3_model(BmsyK = s$info$priors$BmsyK, frw = "index", start = "index"), osa = FALSE)
+#' }
+"ss3_examples"
+
+#' Four ICES WKBMSYSPiCT3 SPiCT benchmarks
+#'
+#' SPiCT inputs of the accepted runs of four stocks from the ICES WKBMSYSPiCT3 benchmark (2024), with the SPiCT fit
+#' summarised as annual B/Bmsy (at the start of the year) and F/Fmsy (yearly mean) for direct comparison with JABBA3:
+#' \code{nep} (Norway lobster FU32, reconstructed catch), \code{aru} (greater silver smelt aru.27.1234a), \code{dab}
+#' (dab in the Baltic, dab.27.22-32) and \code{cod} (coastal cod south of 67N, cod.27.2.coastS). Built by
+#' \code{data-raw/ss3_spict_examples.R}.
+#' @format list with elements \code{nep}, \code{aru}, \code{dab}, \code{cod}, each a list with
+#' \describe{
+#'   \item{stock}{stock name}
+#'   \item{inp}{SPiCT input list (refit with \code{spict::fit.spict(x$inp)} or convert with
+#'     \code{\link{spictinp2jabba3}()})}
+#'   \item{spict}{SPiCT trajectories: data.frame(year, quant = "B/Bmsy" or "F/Fmsy", est, lci, uci)}
+#'   \item{info}{benchmark, SPiCT estimates of K and r, maximum catch (\code{maxC}) and the input metadata}
+#' }
+#' @examples
+#' data(spict_examples)
+#' x <- spict_examples$dab
+#' xs <- spictinp2jabba3(x$inp, stock = x$stock)
+#' \donttest{
+#' fit <- jabba3(xs$data, xs$priors, xs$model, osa = FALSE)
+#' }
+"spict_examples"

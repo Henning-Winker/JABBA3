@@ -45,9 +45,10 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     } else SE2[, i] <- (semin %||% 0.1)^2
   }
   # priors (K and q on the catch-scaled internal units)
-  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*max(data$catch, na.rm = TRUE)
+  mC <- priors$maxC.value %||% NA; if(!is.finite(mC)) mC <- .max_catch(data, priors$maxC %||% "max")
+  K.pr <- priors$K; if(is.na(K.pr[1])) K.pr[1] <- 8*mC
   km <- priors$K.max %||% c(NA, NA, 0)
-  Kmax.pr <- if(km[3] == 1) c(log(km[1]*max(data$catch, na.rm = TRUE)/mucatch), km[2], 1) else c(0, 1, 0)
+  Kmax.pr <- if(km[3] == 1) c(log(km[1]*mC/mucatch), km[2], 1) else c(0, 1, 0)
   q.pr <- if(is.null(priors$q)) matrix(c(1, 1, 0), nq, 3, byrow = TRUE) else {
     x <- priors$q; if(nrow(x) == 1 && nq > 1) x <- x[rep(1, nq), , drop = FALSE]
     if(nrow(x) != nq) stop("q priors: one row per catchability group (", nq, ")", call. = FALSE); x[, 1] <- x[, 1]*mucatch; x }
@@ -71,10 +72,11 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
   ax <- .aux_setup(data, model, priors, Ny)
   dat <- list(
     N = N, TC = pmax(ifelse(cobs, data$catch/mucatch, 1), 1e-8),
-    nmiss = nmiss, miss_t = if(nmiss) as.integer(cmiss) else 1L, rw_t = .frw_steps(cobs, isTRUE(model$frw.all)),
+    nmiss = nmiss, miss_t = if(nmiss) as.integer(cmiss) else 1L, rw_t = .frw_steps(cobs, .frw_mode(model), if(nrow(ok)) as.integer(sst$stepyear[fi]) else 1L),
     sdf.pr = priors$sdf %||% c(0.3, 1, 0), cobs = as.integer(cobs), logIobs = log(I[ok]), obs_t = ok[, 1], obs_i = ok[, 2],
     SE2 = SE2, W = W, nI = nI, nq = nq, nvar = nvar, sets.q = as.integer(factor(sets.q)), sets.var = as.integer(factor(sets.var)),
     lagidx = pmax(seq_len(N) - as.integer(round(model$lag*ns)), 1), lag0 = as.integer(round(model$lag*ns)), stI = if(model$start == "index") fi else 1L,
+    pew = .pe_ramp(model$pe.ramp, data$years[sst$stepyear]),
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
     r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
@@ -86,10 +88,11 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     dyn = model$sdb.form == "dyn", est.k = model$sdb.form == "dyn" && priors$kdyn[3] == 1, xlim = model$xlim,
     biascor = isTRUE(model$biascor), spict = model$obs.error == "spict",
     catch.err = isTRUE(model$catch.error), sdc = .sdc_vec(model$sdc, data$catch.se, Ny), q.uniform = isTRUE(model$q.uniform),
+    est.sdc = isTRUE(model$catch.error) && isTRUE(model$sdc.est), sdc.pr = priors$sdc %||% c(0.1, 1, 0),
     eb.on = eb.on, ebm = ebm, ebci = as.integer(ei), ebcc = as.integer(ec), eb.rem = eb.on && isTRUE(model$ebsb.removal),
     nst = if(is.null(st)) 0L else nrow(st), st.t = if(is.null(st)) 1L else match(st$year, data$years),
     st.type = if(is.null(st)) "BK" else as.character(st$type), st.pr = if(is.null(st)) matrix(1, 1, 2) else cbind(st$median, st$log.sd),
-    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound,
+    P.bound = model$P.bound, K.bound = model$K.bound/mucatch, sdi.bound = model$sdi.bound, est.sdi = .sdi_est(model$sdi.est, nvar),
     sdb.max = if(is.null(model$sdb.max)) -1 else model$sdb.max,
     prior.only = isTRUE(prior.only), nc = isTRUE(nc)
   )
@@ -103,30 +106,43 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
       else stop("status prior years outside the data years", call. = FALSE)
     }
   }
-  par <- jb3_inits(dat)
+  dat$msy.guess <- .guess_msy(data)/mucatch
+  dat$maxC.int <- mC/mucatch                       # max catch (internal units) for the r-based plausibility bound
+  dat$sdc.rel <- dat$sdc/(model$sdc[1] %||% 0.1)
+  inits <- model$inits %||% (if(priors$K[3] != 1) "best" else "prior")
+  par <- jb3_inits(dat, start = if(identical(inits, "spict")) "spict" else "prior")
   map <- list()
   if(!dat$est.m) map$logm <- factor(NA)
   if(!dat$est.sdb) map$logsdb <- factor(NA)
   if(!dat$est.k) map$tk <- factor(NA)
   if(!dat$est.rho) map$trho <- factor(NA)
   if(!dat$catch.err) map$cdev <- factor(rep(NA, Ny)) else if(nmiss > 0) map$cdev <- factor(ifelse(cobs, seq_len(Ny), NA))
-  if(nmiss == 0){ map$lH <- factor(NA); map$logsdf <- factor(NA) }
+  if(nmiss == 0){ map$lH <- factor(NA); if(length(dat$rw_t) == 0) map$logsdf <- factor(NA) }
+  if(!dat$est.sdc) map$logsdc <- factor(NA)
   if(nI == 0 || dat$prior.only){ map$logq <- factor(rep(NA, nq)); map$logsdi <- factor(rep(NA, nvar)) }
-  if(nI > 0 && isFALSE(model$sdi.est)){ map$logsdi <- factor(rep(NA, nvar)); par$logsdi <- rep(log(1e-4), nvar) }
+  if(nI > 0 && !all(dat$est.sdi == 1)){ e <- dat$est.sdi == 1                       # per variance group: input SEs only where FALSE
+    map$logsdi <- factor(ifelse(e, cumsum(e), NA)); par$logsdi[!e] <- log(1e-4) }
   map$logqA <- factor(ifelse(dat$est.qA & !dat$prior.only, seq_along(dat$est.qA), NA))
   map$logsdA <- factor(ifelse(dat$est.sdA & !dat$prior.only, seq_along(dat$est.sdA), NA))
   if(!dat$est.creep) map$creep <- factor(NA)
   if(dat$nc){ par$zP <- rep(0, N); par$logP <- NULL }
   random <- c(if(dat$nc) "zP" else "logP", if(dat$catch.err) "cdev", if(nmiss > 0) "lH")
-  list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok, nseason = ns,
+  list(dat = dat, par = par, map = map, random = random, mucatch = mucatch, years = data$years, obs = ok, nseason = ns, start = inits,
        index.names = colnames(data$I), data = data)
 }
 
 # starting values from a deterministic trajectory at the prior medians
-jb3_inits <- function(dat, jitter = 0){
+# start = "prior": prior medians (K = K prior median, r = r prior median, bkinit = bkinit prior median)
+# start = "spict": as spict::check.inp(): K = 4 x max catch, MSY from spict's guess.m() (regression of catch on catch/index;
+#   mean catch if the fit is poor), r = MSY m / (K Bmsy/K), bkinit 0.8
+jb3_inits <- function(dat, jitter = 0, start = "prior", Kmult = 4){
   N <- dat$N; m <- dat$mu.m
-  K <- dat$K.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.3)); if(dat$Kmax.pr[3] == 1) K <- min(K, 0.8*exp(dat$Kmax.pr[1])); r <- dat$r.pr[1]*exp(jitter*stats::rnorm(1, 0, 0.2))
-  bk <- min(max(dat$bk.pr[1], 0.05), 1.2)
+  if(identical(start, "spict")){
+    K <- Kmult*max(dat$TC[dat$cobs == 1]); r <- min(max((dat$msy.guess %||% mean(dat$TC))*m/(K*dat$BmsyK0), 0.01), 2); bk <- 0.8
+  } else {
+    K <- dat$K.pr[1]; r <- dat$r.pr[1]; bk <- min(max(dat$bk.pr[1], 0.05), 1.2)
+  }
+  K <- K*exp(jitter*stats::rnorm(1, 0, 0.3)); if(dat$Kmax.pr[3] == 1) K <- min(K, 0.8*exp(dat$Kmax.pr[1])); r <- r*exp(jitter*stats::rnorm(1, 0, 0.2))
   rem <- function(p, t) if(dat$eb.rem) .rho_curve(p, dat$ebm[dat$ebcc[t], ]) else 1
   TC <- dat$TC
   if(dat$nmiss > 0){ o <- which(dat$cobs == 1)
@@ -155,7 +171,8 @@ jb3_inits <- function(dat, jitter = 0){
   lapply(list(logK = log(K), logr = log(r), logq = lq, lbk = log(bk), logm = log(m),
        logsdb = log(if(dat$est.sdb) sdb0 else dat$sdb.fix), logsdi = rep(log(0.2), dat$nvar), tk = stats::qlogis(k0), trho = stats::qlogis(min(max((if(dat$est.rho) dat$rho.pr[1] else dat$rho.fix)/0.99, 0.01), 0.99)),
        logP = log(P), cdev = rep(0, dat$Ny), logqA = lqA, logsdA = log(dat$sdA.fix), creep = dat$creep.fix,
-       lH = if(dat$nmiss > 0) log(pmin(H0[dat$miss_t], 0.9)) else 0, logsdf = log(if(dat$sdf.pr[3] == 1) dat$sdf.pr[1] else 0.3)), unname)
+       lH = if(dat$nmiss > 0) log(pmin(H0[dat$miss_t], 0.9)) else 0, logsdf = log(if(dat$sdf.pr[3] == 1) dat$sdf.pr[1] else 0.3),
+       logsdc = log(if(isTRUE(dat$sdc.pr[3] == 1)) dat$sdc.pr[1] else 0.1)), unname)
 }
 
 # Negative log posterior (RTMB)
@@ -181,12 +198,16 @@ jb3_nll <- function(par, dat){
   }
   sdi <- exp(logsdi)
   if(spict) nll <- nll - sum(sdi.pr[, 3]*dnorm(logsdi, log(sdi.pr[, 1]), sdi.pr[, 2], TRUE))
-  else nll <- nll - sum(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi))         # JABBA: gamma(0.001, 0.001) on 1/sdi^2
+  else nll <- nll - sum(est.sdi*(0.001*(-2*logsdi) - 0.001*exp(-2*logsdi)))   # JABBA: gamma(0.001, 0.001) on 1/sdi^2 (only where sdi is estimated)
   if(dyn){
     if(est.k){ pk <- 1/(1 + exp(-tk)); kdyn <- -0.5 + 2.5*pk
       nll <- nll - dnorm(kdyn, kd.pr[1], kd.pr[2], TRUE) - log(2.5*pk*(1 - pk)) } else kdyn <- kd.pr[1]
   } else kdyn <- 0
   #--- catch
+  if(est.sdc){                                       # estimated catch SD (SPiCT sdc), year-specific multipliers (stdevfacC)
+    sdc <- exp(logsdc)*sdc.rel
+    if(sdc.pr[3] == 1) nll <- nll - dnorm(logsdc, log(sdc.pr[1]), sdc.pr[2], TRUE)
+  }
   if(catch.err){ estC <- TC*exp(cdev); nll <- nll - sum(dnorm(cdev, 0, sdc, TRUE)) } else estC <- TC
   # step catch: annual catch x within-year share (fixed shares; equal-F years are reset below from the states)
   estCS <- estC[stepyear]*cshare
@@ -203,13 +224,13 @@ jb3_nll <- function(par, dat){
     # non-centred: standard normal innovations zP; the states follow from the process equation (same model as centred)
     sdf1 <- if(dyn) sdb*lclamp(bk/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb
     logP <- 0*zP
-    logP[1] <- lbk + sqrt(if(stI > 1) 1e-4 else sdf1^2)*zP[1]
+    logP[1] <- lbk + sqrt(if(stI > 1) 1e-4 else (sdf1*pew[1])^2 + 1e-8)*zP[1]
     dprev <- 0*lbk
     if(N > 1) for(t in 2:N){
       Pp <- exp(logP[t - 1]); Pl <- exp(logP[lagidx[t - 1]])
       remt <- if(eb.rem) rhof(Pp, ebcc[t - 1]) else 1
       pm <- log(smax(Pp + gfac[t - 1]*r/(m - 1)*Pl*(1 - Pl^(m - 1)) - estCS[t - 1]/(K*remt), 0.001, 1e-7))
-      sdp <- if(dyn) sdb*lclamp(Pp/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb
+      sdp <- (if(dyn) sdb*lclamp(Pp/BmsyK, xlim[1], xlim[2])^(-kdyn) else sdb)*pew[t]
       vt <- if(t < stI) 1e-4 + 0*sdb else sdp^2/vf
       mut <- if(biascor) pm - 0.5*vt else pm
       dt <- if(t == 2 || (!rw && !(est.rho || rho.fix > 0))) sqrt(vt)*zP[t] else
@@ -229,6 +250,14 @@ jb3_nll <- function(par, dat){
     nll <- nll - sum(dnorm(lHt[rw_t], lHt[rw_t - 1], sdf, TRUE))
     if(sdf.pr[3] == 1) nll <- nll - dnorm(logsdf, log(sdf.pr[1]), sdf.pr[2], TRUE)
     estCS <- estC[stepyear]*cshare
+  }
+  # full F random walk (frw.all = TRUE) when every year has catch: log harvest rate H_y = C_y/(K P_y rem_y), with the
+  # estimated catch (catch error) and the biomass at the start of the year (first season with nseason > 1)
+  if(nmiss == 0 && length(rw_t) > 0){
+    Py <- P[yr1]; ry <- rem[yr1]
+    lHt <- log(estC/(K*Py*ry))
+    nll <- nll - sum(dnorm(lHt[rw_t], lHt[rw_t - 1], sdf, TRUE))
+    if(sdf.pr[3] == 1) nll <- nll - dnorm(logsdf, log(sdf.pr[1]), sdf.pr[2], TRUE)
   }
   # equal-F allocation of annual catch: constant harvest fraction h_y within the year.
   # allocF = 1 (default "F"): sequential (Markov): h_y and the seasonal shares come from a deterministic projection of the
@@ -254,6 +283,7 @@ jb3_nll <- function(par, dat){
   #--- process variance (v[t] applies to the transition into year t)
   if(dyn){ sdt <- sdb*lclamp(BBmsy, xlim[1], xlim[2])^(-kdyn); sd1 <- sdb*lclamp(bk/BmsyK, xlim[1], xlim[2])^(-kdyn) }
   else { sdt <- sdb + 0*P; sd1 <- sdb }
+  sd1 <- sd1*pew[1]; if(N > 1) sdt[1:(N - 1)] <- sdt[1:(N - 1)]*pew[2:N]   # process-error ramp (pe.ramp): SD of the transition into t
   v <- 0*P
   v[1] <- if(stI > 1) 1e-4 else sd1^2
   if(N > 1) v[2:N] <- sdt[1:(N - 1)]^2/vf
@@ -343,7 +373,9 @@ jb3_nll <- function(par, dat){
   if(est.k) RTMB::ADREPORT(kdyn)
   if(est.rho) RTMB::ADREPORT(rho)
   if(catch.err || nmiss > 0) RTMB::ADREPORT(estC)
-  if(nmiss > 0) RTMB::ADREPORT(logsdf)
+  if(nmiss > 0 || length(rw_t) > 0) RTMB::ADREPORT(logsdf)
+  if(est.sdc) RTMB::ADREPORT(logsdc)
+  sdc.est <- if(est.sdc) exp(logsdc) else sdc[1]; RTMB::REPORT(sdc.est)
   RTMB::REPORT(K); RTMB::REPORT(r); RTMB::REPORT(q); RTMB::REPORT(bk); RTMB::REPORT(m); RTMB::REPORT(sdb); RTMB::REPORT(sdi)
   RTMB::REPORT(kdyn); RTMB::REPORT(rho); RTMB::REPORT(BmsyK); RTMB::REPORT(Hmsy); RTMB::REPORT(MSY); RTMB::REPORT(P); RTMB::REPORT(BBmsy)
   RTMB::REPORT(sdf); RTMB::REPORT(H); RTMB::REPORT(HHmsy); RTMB::REPORT(estC); RTMB::REPORT(Pmean); RTMB::REPORT(procdev); RTMB::REPORT(sdt)
@@ -355,11 +387,20 @@ jb3_nll <- function(par, dat){
   nll
 }
 
-# steps t (2..N) whose harvest-rate increment enters the F random walk: only increments involving a year without catch
-# (default), or all steps when all = TRUE (SPiCT-like; sdf informed by the years with catch)
-.frw_steps <- function(cobs, all = FALSE){
-  N <- length(cobs); if(all(cobs) || N < 2) return(integer(0))
-  t <- 2:N; as.integer(if(all) t else t[!cobs[t] | !cobs[t - 1]])
+# steps t (2..Ny) whose harvest-rate increment enters the F random walk:
+#   "gaps"  only increments involving a year without catch (JABBA-like, catch-conditioned otherwise)
+#   "index" from the first index year to the end (and gaps): catch-conditioned before the indices, SPiCT-like after
+#   "all"   all steps (SPiCT-like)
+# The walk acts on log H_y = estimated catch / (K P_y); with "index" or "all" it applies also when every year has catch.
+.frw_steps <- function(cobs, mode = "gaps", fy = 1L){
+  N <- length(cobs); if(N < 2) return(integer(0))
+  t <- 2:N; gap <- t[!cobs[t] | !cobs[t - 1]]
+  as.integer(switch(mode, all = t, index = sort(unique(c(gap, t[t - 1 >= fy]))), gap))
+}
+# F random-walk mode: model$frw ("gaps", "index", "all"); legacy frw.all = TRUE -> "all"
+.frw_mode <- function(model){
+  m <- model$frw %||% (if(isTRUE(model$frw.all)) "all" else "gaps")
+  match.arg(m, c("gaps", "index", "all"))
 }
 
 # year-specific catch SD (log scale): data$catch.se (from jb3_data(catch.se =), NA = model sdc) or a vector sdc in the model
@@ -410,4 +451,36 @@ jb3_nll <- function(par, dat){
   if(nrow(m) != nvar) stop("the sdi prior has ", nrow(m), " rows but the model has ", nvar, " observation-variance groups (sets.var)", call. = FALSE)
   m[m[, 3] != 1, 1:2] <- 1                       # unused priors: finite placeholders
   unname(m)
+}
+
+# MSY guess as spict::guess.m(): Schaefer regression of catch on catch/index (first index, overlapping years);
+# MSY = -a^2/(4 b); mean catch if MSY <= 0 or R^2 < 0.3
+.guess_msy <- function(data){
+  C <- data$catch; mc <- mean(C, na.rm = TRUE)
+  if(is.null(data$I) || ncol(data$I) == 0) return(mc)
+  z <- data$I[, 1]; ok <- is.finite(C) & is.finite(z) & z > 0
+  if(sum(ok) < 3) return(mc)
+  y <- C[ok]; z <- z[ok]; x <- y/z
+  fit <- tryCatch(stats::lm(z ~ x), error = function(e) NULL); if(is.null(fit)) return(mc)
+  a <- stats::coef(fit)[1]; b <- stats::coef(fit)[2]; msy <- -0.25*a^2/b
+  if(!is.finite(msy) || msy <= 0 || summary(fit)$r.squared < 0.3) mc else unname(msy)
+}
+
+# r-based plausibility bound on K (multiple of max catch): 95th percentile of K/max catch in 72 ICES stocks
+.kmax_r <- function(r) 7.6*r^-0.587
+
+# process-error ramp (as the SS3 recruitment-deviation bias ramp): SD multiplier w_t by model step, linear from wmin at
+# year y1 to 1 at year y2 (w = wmin before y1, 1 from y2); NULL = 1 in all steps
+.pe_ramp <- function(ramp, years){
+  if(is.null(ramp)) return(rep(1, length(years)))
+  y1 <- ramp[1]; y2 <- ramp[2]; wmin <- if(length(ramp) > 2) ramp[3] else 0.01
+  pmin(1, pmax(wmin, wmin + (1 - wmin)*(years - y1)/(y2 - y1)))
+}
+
+# sdi.est: TRUE/FALSE for all indices, or one logical per variance group (sets.var; default one group per index)
+.sdi_est <- function(x, nvar){
+  if(is.null(x)) x <- TRUE
+  if(length(x) == 1) x <- rep(x, nvar)
+  if(length(x) != nvar) stop("sdi.est: give one value or one per variance group (", nvar, ")", call. = FALSE)
+  as.numeric(as.logical(x))
 }

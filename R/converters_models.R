@@ -124,9 +124,15 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
 #' @param inp SPiCT input list
 #' @param stock stock name
 #' @param verbose print conversion messages
+#' @param spict.like TRUE (default): SPiCT's process structure as far as JABBA3 has it: random walk on F in all years
+#'   (\code{frw = "all"}; with catch known, the smoothness of F is what identifies the scale K in SPiCT), catch SD
+#'   estimated when SPiCT has a \code{logsdc} prior (\code{sdc.est = TRUE}; without a prior the estimate tends to collapse
+#'   to 0 in JABBA3, so sdc stays fixed), sdf without prior unless SPiCT has one, and the
+#'   best of prior-median and SPiCT-like starting values when the K prior is off (\code{inits = NULL}). FALSE: catch-
+#'   conditioned JABBA model with the catch SD fixed at sdc (\code{frw = "gaps"}; earlier behaviour).
 #' @return list(data, priors, model)
 #' @export
-spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE){
+spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE, spict.like = TRUE){
   msg <- function(...) if(verbose) message("spictinp2jabba3: ", ...)
   pr <- inp$priors %||% list(); ini <- inp$ini %||% list(); ph <- inp$phases %||% list()
   if(is.null(inp$obsC) || is.null(inp$timeC)) stop("inp needs obsC and timeC", call. = FALSE)
@@ -184,17 +190,28 @@ spictinp2jabba3 <- function(inp, stock = "stock", verbose = TRUE){
   n.fix <- !is.null(ph$logn) && ph$logn < 0
   if(n.fix){ m <- exp(as.numeric(ini$logn %||% log(2))); m.pr <- c(NA, 0.3, 0) }
   else if(!is.null(n) && n[3] == 1){ m <- n[1]; m.pr <- n }
+  else if(on(pr$logngamma)){                     # SPiCT gamma prior on log n (shape, rate): lognormal on n with the same mean/sd of log n
+    g <- as.numeric(pr$logngamma); mu <- g[1]/g[2]; sdl <- sqrt(g[1])/g[2]
+    m <- exp(mu); m.pr <- c(exp(mu), sdl, 1)
+    msg("logngamma prior (", signif(g[1], 3), ", ", signif(g[2], 3), ") carried as m ~ LN(", signif(m, 3), ", ", signif(sdl, 2), ")") }
   else { m <- 2; m.pr <- c(NA, 0.3, 0); msg("n neither fixed nor with a prior: Schaefer shape (n = 2) used") }
   shape <- if(abs(m - 2) < 1e-6) "schaefer" else "pella"
   bmsyk <- if(shape == "schaefer") 0.5 else m^(-1/(m - 1))
   sdc <- if(on(pr$logsdc)) exp(pr$logsdc[1]) else exp(as.numeric(ini$logsdc %||% log(0.1)))
   cse <- data.frame(year = cyrs, se = sdc*sfC)
   data <- jb3_data(catch, I, S, stock = stock, catch.se = cse, catch.gaps = if(gaps) "estimate" else "stop")
+  sdc.fix <- !is.null(ph$logsdc) && ph$logsdc < 0
+  sdc.pr <- if(on(pr$logsdc)) lp1(pr$logsdc) else c(0.1, 1, 0)
   priors <- jb3_priors(data, r = r, K = K, bkinit = bk, sdb = sdb, m = m.pr, sdi = sdi,
-                       sdf = if(on(sdf)) sdf else c(0.3, 0.5, 1))
+                       sdf = if(on(sdf)) sdf else if(spict.like) c(0.3, 0.5, 0) else c(0.3, 0.5, 1), sdc = sdc.pr)
   model <- jb3_model(shape = shape, BmsyK = bmsyk, obs.error = "spict", catch.error = TRUE, sdc = sdc,
-                     sets.var = sets.var, sets.q = sets.q)
-  msg("catch error: sdc = ", signif(sdc, 2), if(any(sfC != 1)) paste0(" x stdevfacC (catch SD ", paste(signif(range(sdc*sfC), 2), collapse = "-"), ")"),
+                     sets.var = sets.var, sets.q = sets.q, frw = if(spict.like) "all" else "gaps", sdc.est = spict.like && !sdc.fix && on(pr$logsdc),
+                     inits = if(spict.like) NULL else "prior")
+  if(spict.like) msg("SPiCT-like: random walk on F in all years (frw = \"all\"; sdf ", if(on(sdf)) "with the SPiCT prior" else "without prior",
+                     "); catch SD ", if(on(pr$logsdc) && !sdc.fix) "estimated with the SPiCT logsdc prior (sdc.est = TRUE; stdevfacC as multipliers)" else
+                       paste0("fixed at ", signif(sdc, 2), " (no SPiCT logsdc prior: estimated without a prior, sdc tends to collapse to 0)"),
+                     "; starting values: best of prior-median and SPiCT-like starts when the K prior is off (inits = NULL)")
+  else msg("catch error: sdc = ", signif(sdc, 2), if(any(sfC != 1)) paste0(" x stdevfacC (catch SD ", paste(signif(range(sdc*sfC), 2), collapse = "-"), ")"),
       "; the F process is only modelled in years without catch")
   list(data = data, priors = priors, model = model)
 }
