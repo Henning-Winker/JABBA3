@@ -1,0 +1,13 @@
+test_that("K = 'halfN' / 'half+r': one-sided K prior through K.max, K prior off; jb3_kr", {
+  set.seed(3); y <- 1990:2015; n <- length(y); B <- 1000*exp(-0.04*(seq_len(n) - 1))
+  d <- jb3_data(data.frame(year = y, catch = 40 + 2*seq_len(n)), data.frame(year = y, I = B*exp(rnorm(n, 0, 0.15))/1000))
+  p6 <- jb3_priors(d, K = "half6"); expect_equal(unname(p6$K.max[1:3]), c(6, 0.55, 1)); expect_equal(unname(p6$K[3]), 0)
+  expect_equal(unname(jb3_priors(d, K = "half")$K.max[1]), 6)
+  expect_equal(unname(jb3_priors(d, K = "half4")$K.max[1]), 4)
+  expect_equal(unname(jb3_priors(d, r = c(0.3, 0.5), K = "half+r")$K.max[1]), unname(jb3_kr(r = 0.3)["median"]))
+  expect_equal(unname(jb3_kr(r = 0.2)["median"]), 3.04*0.2^-0.583)
+  expect_equal(unname(jb3_kr(GT = 10, maxC = 100)["K"]), 1.71*10^0.58*100)
+  expect_error(jb3_priors(d, K = "halfx"), "half")
+  f <- suppressWarnings(jabba3(d, jb3_priors(d, r = c(0.3, 0.3), K = "half6"), jb3_model(), osa = FALSE))
+  expect_true(is.finite(f$opt$objective))
+})

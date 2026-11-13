@@ -36,7 +36,7 @@ pins K.
 | `jb3_model(frw = )` | `"gaps"`: random walk on log harvest rate only in years without catch (catch-conditioned otherwise, as JABBA); `"index"`: catch-conditioned before the first index year, random walk from there to the end; `"all"`: random walk in all years (SPiCT-like) | `"gaps"` (`spictinp2jabba3()`: `"all"`) |
 | `jb3_priors(sdf = )` | prior on the random-walk SD | LN(0.3, 1) |
 | `jb3_model(sdc = , sdc.est = )` | catch SD fixed (`sdc`, year-specific via `jb3_data(catch.se = )`) or estimated (`sdc.est = TRUE`, prior `jb3_priors(sdc = )`, year-specific SDs as multipliers) | fixed at 0.1 (JABBA `catch.cv = 0.1`) |
-| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1 (e.g. `"jabba6"`, the recommended starting point; see *The K prior* below) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
+| `jb3_priors(K = )` | `c(median, log.sd, on)`; `"jabba"` = 8 × max catch, CV 1; `"jabbaN"` = N × max catch, CV 1; `"halfN"` = one-sided at N × max catch (`"half6"` recommended; see *The K prior* below) | `"jabba"` (`spictinp2jabba3()`: off unless SPiCT has a logK prior) |
 | `jb3_priors(maxC = )` | max catch for the K prior and the cap: `"max"` (annual maximum, as JABBA) or `"smooth"` (maximum of the catch smoothed with a normal kernel, bandwidth 3 years, as CMSY) | `"max"` |
 | `jb3_priors(K.max = )` | soft upper prior on K: `"r"` (cap = 7.6 × max catch × r^-0.587, the 95th percentile of K/max catch in 72 ICES stocks), a multiple of max catch, or `NULL` | `NULL` (off; `jabba3()` warns when K exceeds the `"r"` bound) |
 | `jb3_model(inits = )` | starting values: `"prior"`, `"spict"` (K = 4 × max catch, MSY from SPiCT's catch/index regression) or `"best"` (several starts plus K-profile starts, lowest converged objective) | `"best"` when the K prior is off, else `"prior"` |
@@ -221,7 +221,7 @@ knitr::include_graphics("figures/fig_sbr_frw_modes.png")
 | Process error | inverse-gamma prior on the variance, iid deviations, production from the previous year | life-history (FishLife) prior on sdb; optional AR(1) persistence (`rho`), production lag (`lag`), state-dependent variance, SD ramps (`pe.ramp`) |
 | Catch dynamics | catch-conditioned | catch-conditioned (`frw = "gaps"`), hybrid (`"index"`) or F random walk in all years (`"all"`) |
 | Missing catch | not allowed | `jb3_data(catch.gaps = "estimate")`: catch estimated with a random walk on log F in years without catch |
-| K prior | 8 × max catch, CV 1 | `"jabba"` (8 ×, CV 1), `"jabbaN"` (N × max catch), any lognormal or off; recommended starting points below |
+| K prior | 8 × max catch, CV 1 | `"jabba"` (8 ×, CV 1), `"jabbaN"`, one-sided `"halfN"` / `"half+r"` (recommended `"half6"`), any lognormal or off |
 | Starting values | fixed inits | `inits = "best"`: multi-start with K-profile and near-deterministic starts |
 | K cap | none | `K.max` (off by default; plausibility warning above the r-based bound) |
 | Initial status | ψ = B~1~/K | `bkinit`, or `bbmsyinit` (B~1~/B~MSY~) |
@@ -271,43 +271,79 @@ signif(fj$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 
 ## The K prior: recommended starting points
 
-JABBA's default K prior, 8 × max catch with CV 1, tends to be too high as a
-centre. Across 73 ICES stocks, the unfished exploitable biomass (Beverton–Holt
-equilibrium) was a median of 5.9 × the maximum catch (interquartile range
-3.8–8.2 ×), and the ratio declined with productivity: about 3 × for stocks with
-generation times up to 4 years, 5 × for 4–8 years and 6–7 × for longer
-generation times. As starting points:
+**Where the information on K is.** The profile likelihood of K is asymmetric: a
+steep wall on the left, because the observed catches cannot be taken from a stock
+that is too small, and a flat or weak right side, where many stocks cannot tell a
+large K from a very large one (in the profiles below, North Sea sole is flat to
+80 × max catch and Nephrops FU32 has a finite mode followed by a ridge towards
+K → ∞). The data supply the lower bound; a prior is needed only on the upper side.
+A lognormal centred on the expected K spends half of its information where the
+data already decide and is weakest where it is needed.
 
-| Situation | K prior | Shortcut |
-|---|---|---|
-| Default starting point | 6 × max catch, CV 1 | `K = "jabba6"` |
-| Short generation time / high productivity (GT < 5 years, r > 0.5) | 4 × max catch, CV 1 | `K = "jabba4"` |
-| Series that mostly reflect depleted or rebuilding states (the maximum catch was taken from an already reduced stock) | 4 × max catch, CV 1 | `K = "jabba4"` |
-| Reproducing a JABBA assessment | 8 × max catch, CV 1 | `K = "jabba"` |
-
-A predictive prior can be computed externally from the same relations, given the
-median of the r prior or the generation time (ICES stocks; residual log-SD 0.55
-and 0.57):
-
-$$K/C_{max} = 3.04\, r^{-0.583}, \qquad K/C_{max} = 1.71\, GT^{0.58}$$
-
-```{r kprior-predictive}
-mC   <- jb3_priors(d)$maxC.value                 # max catch used by the K prior
-r.md <- 0.2                                      # median of the r prior
-K.r  <- c(median = 3.04*r.md^-0.583*mC, log.sd = 0.55, on = 1)
-GT   <- 10                                       # or from the generation time (e.g. jb3_leslie())
-K.gt <- c(median = 1.71*GT^0.58*mC, log.sd = 0.57, on = 1)
-round(rbind(r = K.r, GT = K.gt), 2)
-pr.k <- jb3_priors(d, r = c(0.2, 0.5), K = K.r)
+```{r fig-kprofile, echo = FALSE, out.width = "100%"}
+knitr::include_graphics("figures/kprofile_stocks.png")
 ```
 
-The r-based `K.max = "r"` bound (7.6 × max catch × r^-0.587) has the same slope
-and lies about 2.5 × above the median relation, at the 95th percentile. These
-relations describe exploited ICES stocks, most of which were fished below
-0.2 K at some point; lightly exploited, slow-growing stocks (rays, sharks,
-deep-water species) can lie well above them. Check the fit with
-`jbplot_priorpost()`: if the posterior of K sits on the prior, the data do not
-inform the scale, and the K prior (or the choice of `frw`) decides the status.
+**The empirical scale.** Across 73 ICES stocks, the unfished exploitable biomass
+(Beverton–Holt equilibrium) was a median of 5.9 × the maximum catch, with a
+between-stock log-SD of 0.55 (interquartile range 3.8–8.2 ×); the ratio declines
+with productivity (about 3 × for generation times up to 4 years, 5 × for 4–8
+years, 6–7 × for longer ones). JABBA's 8 × max catch with CV 1 is right as an
+*expected value*: bias-corrected to the median of a lognormal,
+$8 \times e^{-\sigma^2/2}$ = 5.7 × for σ = 0.83, almost the empirical median. JABBA
+uses 8 × as the median, which shifts the whole prior right by $e^{\sigma^2/2}$ = 1.41.
+
+**One-sided empirical prior (`K = "halfN"`).** Combining both points: no penalty
+below N × max catch and a half-normal on log K above it, with the empirical
+between-stock log-SD of 0.55. The location is a median; for an expected value E
+use $E\,e^{-\sigma^2/2}$.
+
+| Situation | K prior |
+|---|---|
+| Recommended starting point | `K = "half6"` (or `"half"`): flat below 6 × max catch, half-normal (log-SD 0.55) above |
+| Short generation time / high productivity (GT < 5 years, r > 0.5); series that mostly reflect depleted or rebuilding states (the maximum catch was taken from an already reduced stock) | `K = "half4"` |
+| Location predicted from r | `K = "half+r"`: 3.04 r^-0.583 × max catch (`jb3_kr()`) |
+| Two-sided lognormal at a chosen scale | `K = "jabbaN"` (N × max catch, CV 1) or `K = c(median, log.sd)` |
+| Reproducing a JABBA assessment | `K = "jabba"` (8 × max catch as median, CV 1) |
+
+Posterior mode of K / max catch (profile likelihood + prior) against the K of the
+reference assessment:
+
+| Stock (reference) | Reference | No prior | `"jabba"` (8 ×, CV 1) | `"half6"` |
+|---|---|---|---|---|
+| Blackspot seabream (SS3) | 8.1 | 10.5 | 9.6 | 8.3 |
+| North Sea sole (SS3) | 6.7 | 12.3 | 10.6 | 9.3 |
+| Nephrops FU32 (SPiCT) | 5.8 | 5.6 | 5.7 | 5.6 |
+| Anglerfish aru.27.1234a (SPiCT) | 6.2 | 6.5 | 6.8 | 6.3 |
+
+In full fits, `K = "half6"` gives blackspot seabream $B/B_{MSY}$ 0.08 and
+$F/F_{MSY}$ 2.06 (SS3 0.08 and 1.65), North Sea sole 1.02 and 0.16 (SS3 1.03 and
+0.17), leaves the SPiCT-type fits of Nephrops and anglerfish unchanged, and turns
+the JABBA-like fit of Nephrops FU32 from $B/B_{MSY}$ 1.48 (two-sided 6 × prior) to
+0.13 (SPiCT 0.12).
+
+`jb3_kr()` returns the predicted median and log-SD from r or the generation time
+(73 ICES stocks: $K/C_{max} = 3.04\, r^{-0.583}$, residual log-SD 0.55;
+$K/C_{max} = 1.71\, GT^{0.58}$, 0.57), for use as a location (`K.max`) or as a
+two-sided prior:
+
+```{r kprior-predictive}
+jb3_kr(r = 0.2)                                     # median multiple of max catch, log-SD
+mC  <- jb3_priors(d)$maxC.value
+kr  <- jb3_kr(GT = 10, maxC = mC)
+pr.half <- jb3_priors(d, r = c(0.2, 0.5), K = "half6")             # one-sided, recommended
+pr.gt   <- jb3_priors(d, r = c(0.2, 0.5), K.max = kr[c("median", "log.sd")], K = c(NA, 1, 0))  # one-sided at the GT prediction
+pr.two  <- jb3_priors(d, r = c(0.2, 0.5), K = c(kr[["K"]], kr[["log.sd"]]))                     # two-sided lognormal
+```
+
+These relations describe exploited ICES stocks, most fished below 0.2 K at some
+point; lightly exploited, slow-growing stocks (rays, sharks, deep-water species)
+can lie well above them. The r relation can mislead when the r prior itself is
+low for the life history (North Sea sole: r 0.181 for a generation time of 6.6
+years predicts 8.2 ×, the generation time 5.1 ×). Check the fit with
+`jbplot_priorpost()` and a K profile: if the posterior of K sits on the prior,
+the data do not inform the scale, and the K prior (or the choice of `frw`) decides
+the status.
 
 ## Approximating a SPiCT assessment
 

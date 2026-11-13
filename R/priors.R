@@ -8,6 +8,12 @@
 #' @param r intrinsic growth rate, on by default
 #' @param K carrying capacity prior c(median, log.sd[, on]); \code{NULL} or \code{"jabba"} = 8 x max catch with log.sd 0.833
 #'   (CV 1; the JABBA default, \code{build_jabba(K.prior = NULL)}); \code{"jabbaN"} = N x max catch, CV 1 (e.g. \code{"jabba4"})
+#'   \code{"half6"} (or \code{"half"}) = one-sided empirical prior: flat below 6 x max catch and a half-normal on log K above
+#'   it with log-SD 0.55 (median 5.9 and between-stock log-SD 0.55 of K / max catch in 73 ICES stocks; the data supply the
+#'   lower bound, so only the upper side needs a prior); \code{"halfN"} = the same at N x max catch (e.g. \code{"half4"} for
+#'   short generation times or series that mostly reflect depleted or rebuilding states); \code{"half+r"} = at the median
+#'   predicted from r, \code{jb3_kr(r)} (3.04 x r^-0.583 x max catch, r = median of the r prior). Implemented through \code{K.max} (the K prior is off). The
+#'   location is a median: for an expected value E (e.g. JABBA's 8 x with CV 1), use E x exp(-log.sd^2/2) (8 x gives 5.7 x)
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
 #' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
 #'   r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
@@ -67,9 +73,16 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = NULL, bkinit = c(0.9
   r <- pr3(r, "r")
   mC <- if(!is.null(data)) .max_catch(data, maxC) else NA
   if(is.null(K)) K <- "jabba"
+  if(is.character(K) && grepl("^half", K)){      # one-sided empirical K prior: flat below, half-normal on log K above
+    loc <- if(identical(K, "half")) 6 else if(K %in% c("half+r", "half.r")) jb3_kr(r = as.numeric(r[1]))[["median"]] else
+      if(grepl("^half[0-9.]+$", K)) as.numeric(sub("^half", "", K)) else
+      stop("K: \"half\", \"halfN\" (e.g. \"half6\", \"half4\") or \"half+r\"", call. = FALSE)
+    if(!is.null(K.max)) warning("K = \"", K, "\" replaces K.max", call. = FALSE)
+    K.max <- c(loc, 0.55); K <- c(loc*mC, 0.55, 0)
+  }
   if(is.character(K)){                           # "jabba" = 8 x max catch, CV 1 (JABBA default); "jabbaN" = N x max catch, CV 1
     mult <- if(grepl("^jabba[0-9.]+$", K)) as.numeric(sub("^jabba", "", K)) else if(identical(K, "jabba")) 8 else
-      stop("K must be c(median, log.sd[, on]), \"jabba\" (8 x max catch, CV 1) or \"jabbaN\" (N x max catch, CV 1)", call. = FALSE)
+      stop("K must be c(median, log.sd[, on]), \"jabba\" (8 x max catch, CV 1), \"jabbaN\" (N x max catch, CV 1), \"halfN\" or \"half+r\"", call. = FALSE)
     K <- c(mult*mC, cv2sd(1), 1)
   }
   K <- pr3(K, "K"); bkinit <- pr3(bkinit, "bkinit")
@@ -171,4 +184,26 @@ print.jb3priors <- function(x, ...){
   if(type == "max" || sum(ok) < 4) return(max(C[ok]))
   y <- data$years[ok]
   max(stats::ksmooth(y, C[ok], kernel = "normal", bandwidth = 3, n.points = length(y))$y)
+}
+
+#' Predicted K / max catch from r or the generation time
+#'
+#' Median and log-SD of K / max catch predicted from the intrinsic rate of increase r or the generation time GT, from the
+#' between-stock relations in 73 ICES stocks (K = unfished exploitable biomass, Beverton-Holt equilibrium):
+#' K / max catch = 3.04 r^-0.583 (residual log-SD 0.55) and 1.71 GT^0.58 (0.57). Without r or GT, the empirical median
+#' 5.9 (log-SD 0.55). The median is the centre of a lognormal; for an expected value use median x exp(log.sd^2/2).
+#' Use with \code{jb3_priors(K = c(median x max catch, log.sd))} (two-sided) or \code{K.max = c(median, log.sd)} (one-sided,
+#' as \code{K = "half+r"}).
+#' @param r median of the r prior
+#' @param GT generation time (years), used when \code{r} is NULL
+#' @param maxC optional maximum catch: then also returns the median of K in biomass
+#' @return named vector: median (multiple of max catch), log.sd, and K (if maxC given)
+#' @examples
+#' jb3_kr(r = 0.2)
+#' jb3_kr(GT = 10, maxC = 1000)
+#' @export
+jb3_kr <- function(r = NULL, GT = NULL, maxC = NULL){
+  v <- if(!is.null(r)) c(median = 3.04*r^-0.583, log.sd = 0.55) else if(!is.null(GT)) c(median = 1.71*GT^0.58, log.sd = 0.57) else c(median = 5.9, log.sd = 0.55)
+  if(!is.null(maxC)) v <- c(v, K = v[["median"]]*maxC)
+  v
 }
