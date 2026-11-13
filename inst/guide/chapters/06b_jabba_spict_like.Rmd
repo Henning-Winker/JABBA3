@@ -97,13 +97,26 @@ NUTS, keep the one-sided K prior (the default).
 The choice of `frw` follows from where the information on depletion and scale is
 in the data:
 
-| Data | `frw` | Initial depletion | Why |
-|---|---|---|---|
-| Long catch series starting lightly exploited (e.g. from 1950–1970), indices from the 1980s–1990s (typical tRFMO tuna and billfish assessments) | `"gaps"` (JABBA-like) | prior near unfished (`bkinit = c(0.9, 0.246)`) is defensible | The catch drives the decline from a known start and the indices inform the response; no assumption on F where there is no index |
-| Catch and indices (incl. surveys) starting together, stock already exploited at the start (typical coastal and ICES data) | `"all"` (SPiCT-like) | weakly informed only (wide `bkinit` or `bbmsyinit`), so that the prior does not predetermine the outcome | `"gaps"` lacks information on the initial depletion and the scale; the smooth F supplies it |
-| Long or reconstructed catch series before the first index year | `"index"` (hybrid) | weakly informed | A random walk before the index can only be informed by the catch, and the pattern it produces there is spurious; `"index"` keeps the random walk where the index informs it and conditions on the catch before |
-| Years without catch (gaps, catch starting after the index) | any, with `jb3_data(catch.gaps = "estimate")` | as above | Uses the index years without catch; gap catch estimated with intervals (leading blocks with fast catch growth are hard) |
-| Simulation testing, MSE | `"gaps"`, fixed catch SD | | Fewer random effects, JABBA-like, fast |
+| Data | `frw` | Initial depletion | Example |
+|:---|:---|:---|:---|
+| Long catch from near unfished, indices later | `"gaps"` (JABBA-like) | near unfished: `bkinit = c(0.9, 0.246)` | tRFMO tuna and billfish (S. Atlantic swordfish) |
+| Catch and indices start together, stock already exploited | `"all"` (SPiCT-like) | weak: wide `bkinit` or `bbmsyinit` | ICES coastal and survey-based stocks (WKBMSYSPiCT3) |
+| Long or reconstructed catch before the first index | `"index"` (hybrid) | weak | Blackspot seabream, North Sea sole |
+| Years without catch | any + `jb3_data(catch.gaps = "estimate")` | as above | catch starting after the index |
+| Simulation testing, MSE | `"gaps"`, fixed catch SD | | fewer random effects, fast |
+
+Why:
+
+- **`"gaps"`**: the catch drives the decline from a known start and the indices
+  inform the response; no assumption on F where there is no index.
+- **`"all"`**: with an exploited start, `"gaps"` has no information on the
+  initial depletion and the scale; the smooth F random walk supplies it. Keep the
+  initial-depletion prior weak so that it does not decide the outcome.
+- **`"index"`**: before the index, a random walk on F can only be informed by the
+  catch, and the pattern it produces there is spurious; `"index"` keeps the random
+  walk where the index informs it and conditions on the catch before.
+- **Catch gaps**: the index years without catch are used and the missing catch is
+  estimated with intervals (leading blocks with fast catch growth are hard).
 
 `frw = "index"` and `"all"` are identical when an index starts in the first
 catch year. All three modes cost the same (about 0.2 s per fit in RTMB mode).

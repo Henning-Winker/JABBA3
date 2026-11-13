@@ -69,7 +69,7 @@ is written.
 | Prior | Meaning | Default (as JABBA 2 unless noted) |
 |---|---|---|
 | `r` | intrinsic growth rate | **on** (user value, FishLife or from Fmsy) |
-| `K` | carrying capacity | on, weak (JABBA: 8 x max catch, CV 1) |
+| `K` | carrying capacity | one-sided `"half8"`: 8 x max catch as expected value, CV 1 (flat below 5.7 x); `"jabba"` = JABBA's two-sided prior |
 | `bkinit` | initial depletion B1/K (JABBA 2: `psi`, accepted as alias by the legacy helper; SPiCT: `bkfrac`) | on (JABBA: 0.9, CV 0.25) |
 | `m` / `BmsyK` | shape | fixed from BmsyK (0.4 default); on to estimate m |
 | `q` | catchability | estimated as log q, flat on log q (decided 29 Oct; departs from JABBA 2's uniform on q). Optional lognormal prior via `priors$q` = c(median, log.sd, on), i.e. normal on log q, one row per index (or per catchability group), as SPiCT's `logq` matrix prior; legacy `q.prior = "uniform"` reproduces JABBA 2. Note: uniform on q leans towards large q and small biomass; flat log q gives ~0.01-0.04 more optimistic status (BioProcDyn RESULTS_RTMB 7d). |
@@ -186,7 +186,7 @@ Implemented on branch `prototype`. The core reproduces the JABBA 2 RTMB engine t
 
 Decisions taken while building (to confirm):
 - **Catch error on by default**, `sdc = 0.1`, as JABBA 2 (`add.catch.CV = TRUE`, `catch.cv = 0.1`). This is "JABBA stays JABBA"; switch it off for catch-known simulation runs.
-- **K and bkinit priors** are JABBA 2's CV-based defaults expressed as log.sd: K 8 x max catch with log.sd 0.833 (CV 1); bkinit 0.9 with log.sd 0.246 (CV 0.25).
+- **K and bkinit priors**: bkinit is JABBA 2's default (0.9, log.sd 0.246 = CV 0.25). K keeps JABBA's 8 x max catch and CV 1 (log.sd 0.833) but as a one-sided prior (`K = "half8"`): 8 x is the expected value, bias-corrected to the median 5.7 x, with no penalty below and a half-normal on log K above (the profile likelihood of K has a data-driven left wall and a flat right side). JABBA's two-sided prior (8 x as the median) is `K = "jabba"`; `K.max` is deprecated.
 - **Dynamic sdb (Tier 2)** is written as sdb_t = sdb x clamp(B/Bmsy, 0.2, 3)^-k, with no additive constant (JABBA 2 used sigma.proc = 0.001 plus the floor). k is bounded to (-0.5, 2) through a logit.
 - **Fits whose Hessian is not positive definite** keep their point estimates, but their intervals are set to NA with a warning. The convergence tier is "fail".
 - **Fit object**: S3 list `jabba3` with ts (long data frame: year, quantity, est, lci, uci), pars, refpts, index (fits, ordinary and OSA residuals), convergence, report, draws, and the RTMB internals. Workflow fits carry `$steps`.
