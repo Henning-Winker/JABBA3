@@ -20,7 +20,10 @@
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
 #' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
 #'   r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
-#'   diffuse inverse-gamma(0.001, 0.001) on the variance (not recommended for the posterior mode).
+#'   inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
+#'   The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).
+#' @param igamma c(shape, rate) of the gamma prior on 1/sdb^2 with \code{sdb = "igamma"}: default c(0.001, 0.001)
+#'   (diffuse); JABBA's default is c(4, 0.01) (sdb mode 0.05).
 #' @param sigR recruitment SD used by \code{sdb = "fishlife"} (0.5 when unknown)
 #' @param q catchability: \code{NULL} = flat on log q for every q (default); otherwise a matrix (or vector) with one row
 #'   \code{c(median, log.sd, on)} per catchability group
@@ -58,7 +61,7 @@
 #' @examples
 #' jb3_priors(r = c(0.3, 0.3))
 #' @export
-jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", sigR = 0.5,
+jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, bkinit = c(0.9, 0.246, 1), sdb = "fishlife", igamma = c(0.001, 0.001), sigR = 0.5,
                        q = NULL, m = c(NA, 0.3, 0), kdyn = NULL, rho = c(0.7, 0.15, 0), sdi = c(0.2, 0.5, 0), status = NULL, psi = NULL, bbmsyinit = NULL,
                        creep = c(0.02, 0.02), sdf = c(0.3, 1, 1), K.max = NULL, sdc = c(0.1, 1, 0), maxC = c("max", "smooth")){
   maxC <- match.arg(maxC)
@@ -113,7 +116,7 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, b
       if(!is.numeric(kmax.user) || kmax.user[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = kmax.user[1], log.sd = if(length(kmax.user) > 1) kmax.user[2] else 0.3, on = 1) }
   K.max <- stats::setNames(as.numeric(K.max), c("mult", "log.sd", "on"))
-  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
+  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, igamma = if(sdb.type == "igamma") as.numeric(igamma[1:2]) else NULL, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
                  sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max,
                  maxC = maxC, maxC.value = mC),
             class = "jb3priors", args = args)
@@ -166,7 +169,7 @@ print.jb3priors <- function(x, ...){
   cat("JABBA3 priors (lognormal: median, log.sd; on = 1)\n")
   print(signif(tab, 3))
   cat("sdb:", switch(x$sdb.type, fishlife = sprintf("FishLife centre 0.80 x sigR (%.2f) x r^0.45", x$sigR),
-                     igamma = "diffuse inverse-gamma(0.001, 0.001) on the variance (JABBA legacy)", lognormal = "user lognormal"), "\n")
+                     igamma = sprintf("inverse-gamma(%g, %g) on the variance (JABBA)", (x$igamma %||% c(0.001, 0.001))[1], (x$igamma %||% c(0.001, 0.001))[2]), lognormal = "user lognormal"), "\n")
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
   cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
   if(!is.null(x$maxC.value) && is.finite(x$maxC.value)) cat(sprintf("max catch (%s): %s\n", x$maxC %||% "max", format(signif(x$maxC.value, 4), big.mark = ",")))

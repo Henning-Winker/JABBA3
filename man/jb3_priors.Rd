@@ -11,6 +11,7 @@ jb3_priors(
   K.cv = 1,
   bkinit = c(0.9, 0.246, 1),
   sdb = "fishlife",
+  igamma = c(0.001, 0.001),
   sigR = 0.5,
   q = NULL,
   m = c(NA, 0.3, 0),
@@ -49,7 +50,11 @@ the K profile is flat towards large K and the prior decides the scale}
 
 \item{sdb}{process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
 r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
-diffuse inverse-gamma(0.001, 0.001) on the variance (not recommended for the posterior mode).}
+inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
+The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).}
+
+\item{igamma}{c(shape, rate) of the gamma prior on 1/sdb^2 with \code{sdb = "igamma"}: default c(0.001, 0.001)
+(diffuse); JABBA's default is c(4, 0.01) (sdb mode 0.05).}
 
 \item{sigR}{recruitment SD used by \code{sdb = "fishlife"} (0.5 when unknown)}
 

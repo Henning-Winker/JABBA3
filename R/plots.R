@@ -520,7 +520,8 @@ jbplot_priorpost <- function(fit, pars = c("r", "K", "bkinit", "sdb", "m", "kdyn
     if((nm == "kdyn" && !dat$est.k) || (nm == "m" && !dat$est.m) || (nm == "sdb" && !dat$est.sdb)) return(NULL)
     if(nm == "kdyn"){ mu <- pr$kdyn[[1]]; s <- pr$kdyn[[2]]; on <- TRUE; logsc <- FALSE } else {
       x <- lst[[nm]]; mu <- log(x[[1]]); s <- x[[2]]; on <- isTRUE(x[[3]] == 1) && is.finite(mu); logsc <- TRUE }
-    if(nm == "sdb" && dat$sdb.ig) on <- FALSE
+    if(nm == "sdb" && dat$sdb.ig){ ab <- dat$ig.ab %||% c(0.001, 0.001)      # inverse gamma: exact density of log sdb
+      on <- trigamma(ab[1]) <= 5.5; mu <- -0.5*(digamma(ab[1]) - log(ab[2])); s <- 0.5*sqrt(trigamma(ab[1])) }
     post <- if(!is.null(fit$draws) && nm %in% names(fit$draws$pars)) fit$draws$pars[[nm]] else NULL
     tr <- function(v) if(logsc) log(v) else v
     pm <- tr(pp[nm, "est"]); ps <- if(logsc) pp[nm, "se.log"] else (pp[nm, "uci"] - pp[nm, "lci"])/3.92
@@ -530,7 +531,8 @@ jbplot_priorpost <- function(fit, pars = c("r", "K", "bkinit", "sdb", "m", "kdyn
     z <- seq(lo, hi, length.out = 400)                       # transformed scale
     if(!is.null(post)){ dd <- stats::density(tr(post)); fz <- stats::approx(dd$x, dd$y, z, yleft = 0, yright = 0)$y } else fz <- stats::dnorm(z, pm, ps)
     xs <- if(logsc) exp(z) else z; jac <- if(logsc) 1/xs else 1
-    d <- rbind(if(on) data.frame(x = xs, y = stats::dnorm(z, mu, s)*jac, type = "Prior"), data.frame(x = xs, y = fz*jac, type = "Posterior"))
+    dpr <- if(nm == "sdb" && dat$sdb.ig){ ab <- dat$ig.ab; exp(log(2) + ab[1]*log(ab[2]) - lgamma(ab[1]) - 2*ab[1]*z - ab[2]*exp(-2*z)) } else stats::dnorm(z, mu, s)
+    d <- rbind(if(on) data.frame(x = xs, y = dpr*jac, type = "Prior"), data.frame(x = xs, y = fz*jac, type = "Posterior"))
     g <- ggplot2::ggplot(d, ggplot2::aes(.data$x, .data$y, fill = .data$type, colour = .data$type)) +
       ggplot2::geom_area(position = "identity", alpha = 0.35) +
       ggplot2::scale_fill_manual(values = c(Prior = "grey60", Posterior = "dodgerblue"), drop = FALSE) +

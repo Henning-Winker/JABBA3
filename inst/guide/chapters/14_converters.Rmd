@@ -2,18 +2,44 @@
 
 ## JABBA: `jbinput2jabba3()`
 
-`jbinput2jabba3()` takes the object returned by `JABBA::build_jabba()` and
-returns `list(data, priors, model)` for `jabba3()`. It carries over the priors
-(r, K, psi to `bkinit`, shape, catchability, status priors), the production
-lag, catch error, catchability and variance groups, `proc.dev.all`, the
-BioProcDyn process-error options and the Selex curves, and reports each
-difference:
+`jbinput2jabba3()` takes the object returned by `JABBA::build_jabba()`, or a
+fitted `JABBA::fit_jabba()` object, and returns `list(data, priors, model)` for
+`jabba3()`. It carries over the priors (r, K, psi to `bkinit`, shape,
+catchability, status priors), the production lag, catch error, catchability and
+variance groups, `proc.dev.all`, the BioProcDyn process-error options, auxiliary
+data and the Selex curves, and reports each difference:
 
-- JABBA's inverse-gamma prior on the process variance is replaced by the
-  FishLife prior (`keep.igamma = TRUE` keeps it);
+- the observation error is carried over exactly: the index se are JABBA's total
+  input SD, `sqrt(SE2)` (se and `fixed.obsE` combined), with `se.min = 0`;
+- JABBA's gamma(a, b) prior on the inverse process variance
+  (`build_jabba(igamma = )`, default c(4, 0.01)) is kept exactly when it is
+  informative (`jb3_priors(sdb = "igamma", igamma = c(a, b))`); the diffuse
+  inverse-gamma(0.001, 0.001) can collapse to sdb = 0 at the posterior mode and
+  is replaced by a proxy (`igamma.proxy`): the JABBA posterior of sigma.proc as a
+  lognormal prior on sdb (`"posterior"`, the default for a fit) or sdb fixed at
+  its posterior median (`"fixed"`), and the FishLife prior for a `build_jabba()`
+  object (`"fishlife"`); `"igamma"` keeps it (for `engine = "nuts"`);
 - q gets a flat prior on log q (`q.uniform = TRUE` reproduces the JAGS uniform
   prior on q);
-- auxiliary data are not yet supported and are dropped.
+- JABBA reports posterior medians, JABBA3 the posterior mode (unless
+  `engine = "nuts"`).
+
+For a fit, the JABBA trajectories are returned in `x$jabba$ts` (same format as
+`fit$ts`) for a direct comparison:
+
+```{r conv-jabbafit, eval = FALSE}
+jbfit <- JABBA::fit_jabba(jb, ni = 30000, nt = 5, nb = 10000, nc = 2)   # JAGS
+x  <- jbinput2jabba3(jbfit)                # data, priors and settings of the fit
+f3 <- jabba3(x$data, x$priors, x$model)
+merge(f3$ts[f3$ts$quant == "B/Bmsy", c("year", "est")],
+      x$jabba$ts[x$jabba$ts$quant == "B/Bmsy", c("year", "est")], by = "year", suffixes = c(".jabba3", ".jabba"))
+```
+
+> ICCAT bigeye, JABBA Fox model in JAGS (sigma.est = FALSE, fixed.obsE = 0.01): with
+> JABBA's default inverse-gamma(4, 0.01) carried over exactly, the JABBA3 $B/B_{MSY}$ and
+> $F/F_{MSY}$ are within 2% of the JABBA medians in every year (K 1.21 vs 1.23 million t);
+> with the diffuse inverse-gamma(0.001, 0.001) and the posterior proxy within 4%, and with
+> sdb fixed at the posterior median within 3%.
 
 ```{r conv-jabba, eval = requireNamespace("JABBA", quietly = TRUE)}
 jb <- JABBA::build_jabba(catch = bet$catch, cpue = bet$cpue, se = bet$se, model.type = "Fox",
@@ -24,8 +50,9 @@ f2 <- jabba3(x$data, x$priors, x$model, osa = FALSE)
 signif(f2$pars[c("K", "r", "sdb"), c("est", "lci", "uci")], 4)
 ```
 
-> With the same process-error prior, the conversion reproduces the JABBA (RTMB engine)
-> fit of bigeye exactly (K = 1,174,749; $B/B_{MSY}$ = 0.797 in 2017).
+> With JABBA's default inverse-gamma(4, 0.01) process-error prior carried over, K =
+> 1.21 million t and $B/B_{MSY}$ = 0.74 in 2017 (the JABBA3 FishLife prior gives K = 1,174,749
+> and 0.797, chapter *JABBA-like or SPiCT-like*).
 
 ## SPiCT: `spictinp2jabba3()`
 
