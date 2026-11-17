@@ -9,6 +9,7 @@ jbinput2jabba3(
   q.uniform = FALSE,
   keep.igamma = FALSE,
   igamma.proxy = c("auto", "posterior", "fixed", "fishlife", "igamma", "lognormal"),
+  sdb.inflate = 1.5,
   verbose = TRUE
 )
 }
@@ -22,6 +23,8 @@ jbinput2jabba3(
 
 \item{igamma.proxy}{treatment of JABBA's inverse-gamma process-error prior: "auto" (default), "posterior", "fixed",
 "fishlife", "igamma" or "lognormal" (see Details)}
+
+\item{sdb.inflate}{multiplier of the posterior log-SD of sigma.proc for \code{igamma.proxy = "posterior"} (default 1.5)}
 
 \item{verbose}{print the conversion messages}
 }
@@ -47,9 +50,10 @@ igamma = c(a, b))}) when it is informative. The diffuse inverse-gamma(0.001, 0.0
 interval for sdb spans more than two orders of magnitude) is fine for JAGS sampling but lets the process error collapse to
 0 at the posterior mode, so a proxy is used:
 \itemize{
-  \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb with the median and log-SD of the JABBA
-    posterior of sigma.proc (\code{sqrt(sigma2)}), so that JABBA3 reproduces the JABBA solution (the posterior is used
-    as a prior: a reproduction device, not an independent analysis);
+  \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb centred on the median of the JABBA
+    posterior of sigma.proc (\code{sqrt(sigma2)}), with \code{sdb.inflate} (default 1.5) times its log-SD, so that
+    JABBA3 reproduces the JABBA solution while the data can still move sdb (the posterior is used as a prior: a
+    reproduction device, not an independent analysis);
   \item \code{"fixed"}: sdb fixed at the JABBA posterior median;
   \item \code{"fishlife"} (default for a \code{build_jabba()} object): the JABBA3 default FishLife prior on sdb;
   \item \code{"igamma"}: keep JABBA's prior as it is (for \code{engine = "nuts"}; also \code{keep.igamma = TRUE});

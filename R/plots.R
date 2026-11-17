@@ -420,7 +420,9 @@ jbplot_fits <- function(x, log = FALSE, ppd = TRUE, steps = FALSE, colour = "dod
 }
 
 .resid <- function(fit, type){
-  d <- fit$index; d$r <- if(type == "osa") d$osa else d$residual
+  d <- fit$index
+  if(type == "osa" && !any(is.finite(d$osa))){ message("no OSA residuals in this fit: ordinary log residuals shown"); type <- "ordinary" }
+  d$r <- if(type == "osa") d$osa else d$residual
   d[is.finite(d$r), ]
 }
 

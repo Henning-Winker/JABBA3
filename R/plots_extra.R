@@ -19,6 +19,8 @@
 #' @return a ggplot; the Bayesian p-values in attribute "ppc"
 #' @export
 jbplot_ppc <- function(fit, joint = FALSE, ndraws = 1000, npoints = 1000){
+  if(identical(fit$engine, "jags")) stop("jbplot_ppc(): no index draws in a converted JABBA fit (JABBA's Bayesian p-values are in ",
+                                         "the JABBA fit, $PPC); refit with update() first", call. = FALSE)
   dr <- .get_draws(fit, ndraws); ix <- fit$index
   y <- log(ix$obs); mu <- dr$Ihat; sd <- dr$sdI; nd <- nrow(mu)   # Imean is on the log scale
   grp <- if(joint) rep("Combined", nrow(ix)) else ix$index

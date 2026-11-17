@@ -9,7 +9,7 @@ test_that("jbinput2jabba3() reconstructs a JABBA fit: data, SE2, priors, igamma 
   expect_equal(unname(x$priors$r[1:2]), as.numeric(s$r.pr[1:2]))
   expect_equal(unname(x$priors$K[1:3]), c(as.numeric(s$K.pr[1:2]), 1)); expect_equal(unname(x$priors$K.max[3]), 0)
   ps <- sqrt(jf$pars_posterior$sigma2)
-  expect_equal(unname(x$priors$sdb[1:2]), c(median(ps), sd(log(ps))))              # diffuse igamma -> posterior proxy
+  expect_equal(unname(x$priors$sdb[1:2]), c(median(ps), 1.5*sd(log(ps))))              # diffuse igamma -> posterior proxy
   expect_equal(x$model$shape, "fox"); expect_true(all(c("B/Bmsy", "F/Fmsy", "B/K") %in% x$jabba$ts$quant))
   xf <- suppressMessages(jbinput2jabba3(jf, igamma.proxy = "fixed", verbose = FALSE)); expect_equal(xf$model$sdb.fixed, median(ps))
   xi <- suppressMessages(jbinput2jabba3(jf, igamma.proxy = "igamma", verbose = FALSE))
@@ -27,4 +27,22 @@ test_that("igamma(a, b) prior on the process variance: informative prior gives t
   expect_null(jb3_priors(d)$igamma)
   f <- suppressWarnings(jabba3(d, p, jb3_model(shape = "fox"), osa = FALSE))
   expect_gt(f$pars["sdb", "est"], 0.02); expect_lt(f$pars["sdb", "est"], 0.1)
+})
+
+test_that("jabba2jabba3(): JABBA fit as a jabba3 object without refit; JABBA3 plots and tables; update() refits", {
+  jf <- readRDS(test_path("fixtures", "jbfit_bet_diffuse_min.rds"))
+  f <- suppressMessages(jabba2jabba3(jf, run = "JABBA", verbose = FALSE))
+  expect_s3_class(f, "jabba3"); expect_equal(f$engine, "jags"); expect_equal(nrow(f$draws$B), 100)
+  bb <- f$ts[f$ts$quant == "B/Bmsy", ]; kb <- jf$kbtrj[jf$kbtrj$year == max(f$years), ]
+  expect_equal(tail(bb$est, 1), median(kb$stock))                                  # posterior medians of the JABBA draws
+  expect_equal(f$pars["K", "est"], median(jf$pars_posterior$K))
+  expect_true(all(c("obs", "hat", "residual", "std.residual") %in% names(f$index)))
+  for(p in list(jbplot_trj(f), jbplot_kobe(f), jbplot_fits(f), jbplot_procdev(f), jbplot_production(f),
+                suppressMessages(jbplot_residuals(f)), suppressMessages(jbplot_runs(f)), jbplot_trj(list(a = f, b = f))))
+    expect_s3_class(p, "ggplot")
+  expect_s3_class(jb3_partable(f), "data.frame")
+  expect_output(print(f), "jabba2jabba3")
+  f3 <- suppressWarnings(update(f, run = "JABBA3"))
+  expect_equal(f3$engine, "rtmb"); expect_equal(f3$run, "JABBA3")
+  b3 <- f3$ts$est[f3$ts$quant == "B/Bmsy"]; expect_lt(max(abs(log(b3/bb$est))), 0.15)
 })

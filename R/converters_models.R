@@ -17,9 +17,10 @@
 #' interval for sdb spans more than two orders of magnitude) is fine for JAGS sampling but lets the process error collapse to
 #' 0 at the posterior mode, so a proxy is used:
 #' \itemize{
-#'   \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb with the median and log-SD of the JABBA
-#'     posterior of sigma.proc (\code{sqrt(sigma2)}), so that JABBA3 reproduces the JABBA solution (the posterior is used
-#'     as a prior: a reproduction device, not an independent analysis);
+#'   \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb centred on the median of the JABBA
+#'     posterior of sigma.proc (\code{sqrt(sigma2)}), with \code{sdb.inflate} (default 1.5) times its log-SD, so that
+#'     JABBA3 reproduces the JABBA solution while the data can still move sdb (the posterior is used as a prior: a
+#'     reproduction device, not an independent analysis);
 #'   \item \code{"fixed"}: sdb fixed at the JABBA posterior median;
 #'   \item \code{"fishlife"} (default for a \code{build_jabba()} object): the JABBA3 default FishLife prior on sdb;
 #'   \item \code{"igamma"}: keep JABBA's prior as it is (for \code{engine = "nuts"}; also \code{keep.igamma = TRUE});
@@ -52,6 +53,7 @@
 #'   \code{igamma.proxy = "igamma"})
 #' @param igamma.proxy treatment of JABBA's inverse-gamma process-error prior: "auto" (default), "posterior", "fixed",
 #'   "fishlife", "igamma" or "lognormal" (see Details)
+#' @param sdb.inflate multiplier of the posterior log-SD of sigma.proc for \code{igamma.proxy = "posterior"} (default 1.5)
 #' @param verbose print the conversion messages
 #' @return list(data, priors, model[, jabba]), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
 #' @examples
@@ -62,7 +64,8 @@
 #' }
 #' @export
 jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE,
-                           igamma.proxy = c("auto", "posterior", "fixed", "fishlife", "igamma", "lognormal"), verbose = TRUE){
+                           igamma.proxy = c("auto", "posterior", "fixed", "fishlife", "igamma", "lognormal"), sdb.inflate = 1.5,
+                           verbose = TRUE){
   igamma.proxy <- match.arg(igamma.proxy)
   msg <- function(...) if(verbose) message("jbinput2jabba3: ", ...)
   isfit <- !is.null(jbinput$inputseries) && !is.null(jbinput$settings)
@@ -123,8 +126,8 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE,
     if(pm == "igamma"){ sdb <- "igamma"; igpr <- ig
       msg(sprintf("process error: JABBA inverse-gamma(%g, %g) prior on the process variance kept%s", ig[1], ig[2],
                   if(diffuse) " (diffuse: the posterior mode can collapse to sdb = 0; use engine = \"nuts\")" else " (exact)")) }
-    else if(pm == "posterior"){ ps <- post.sdb(); sdb <- c(ps[1], max(ps[2], 0.01), 1)
-      msg(sprintf("process error: diffuse inverse-gamma(%g, %g) replaced by the JABBA posterior of sigma.proc as a lognormal prior on sdb (median %.3f, log-SD %.2f)", ig[1], ig[2], ps[1], ps[2])) }
+    else if(pm == "posterior"){ ps <- post.sdb(); sdb <- c(ps[1], max(sdb.inflate*ps[2], 0.01), 1)
+      msg(sprintf("process error: diffuse inverse-gamma(%g, %g) replaced by a lognormal prior on sdb centred on the JABBA posterior of sigma.proc (median %.3f, log-SD %.2f = %g x the posterior log-SD)", ig[1], ig[2], ps[1], sdb[2], sdb.inflate)) }
     else if(pm == "fixed"){ fixed.sdb <- post.sdb()[1]
       msg(sprintf("process error: sdb fixed at the JABBA posterior median of sigma.proc (%.3f)", fixed.sdb)) }
     else if(pm == "lognormal"){ sdb <- c(exp(-0.5*(digamma(ig[1]) - log(ig[2]))), 0.5*sqrt(trigamma(ig[1])), 1)
