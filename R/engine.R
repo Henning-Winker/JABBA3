@@ -80,7 +80,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
     r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
-    sdb.ig = priors$sdb.type == "igamma", q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
+    sdb.ig = priors$sdb.type == "igamma", ig.ab = as.numeric(priors$igamma %||% c(0.001, 0.001)), q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
     sdi.pr = .sdi_prior(priors$sdi, nvar),
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,
     rw = isTRUE(model$rw), rw.scale = model$rw.scale %||% 1,
@@ -166,7 +166,7 @@ jb3_inits <- function(dat, jitter = 0, start = "prior", Kmult = 4){
     x <- .aux_x(dat$atype[i], H0[tt], Pa0[tt], Pa0[tt]/dat$BmsyK0, H0[tt]/(r/(m - 1)*(1 - 1/m)))
     if(dat$atype[i] == 1) mean(log(x) - dat$logAobs[w] - (tt - dat$at0[i])*log(1 + dat$creep.fix)) else mean(dat$logAobs[w] - log(x))
   }, 0)
-  sdb0 <- if(dat$sdb.ig) 0.1 else dat$sdb.pr[1]
+  sdb0 <- if(dat$sdb.ig){ if(dat$ig.ab[1] >= 1) sqrt(dat$ig.ab[2]/dat$ig.ab[1]) else 0.1 } else dat$sdb.pr[1]
   k0 <- min(max((dat$kd.pr[1] + 0.5)/2.5, 0.05), 0.95)
   lapply(list(logK = log(K), logr = log(r), logq = lq, lbk = log(bk), logm = log(m),
        logsdb = log(if(dat$est.sdb) sdb0 else dat$sdb.fix), logsdi = rep(log(0.2), dat$nvar), tk = stats::qlogis(k0), trho = stats::qlogis(min(max((if(dat$est.rho) dat$rho.pr[1] else dat$rho.fix)/0.99, 0.01), 0.99)),
@@ -193,7 +193,7 @@ jb3_nll <- function(par, dat){
   if(est.m){ m <- exp(logm); nll <- nll - dnorm(logm, log(m.pr[1]), m.pr[2], TRUE) } else m <- mu.m
   sdb <- exp(logsdb)
   if(est.sdb){
-    if(sdb.ig) nll <- nll - (0.001*(-2*logsdb) - 0.001*exp(-2*logsdb))       # gamma(0.001, 0.001) on 1/sdb^2 + Jacobian
+    if(sdb.ig) nll <- nll - (ig.ab[1]*(-2*logsdb) - ig.ab[2]*exp(-2*logsdb))   # gamma(a, b) on 1/sdb^2 + Jacobian (JABBA igamma)
     else if(sdb.pr[3] == 1) nll <- nll - dnorm(logsdb, log(sdb.pr[1]), sdb.pr[2], TRUE)
   }
   sdi <- exp(logsdi)

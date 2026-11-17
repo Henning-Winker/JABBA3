@@ -1,36 +1,87 @@
-#' Convert a JABBA input object to JABBA3
+#' Convert a JABBA input object or a JABBA fit to JABBA3
 #'
-#' Translates a \code{JABBA::build_jabba()} object into the three JABBA3 inputs: \code{data}, \code{priors} and
-#' \code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
-#' lag, catch error, catchability and variance groups, the process-error start, the BioProcDyn options (lognormal
-#' sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the Selex EB/SB curves.
+#' Translates a \code{JABBA::build_jabba()} object, or a fitted \code{JABBA::fit_jabba()} object, into the three JABBA3
+#' inputs: \code{data}, \code{priors} and \code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit,
+#' shape, q1, status prior), as are the lag, catch error, catchability and variance groups, the process-error start, the
+#' BioProcDyn options (lognormal sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the
+#' Selex EB/SB curves.
 #'
-#' Differences that cannot be carried over one to one are reported as messages:
+#' \strong{Observation error.} JABBA's total input variance of each index observation (\code{SE2} = se^2 +
+#' \code{fixed.obsE}^2, 0.3^2 squared where an index with SEs has a missing SE) is carried over exactly: the index (and
+#' auxiliary) se of the JABBA3 data are \code{sqrt(SE2)} with \code{se.min = 0}, so the JABBA minimum observation error
+#' is included in the se. The additional variance (\code{sigma.est}) keeps JABBA's gamma(0.001, 0.001) prior on 1/sdi^2.
+#'
+#' \strong{Process error prior} (\code{igamma.proxy}). JABBA's gamma(a, b) prior on the inverse process variance
+#' (\code{build_jabba(igamma = c(a, b))}, default c(4, 0.01)) is reproduced exactly (\code{jb3_priors(sdb = "igamma",
+#' igamma = c(a, b))}) when it is informative. The diffuse inverse-gamma(0.001, 0.001) (and any a < 0.2, whose 95\%
+#' interval for sdb spans more than two orders of magnitude) is fine for JAGS sampling but lets the process error collapse to
+#' 0 at the posterior mode, so a proxy is used:
 #' \itemize{
-#'   \item JABBA's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
-#'     prior on sdb), because the inverse-gamma mode collapses towards zero (set \code{keep.igamma = TRUE} for the
-#'     diffuse inverse-gamma(0.001, 0.001) instead).
+#'   \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb centred on the median of the JABBA
+#'     posterior of sigma.proc (\code{sqrt(sigma2)}), with \code{sdb.inflate} (default 1.5) times its log-SD, so that
+#'     JABBA3 reproduces the JABBA solution while the data can still move sdb (the posterior is used as a prior: a
+#'     reproduction device, not an independent analysis);
+#'   \item \code{"fixed"}: sdb fixed at the JABBA posterior median;
+#'   \item \code{"fishlife"} (default for a \code{build_jabba()} object): the JABBA3 default FishLife prior on sdb;
+#'   \item \code{"igamma"}: keep JABBA's prior as it is (for \code{engine = "nuts"}; also \code{keep.igamma = TRUE});
+#'   \item \code{"lognormal"}: lognormal with the mean and SD of log sdb implied by the inverse gamma
+#'     (-0.5(digamma(a) - log b), 0.5 sqrt(trigamma(a))); only sensible for an informative inverse gamma.
+#' }
+#' \code{"auto"} (default) uses the exact inverse gamma when it is informative and otherwise \code{"posterior"} for a fit
+#' and \code{"fishlife"} for a \code{build_jabba()} object.
+#'
+#' Other differences that cannot be carried over one to one are reported as messages:
+#' \itemize{
 #'   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
 #'     JABBA exactly).
 #'   \item Plim (hockey-stick production) is not supported and is dropped.
 #'   \item Auxiliary data are carried over with their type, SEs and the JABBA observation error settings
-#'     (\code{auxiliary.sigma} -> estimated additional SD, \code{auxiliary.obsE} -> \code{aux.se.min}); JABBA's
-#'     \code{auxiliary.lag} (mean exploitation over the previous years) has no JABBA3 equivalent and is reported
-#'     (JABBA3 relates each observation to the same year). JABBA's uniform prior on qA becomes a flat prior on log qA.
+#'     (\code{auxiliary.sigma} -> estimated additional SD); JABBA's \code{auxiliary.lag} (mean exploitation over the
+#'     previous years) has no JABBA3 equivalent and is reported (JABBA3 relates each observation to the same year).
+#'     JABBA's uniform prior on qA becomes a flat prior on log qA.
 #'   \item Catch-only models (\code{cpue = NULL}) become \code{jb3_data(catch, NULL)}; the status prior
 #'     (\code{b.prior}) carries over.
+#'   \item JABBA reports posterior medians (MCMC), JABBA3 the posterior mode (Laplace) unless \code{engine = "nuts"}:
+#'     expect small differences for skewed posteriors.
 #' }
-#' @param jbinput output of \code{JABBA::build_jabba()}
+#' For a JABBA fit the JABBA estimates are returned as \code{jabba}: \code{ts} (year, quant = "B", "F", "B/Bmsy",
+#' "F/Fmsy", "B/K", est, lci, uci; medians and 95\% intervals) and \code{pars} (JABBA \code{pars}), for comparison with
+#' the JABBA3 fit.
+#' @param jbinput output of \code{JABBA::build_jabba()} or \code{JABBA::fit_jabba()}
 #' @param q.uniform reproduce JABBA's uniform prior on q
-#' @param keep.igamma use the diffuse inverse-gamma prior on the process variance instead of the FishLife prior
+#' @param keep.igamma keep JABBA's inverse-gamma prior on the process variance as it is (same as
+#'   \code{igamma.proxy = "igamma"})
+#' @param igamma.proxy treatment of JABBA's inverse-gamma process-error prior: "auto" (default), "posterior", "fixed",
+#'   "fishlife", "igamma" or "lognormal" (see Details)
+#' @param sdb.inflate multiplier of the posterior log-SD of sigma.proc for \code{igamma.proxy = "posterior"} (default 1.5)
 #' @param verbose print the conversion messages
-#' @return list(data, priors, model), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
+#' @return list(data, priors, model[, jabba]), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
+#' @examples
+#' \dontrun{
+#' jbfit <- JABBA::fit_jabba(jbinput)                  # JABBA (JAGS) fit
+#' x <- jbinput2jabba3(jbfit)                          # same data, priors and settings
+#' f3 <- jabba3(x$data, x$priors, x$model)
+#' }
 #' @export
-jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verbose = TRUE){
-  s <- jbinput$settings; jd <- jbinput$jagsdata; dd <- jbinput$data
+jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE,
+                           igamma.proxy = c("auto", "posterior", "fixed", "fishlife", "igamma", "lognormal"), sdb.inflate = 1.5,
+                           verbose = TRUE){
+  igamma.proxy <- match.arg(igamma.proxy)
   msg <- function(...) if(verbose) message("jbinput2jabba3: ", ...)
+  isfit <- !is.null(jbinput$inputseries) && !is.null(jbinput$settings)
+  if(isfit){                                       # fit_jabba(): settings = c(jagsdata, settings), data in inputseries
+    s <- jd <- jbinput$settings; is <- jbinput$inputseries
+    yrs <- jbinput$yr %||% s$yr %||% is$catch[[1]]
+    dd <- list(catch = is$catch, cpue = is$cpue, se = is$se, auxiliary = NULL, auxiliary.se = NULL)
+    if(isTRUE(s$Auxiliary) && !is.null(jd$A)){
+      A <- as.matrix(jd$A); nI <- if(isTRUE(s$CatchOnly)) 0 else ncol(as.matrix(jd$I))
+      an <- dimnames(jbinput$cpue.hat)[[3]]; an <- if(!is.null(an) && length(an) >= nI + ncol(A)) an[nI + seq_len(ncol(A))] else paste0("A", seq_len(ncol(A)))
+      dd$auxiliary <- stats::setNames(data.frame(yrs, A), c("year", an))
+    }
+    msg("JABBA fit (", s$assessment %||% "", " ", s$scenario %||% "", "): data, priors and settings reconstructed")
+  } else { s <- jbinput$settings; jd <- jbinput$jagsdata; dd <- jbinput$data; yrs <- dd$yr %||% dd$catch[[1]] }
   if(!is.null(jd$Plim) && jd$Plim > 0) msg("Plim (hockey-stick production) is not supported and was ignored")
-  # data (catch-only and auxiliary data)
+  # data (catch-only and auxiliary data); se = sqrt(JABBA SE2): JABBA's total input variance incl. fixed.obsE
   co <- isTRUE(s$CatchOnly)
   aux <- if(isTRUE(s$Auxiliary)) dd$auxiliary else NULL
   atype <- s$auxiliary.type %||% "z"
@@ -40,8 +91,15 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
       msg("auxiliary.lag = ", s$auxiliary.lag, " has no JABBA3 equivalent: observations relate to the same year (lag 0)")
   }
   if(co) msg("catch-only model: no abundance index")
-  data <- jb3_data(dd$catch, if(co) NULL else dd$cpue, if(isTRUE(s$SE.I) && !co) dd$se else NULL, stock = s$assessment %||% "stock",
-                   auxiliary = aux, auxiliary.se = if(!is.null(aux)) dd$auxiliary.se else NULL, auxiliary.type = atype)
+  cpue <- if(co) NULL else dd$cpue
+  se <- NULL
+  if(!co && !is.null(jd$SE2)){ S <- sqrt(as.matrix(jd$SE2)); S[is.na(as.matrix(cpue[, -1, drop = FALSE]))] <- NA
+    se <- stats::setNames(data.frame(cpue[[1]], S), names(cpue)) } else if(!co && isTRUE(s$SE.I)) se <- dd$se
+  aux.se <- NULL
+  if(!is.null(aux)){ if(!is.null(jd$A.SE2)){ S <- sqrt(as.matrix(jd$A.SE2)); S[is.na(as.matrix(aux[, -1, drop = FALSE]))] <- NA
+    aux.se <- stats::setNames(data.frame(aux[[1]], S), names(aux)) } else aux.se <- dd$auxiliary.se }
+  data <- jb3_data(dd$catch, cpue, se, stock = s$assessment %||% "stock",
+                   auxiliary = aux, auxiliary.se = aux.se, auxiliary.type = atype)
   # shape
   mt <- s$model.type %||% "Schaefer"
   shape <- switch(mt, Schaefer = "schaefer", Fox = "fox", "pella")
@@ -52,31 +110,52 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
     msg("beta prior on psi converted to a lognormal prior on bkinit with the same mean and CV"); c(mu, cv2sd(sqrt(v)/mu))
   } else as.numeric(jd$psi.pr[1:2])
   m.pr <- if(identical(s$model.id, 4) || identical(mt, "Pella_m")) c(jd$mu.m, cv2sd(jd$m.CV %||% 0.3), 1) else c(NA, 0.3, 0)
-  sdb <- if(!is.null(s$sigma.proc.prior)) as.numeric(s$sigma.proc.prior[1:2]) else if(keep.igamma) "igamma" else {
-    msg("JABBA inverse-gamma prior on the process variance replaced by the JABBA3 FishLife prior on sdb"); "fishlife" }
+  # process error prior: exact inverse gamma when informative, else a proxy
+  ig <- as.numeric(jd$igamma %||% c(4, 0.01))[1:2]
+  diffuse <- trigamma(ig[1]) > 5.5                 # a < ~0.2: 95% interval of sdb wider than two orders of magnitude
+  fixed.sdb <- if(!is.null(s$proc.floor)) s$proc.floor[1] else if(is.numeric(s$sigma.proc)) s$sigma.proc else NULL
+  post.sdb <- function(){
+    if(!isfit) stop("igamma.proxy = \"", igamma.proxy, "\" needs a JABBA fit (fit_jabba() output)", call. = FALSE)
+    s2 <- jbinput$pars_posterior$sigma2
+    if(!is.null(s2)) { x <- sqrt(s2); c(stats::median(x), stats::sd(log(x))) } else {
+      p <- jbinput$pars["sigma2", ]; c(sqrt(p$Median), (log(p$UCI) - log(p$LCI))/(4*1.96)) } }
+  sdb <- "fishlife"; igpr <- c(0.001, 0.001)
+  if(!is.null(s$sigma.proc.prior)) sdb <- as.numeric(s$sigma.proc.prior[1:2]) else if(is.null(fixed.sdb)){
+    pm <- if(igamma.proxy != "auto") igamma.proxy else if(keep.igamma || !diffuse) "igamma" else if(isfit) "posterior" else "fishlife"
+    if(keep.igamma && igamma.proxy == "auto") pm <- "igamma"
+    if(pm == "igamma"){ sdb <- "igamma"; igpr <- ig
+      msg(sprintf("process error: JABBA inverse-gamma(%g, %g) prior on the process variance kept%s", ig[1], ig[2],
+                  if(diffuse) " (diffuse: the posterior mode can collapse to sdb = 0; use engine = \"nuts\")" else " (exact)")) }
+    else if(pm == "posterior"){ ps <- post.sdb(); sdb <- c(ps[1], max(sdb.inflate*ps[2], 0.01), 1)
+      msg(sprintf("process error: diffuse inverse-gamma(%g, %g) replaced by a lognormal prior on sdb centred on the JABBA posterior of sigma.proc (median %.3f, log-SD %.2f = %g x the posterior log-SD)", ig[1], ig[2], ps[1], sdb[2], sdb.inflate)) }
+    else if(pm == "fixed"){ fixed.sdb <- post.sdb()[1]
+      msg(sprintf("process error: sdb fixed at the JABBA posterior median of sigma.proc (%.3f)", fixed.sdb)) }
+    else if(pm == "lognormal"){ sdb <- c(exp(-0.5*(digamma(ig[1]) - log(ig[2]))), 0.5*sqrt(trigamma(ig[1])), 1)
+      msg(sprintf("process error: inverse-gamma(%g, %g) approximated by LN(%.3f, %.2f) on sdb", ig[1], ig[2], sdb[1], sdb[2])) }
+    else msg(sprintf("process error: JABBA inverse-gamma(%g, %g) replaced by the JABBA3 FishLife prior on sdb", ig[1], ig[2]))
+  }
   q <- NULL
   if(identical(s$q1.dist, "lnorm") && !is.null(jd$q1.pr)){
     nq <- jd$nq %||% 1; q <- cbind(c(jd$q1.pr[1], rep(1, nq - 1)), c(jd$q1.pr[2], rep(1, nq - 1)), c(1, rep(0, nq - 1)))
   }
   status <- NULL
   if(!is.null(jd$b.pr) && jd$b.pr[3] != 0){
-    yrs <- data$years[which(jd$b.yr == 1)]
+    yb <- data$years[which(jd$b.yr == 1)]
     type <- if(jd$b.pr[4] < 1) "BK" else if(jd$b.pr[4] > 1) "FFmsy" else "BBmsy"
-    status <- data.frame(year = yrs, type = type, median = jd$b.pr[1], log.sd = jd$b.pr[2])
+    status <- data.frame(year = yb, type = type, median = jd$b.pr[1], log.sd = jd$b.pr[2])
   }
   kd <- NULL
   if(!is.null(s$proc.k.prior)) kd <- c(s$proc.k.prior[1], s$proc.k.prior[2], 1)
   else if(!is.null(s$proc.floor)) kd <- c(s$proc.floor[2], 0.15, 0)
-  priors <- jb3_priors(data, r = jd$r.pr[1:2], K = c(jd$K.pr[1], jd$K.pr[2], 1), bkinit = bk, sdb = sdb, q = q, m = m.pr,
+  priors <- jb3_priors(data, r = jd$r.pr[1:2], K = c(jd$K.pr[1], jd$K.pr[2], 1), bkinit = bk, sdb = sdb, igamma = igpr, q = q, m = m.pr,
                        kdyn = kd, status = status)
   # model
-  fixed.sdb <- if(!is.null(s$proc.floor)) s$proc.floor[1] else if(is.numeric(s$sigma.proc)) s$sigma.proc else NULL
   if(!is.null(s$proc.floor)) msg("proc.floor (Tier 2) mapped to the dynamic sdb form with the floor level fixed")
   if(isTRUE(s$proc.mode == "dyn")) msg("proc.dyn (empirical ICES curve) has no JABBA3 equivalent; constant sdb used")
-  se.min <- if(co) NULL else if(isTRUE(s$SE.I)) 0.001 else sqrt(min(jd$SE2, na.rm = TRUE))
+  se.min <- if(co) NULL else if(!is.null(jd$SE2)) 0 else if(isTRUE(s$SE.I)) 0.001 else 0.1
   aux.se.min <- NULL; aux.sd <- NULL; aux.q <- NULL
   if(!is.null(aux)){
-    if(is.null(dd$auxiliary.se) && !is.null(jd$A.SE2)) aux.se.min <- sqrt(min(jd$A.SE2, na.rm = TRUE))
+    aux.se.min <- if(!is.null(jd$A.SE2)) 0 else NULL
     if(isFALSE(s$auxiliary.sigma)) aux.sd <- 1e-4
     aux.q <- rep(NA, ncol(aux) - 1)             # JABBA estimates qA for all auxiliary types
   }
@@ -95,7 +174,14 @@ jbinput2jabba3 <- function(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verb
                      q.uniform = q.uniform, P.bound = jd$P_bound %||% c(0.02, 1.3),
                      sdi.bound = jd$sigmaobs_bound %||% 1, sdi.est = !isFALSE(s$sigma.est), aux.q = aux.q, aux.sd = aux.sd, aux.se.min = aux.se.min)
   if(!q.uniform) msg("q has a flat prior on log q (JABBA/JAGS: uniform on q; use q.uniform = TRUE to reproduce)")
-  list(data = data, priors = priors, model = model)
+  out <- list(data = data, priors = priors, model = model)
+  if(isfit){
+    tr <- jbinput$timeseries; qs <- c(B = "B", F = "F", BBmsy = "B/Bmsy", FFmsy = "F/Fmsy", BB0 = "B/K")
+    ts <- do.call(rbind, lapply(names(qs), function(k) data.frame(year = as.numeric(dimnames(tr)[[1]]), quant = qs[[k]],
+      est = tr[, "mu", k], lci = tr[, "lci", k], uci = tr[, "uci", k])))
+    out$jabba <- list(ts = ts[ts$year %in% data$years, ], pars = jbinput$pars, scenario = jbinput$scenario)
+  }
+  out
 }
 
 #' Convert a SPiCT input list to JABBA3

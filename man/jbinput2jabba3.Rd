@@ -2,42 +2,89 @@
 % Please edit documentation in R/converters_models.R
 \name{jbinput2jabba3}
 \alias{jbinput2jabba3}
-\title{Convert a JABBA input object to JABBA3}
+\title{Convert a JABBA input object or a JABBA fit to JABBA3}
 \usage{
-jbinput2jabba3(jbinput, q.uniform = FALSE, keep.igamma = FALSE, verbose = TRUE)
+jbinput2jabba3(
+  jbinput,
+  q.uniform = FALSE,
+  keep.igamma = FALSE,
+  igamma.proxy = c("auto", "posterior", "fixed", "fishlife", "igamma", "lognormal"),
+  sdb.inflate = 1.5,
+  verbose = TRUE
+)
 }
 \arguments{
-\item{jbinput}{output of \code{JABBA::build_jabba()}}
+\item{jbinput}{output of \code{JABBA::build_jabba()} or \code{JABBA::fit_jabba()}}
 
 \item{q.uniform}{reproduce JABBA's uniform prior on q}
 
-\item{keep.igamma}{use the diffuse inverse-gamma prior on the process variance instead of the FishLife prior}
+\item{keep.igamma}{keep JABBA's inverse-gamma prior on the process variance as it is (same as
+\code{igamma.proxy = "igamma"})}
+
+\item{igamma.proxy}{treatment of JABBA's inverse-gamma process-error prior: "auto" (default), "posterior", "fixed",
+"fishlife", "igamma" or "lognormal" (see Details)}
+
+\item{sdb.inflate}{multiplier of the posterior log-SD of sigma.proc for \code{igamma.proxy = "posterior"} (default 1.5)}
 
 \item{verbose}{print the conversion messages}
 }
 \value{
-list(data, priors, model), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
+list(data, priors, model[, jabba]), e.g. \code{x <- jbinput2jabba3(jb); fit <- jabba3(x$data, x$priors, x$model)}
 }
 \description{
-Translates a \code{JABBA::build_jabba()} object into the three JABBA3 inputs: \code{data}, \code{priors} and
-\code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit, shape, q1, status prior), as are the
-lag, catch error, catchability and variance groups, the process-error start, the BioProcDyn options (lognormal
-sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the Selex EB/SB curves.
+Translates a \code{JABBA::build_jabba()} object, or a fitted \code{JABBA::fit_jabba()} object, into the three JABBA3
+inputs: \code{data}, \code{priors} and \code{model}. Priors are carried over on the JABBA scale (r, K, psi -> bkinit,
+shape, q1, status prior), as are the lag, catch error, catchability and variance groups, the process-error start, the
+BioProcDyn options (lognormal sigma.proc prior, fixed sigma.proc, depletion-dependent floor, bias correction) and the
+Selex EB/SB curves.
 }
 \details{
-Differences that cannot be carried over one to one are reported as messages:
+\strong{Observation error.} JABBA's total input variance of each index observation (\code{SE2} = se^2 +
+\code{fixed.obsE}^2, 0.3^2 squared where an index with SEs has a missing SE) is carried over exactly: the index (and
+auxiliary) se of the JABBA3 data are \code{sqrt(SE2)} with \code{se.min = 0}, so the JABBA minimum observation error
+is included in the se. The additional variance (\code{sigma.est}) keeps JABBA's gamma(0.001, 0.001) prior on 1/sdi^2.
+
+\strong{Process error prior} (\code{igamma.proxy}). JABBA's gamma(a, b) prior on the inverse process variance
+(\code{build_jabba(igamma = c(a, b))}, default c(4, 0.01)) is reproduced exactly (\code{jb3_priors(sdb = "igamma",
+igamma = c(a, b))}) when it is informative. The diffuse inverse-gamma(0.001, 0.001) (and any a < 0.2, whose 95\%
+interval for sdb spans more than two orders of magnitude) is fine for JAGS sampling but lets the process error collapse to
+0 at the posterior mode, so a proxy is used:
 \itemize{
-  \item JABBA's inverse-gamma prior on the process variance is replaced by the JABBA3 default (FishLife lognormal
-    prior on sdb), because the inverse-gamma mode collapses towards zero (set \code{keep.igamma = TRUE} for the
-    diffuse inverse-gamma(0.001, 0.001) instead).
+  \item \code{"posterior"} (default for a JABBA fit): lognormal prior on sdb centred on the median of the JABBA
+    posterior of sigma.proc (\code{sqrt(sigma2)}), with \code{sdb.inflate} (default 1.5) times its log-SD, so that
+    JABBA3 reproduces the JABBA solution while the data can still move sdb (the posterior is used as a prior: a
+    reproduction device, not an independent analysis);
+  \item \code{"fixed"}: sdb fixed at the JABBA posterior median;
+  \item \code{"fishlife"} (default for a \code{build_jabba()} object): the JABBA3 default FishLife prior on sdb;
+  \item \code{"igamma"}: keep JABBA's prior as it is (for \code{engine = "nuts"}; also \code{keep.igamma = TRUE});
+  \item \code{"lognormal"}: lognormal with the mean and SD of log sdb implied by the inverse gamma
+    (-0.5(digamma(a) - log b), 0.5 sqrt(trigamma(a))); only sensible for an informative inverse gamma.
+}
+\code{"auto"} (default) uses the exact inverse gamma when it is informative and otherwise \code{"posterior"} for a fit
+and \code{"fishlife"} for a \code{build_jabba()} object.
+
+Other differences that cannot be carried over one to one are reported as messages:
+\itemize{
   \item JAGS used a uniform prior on q; JABBA3 uses a flat prior on log q (set \code{q.uniform = TRUE} to reproduce
     JABBA exactly).
   \item Plim (hockey-stick production) is not supported and is dropped.
   \item Auxiliary data are carried over with their type, SEs and the JABBA observation error settings
-    (\code{auxiliary.sigma} -> estimated additional SD, \code{auxiliary.obsE} -> \code{aux.se.min}); JABBA's
-    \code{auxiliary.lag} (mean exploitation over the previous years) has no JABBA3 equivalent and is reported
-    (JABBA3 relates each observation to the same year). JABBA's uniform prior on qA becomes a flat prior on log qA.
+    (\code{auxiliary.sigma} -> estimated additional SD); JABBA's \code{auxiliary.lag} (mean exploitation over the
+    previous years) has no JABBA3 equivalent and is reported (JABBA3 relates each observation to the same year).
+    JABBA's uniform prior on qA becomes a flat prior on log qA.
   \item Catch-only models (\code{cpue = NULL}) become \code{jb3_data(catch, NULL)}; the status prior
     (\code{b.prior}) carries over.
+  \item JABBA reports posterior medians (MCMC), JABBA3 the posterior mode (Laplace) unless \code{engine = "nuts"}:
+    expect small differences for skewed posteriors.
+}
+For a JABBA fit the JABBA estimates are returned as \code{jabba}: \code{ts} (year, quant = "B", "F", "B/Bmsy",
+"F/Fmsy", "B/K", est, lci, uci; medians and 95\% intervals) and \code{pars} (JABBA \code{pars}), for comparison with
+the JABBA3 fit.
+}
+\examples{
+\dontrun{
+jbfit <- JABBA::fit_jabba(jbinput)                  # JABBA (JAGS) fit
+x <- jbinput2jabba3(jbfit)                          # same data, priors and settings
+f3 <- jabba3(x$data, x$priors, x$model)
 }
 }

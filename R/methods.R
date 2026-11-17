@@ -8,10 +8,12 @@ print.jabba3 <- function(x, ...){
       if(!is.null(x$draws)) paste0(" + ", nrow(x$draws$B), " ", x$draws$type, " draws") else "", "\n")
   cat("  model:", x$model$shape, if(x$model$lag > 0) paste0("+ lag ", x$model$lag) else "",
       if(x$model$sdb.form == "dyn") "+ dynamic sdb" else "", if(!is.null(x$model$ebsb)) "+ Selex" else "", "\n")
+  if(identical(x$engine, "jags")) cat(sprintf("  JABBA (JAGS) fit converted with jabba2jabba3(): %d posterior draws; min Geweke p %.3f; refit with update()\n",
+                                              nrow(x$draws$B %||% matrix(0, 0, 0)), cv$geweke.min %||% NA)) else
   cat(sprintf("  convergence: %s (max gradient %.1e, Newton decrement %.1e)%s\n", cv$tier, cv$maxgrad, cv$decrement,
               if(!is.null(x$nuts)) sprintf("; NUTS Rhat max %.3f, ESS min %.0f, divergent %d", x$nuts$rhat.max, x$nuts$ess.min, x$nuts$divergent) else ""))
   p <- x$pars[, c("est", "lci", "uci")]; rp <- x$refpts[c("Bmsy", "Fmsy", "MSY"), c("est", "lci", "uci")]
-  cat("  estimates (", if(x$engine == "nuts") "posterior median, 95% CrI" else "mode, 95% CI", "):\n", sep = "")
+  cat("  estimates (", if(x$engine %in% c("nuts", "jags")) "posterior median, 95% CrI" else "mode, 95% CI", "):\n", sep = "")
   print(signif(rbind(p, rp), 3))
   cat(sprintf("  status %d: B/Bmsy %.2f (%.2f-%.2f), F/Fmsy %.2f (%.2f-%.2f)\n", max(x$years),
               st$est[st$quant == "B/Bmsy"], st$lci[st$quant == "B/Bmsy"], st$uci[st$quant == "B/Bmsy"],
