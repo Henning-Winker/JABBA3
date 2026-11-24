@@ -20,24 +20,33 @@ pr
 | `q` | flat on log q | matrix with one row `c(median, log.sd, on)` per catchability group |
 | `m` | off | shape fixed from `BmsyK`; `c(median, log.sd, 1)` estimates it |
 | `rho` | off (`c(0.7, 0.15, 0)`) | normal prior on the AR(1) coefficient, when estimated |
-| `kdyn` | `max(0, 0.064 - 0.155 log r)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only) |
+| `kdyn` | `max(0, 0.148 - 0.235 log` $H_{MSY}$`)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only); $H_{MSY} = r/m$ |
 | `sdi` | off | index SD prior, used with `obs.error = "spict"` |
 | `status` | `NULL` | data.frame(year, type, median, log.sd); type `"BK"`, `"BBmsy"` or `"FFmsy"` |
 | `bbmsyinit` | `NULL` | initial status as $B_1/B_{MSY}$ instead of $B_1/K$: c(median, log.sd); switches `bkinit` off |
 
-## Process error: the FishLife prior
+## Process error: the life-history prior
 
 `sdb = "fishlife"` (default) replaces JABBA's diffuse inverse-gamma prior on
-the process variance by a lognormal prior with a life-history centre,
+the process variance by a lognormal prior with a life-history centre on the
+harvest rate at MSY,
 
 $$
-\sigma_{MSY} \sim LN\left(\log(0.80\,\sigma_R\,r^{0.45}),\ 0.3\right),
+\sigma_{MSY} \sim LN\left(\log\left[\sigma_R \min(0.9\,H_{MSY},\ 1.15)\right],\ 0.3\right),
+\qquad H_{MSY} = r/m ,
 $$
 
-with $r$ the median of the r prior and $\sigma_R$ the recruitment variability
-(`sigR = 0.5` when unknown). The relation comes from age-structured
-simulations of FishLife species (Thorson 2020) with selectivity at maturity
-(BioProcDyn). The inverse-gamma prior is still available (`sdb = "igamma"`)
+with $r$ the median of the r prior, $m$ the shape of the model and $\sigma_R$
+the recruitment variability (`sigR = 0.5` when unknown). $H_{MSY}$ is the
+harvest rate at MSY, which equals $F_{MSY}$ in the JABBA3 currency (catch over
+mean exploitable biomass), so the same productivity gives the same prior for
+any shape. The relation comes from age-structured simulations of 496 FishLife
+species (Thorson 2020) under two selectivity patterns (BioProcDyn): the process
+error SD at $B_{MSY}$ scales almost linearly with $H_{MSY}$ up to a plateau at
+about $\sigma_R$ for very productive stocks ($R^2$ = 0.96; with the Leslie r
+as the predictor $R^2$ = 0.65, and selectivity shifts the relation). The
+centre is converted with the model's shape when the model is built; the printed
+priors show the Schaefer case ($H_{MSY} = r/2$). The inverse-gamma prior is still available (`sdb = "igamma"`)
 but its mode is at zero, so it is not recommended for posterior-mode fits; a
 fixed-scale prior is given as `sdb = c(median, log.sd, 1)`.
 

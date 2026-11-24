@@ -2,7 +2,7 @@ data(iccat, package = "JABBA3")
 d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")
 
 test_that("bigeye Fox fit converges and reproduces the JABBA 2 RTMB engine", {
-  # JABBA 2.3 FishLife sdb prior on the r of the Fox shape (JABBA3 now uses the Schaefer-equivalent 2 r / m)
+  # JABBA 2.3 FishLife sdb prior on the r of the Fox shape (JABBA3 now centres it on Hmsy = r/m)
   f <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5), K = "jabba", sdb = c(0.8*0.5*0.2^0.45, 0.3, 1)), jb3_model(shape = "fox"), osa = FALSE)
   expect_s3_class(f, "jabba3")
   expect_equal(f$convergence$tier, "ok")

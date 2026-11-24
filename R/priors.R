@@ -18,10 +18,11 @@
 #' @param K.cv CV of the one-sided K prior (default 1, as JABBA); log-SD = sqrt(log(1 + CV^2)). Tighten (e.g. 0.3) when
 #'   the K profile is flat towards large K and the prior decides the scale
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
-#' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r_S^0.45, 0.3) with r_S the
-#'   Schaefer-equivalent of the median of the r prior, r_S = 2 r / m = 2 Hmsy for the model's shape m (FishLife
-#'   relation for the SD at Bmsy; the conversion is made when the model is built, so the r of any shape gives the same
-#'   process error for the same Hmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
+#' @param sdb process error SD: \code{"fishlife"} (default) = LN(sigR x min(0.9 Hmsy, 1.15), 0.3), the life-history
+#'   relation for the SD at Bmsy, with Hmsy = r/m the harvest rate at MSY implied by the median of the r prior and the
+#'   model's shape m (Hmsy = Fmsy in the JABBA3 currency; the conversion is made when the model is built, so the same
+#'   Hmsy gives the same prior for any shape). Fitted across 496 FishLife species and two selectivity patterns
+#'   (R^2 0.96; BioProcDyn); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
 #'   inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
 #'   The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).
 #' @param igamma c(shape, rate) of the gamma prior on 1/sdb^2 with \code{sdb = "igamma"}: default c(0.001, 0.001)
@@ -32,7 +33,8 @@
 #' @param m Pella-Tomlinson shape: off by default (m fixed from \code{BmsyK} in \code{\link{jb3_model}()});
 #'   \code{c(median, log.sd, 1)} to estimate m
 #' @param kdyn depletion dependence of the process error SD (\code{sdb.form = "dyn"}), \code{c(mean, sd, on)} normal
-#'   on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.064 - 0.155 log r)}, sd 0.15
+#'   on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.148 - 0.235 log Hmsy)}, Hmsy = r/m with the
+#'   model shape (set when the model is built), sd 0.15
 #' @param rho AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
 #'   default (rho fixed by \code{jb3_model(rho = )})
 #' @param sdi index observation SD prior (only with \code{obs.error = "spict"}), off by default: one prior
@@ -98,11 +100,12 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, b
   }
   K <- pr3(K, "K"); bkinit <- pr3(bkinit, "bkinit")
   sdb.type <- if(is.character(sdb)) match.arg(sdb, c("fishlife", "igamma")) else "lognormal"
-  sdb <- if(sdb.type == "fishlife") pr3(c(0.80*sigR*r[["median"]]^0.45, 0.3, 1), "sdb") else
+  sdb <- if(sdb.type == "fishlife") pr3(c(.sdb_hmsy(r[["median"]]/2, sigR), 0.3, 1), "sdb") else
     if(sdb.type == "igamma") c(median = NA, log.sd = NA, on = 1) else pr3(sdb, "sdb")
   if(!is.null(q)){ q <- matrix(q, ncol = 3, dimnames = list(NULL, c("median", "log.sd", "on"))) }
   m <- pr3(m, "m")
-  if(is.null(kdyn)) kdyn <- c(if(r[["median"]] > 1.5) 0 else max(0, 0.064 - 0.155*log(r[["median"]])), 0.15, 1)
+  kdyn.auto <- is.null(kdyn)
+  if(kdyn.auto) kdyn <- c(.kdyn_hmsy(r[["median"]]/2), 0.15, 1)
   kdyn <- stats::setNames(as.numeric(c(kdyn, 1)[1:3]), c("mean", "sd", "on"))
   sdi <- if(is.list(sdi) || is.matrix(sdi)) .pr_rows(sdi, "sdi") else pr3(sdi, "sdi"); sdf <- pr3(sdf, "sdf")
   rho <- stats::setNames(as.numeric(c(rho, 1)[1:3]), c("mean", "sd", "on"))
@@ -118,7 +121,7 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, b
       if(!is.numeric(kmax.user) || kmax.user[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = kmax.user[1], log.sd = if(length(kmax.user) > 1) kmax.user[2] else 0.3, on = 1) }
   K.max <- stats::setNames(as.numeric(K.max), c("mult", "log.sd", "on"))
-  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sdb.r = if(sdb.type == "fishlife") r[["median"]] else NULL, igamma = if(sdb.type == "igamma") as.numeric(igamma[1:2]) else NULL, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
+  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sdb.r = if(sdb.type == "fishlife" || kdyn.auto) r[["median"]] else NULL, kdyn.auto = kdyn.auto, igamma = if(sdb.type == "igamma") as.numeric(igamma[1:2]) else NULL, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
                  sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max,
                  maxC = maxC, maxC.value = mC),
             class = "jb3priors", args = args)
@@ -170,10 +173,11 @@ print.jb3priors <- function(x, ...){
   tab <- rbind(r = x$r, K = x$K, bkinit = x$bkinit, sdb = x$sdb, m = x$m, sdi)
   cat("JABBA3 priors (lognormal: median, log.sd; on = 1)\n")
   print(signif(tab, 3))
-  cat("sdb:", switch(x$sdb.type, fishlife = sprintf("FishLife centre 0.80 x sigR (%.2f) x (2 r/m)^0.45 (r converted with the model shape; table: m = 2)", x$sigR),
+  cat("sdb:", switch(x$sdb.type, fishlife = sprintf("life-history centre sigR (%.2f) x min(0.9 Hmsy, 1.15), Hmsy = r/m with the model shape (table: m = 2)", x$sigR),
                      igamma = sprintf("inverse-gamma(%g, %g) on the variance (JABBA)", (x$igamma %||% c(0.001, 0.001))[1], (x$igamma %||% c(0.001, 0.001))[2]), lognormal = "user lognormal"), "\n")
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
-  cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
+  cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else "",
+              if(isTRUE(x$kdyn.auto)) ", mean max(0, 0.148 - 0.235 log Hmsy) with the model shape (table: m = 2)" else ""))
   if(!is.null(x$maxC.value) && is.finite(x$maxC.value)) cat(sprintf("max catch (%s): %s\n", x$maxC %||% "max", format(signif(x$maxC.value, 4), big.mark = ",")))
   if(!is.null(x$K.max) && x$K.max[3] == 1) cat(sprintf("K: one-sided lognormal, flat below %.1f x max catch, half-normal on log K above (log-SD %.2f, CV %.2f)\n",
                                                        x$K.max[1], x$K.max[2], sqrt(exp(x$K.max[2]^2) - 1)))
@@ -221,11 +225,23 @@ jb3_kr <- function(r = NULL, GT = NULL, maxC = NULL){
   v
 }
 
-# process-error prior used in the model: the FishLife centre with the Schaefer-equivalent r_S = 2 r / m of the r prior
-# median stored at jb3_priors() time (sdb.r) and the model's shape m; other priors (and priors made before sdb.r was
-# stored) are used as they are
+# Life-history relations for the process error on the harvest rate at MSY (Hmsy = MSY / mean-year EB_MSY = Fmsy, the
+# JABBA3 currency; Hmsy = r/m in the model), fitted across 496 FishLife species x 2 selectivity patterns (BioProcDyn,
+# analysis/s3.2h_hmsy_relations.R): SD at Bmsy sd_msy/sigR = min(0.9 Hmsy, 1.15) (R2 0.96, residual log-SD 0.11);
+# depletion power of the SD k = 0.148 - 0.235 log Hmsy (R2 0.78), truncated at 0.
+.sdb_hmsy <- function(H, sigR) sigR*pmin(0.9*H, 1.15)
+.kdyn_hmsy <- function(H) pmax(0, 0.148 - 0.235*log(H))
+
+# process-error priors used in the model: the life-history centres with Hmsy = r/m from the r prior median stored at
+# jb3_priors() time (sdb.r) and the model's shape m; user priors (and priors made before sdb.r was stored) are used as
+# they are
 .sdb_prior_model <- function(priors, m){
   if(!identical(priors$sdb.type, "fishlife") || is.null(priors$sdb.r) || !is.finite(m)) return(priors$sdb)
-  out <- priors$sdb; out[1] <- 0.80*priors$sigR*(2*priors$sdb.r/m)^0.45
+  out <- priors$sdb; out[1] <- .sdb_hmsy(priors$sdb.r/m, priors$sigR)
+  out
+}
+.kdyn_prior_model <- function(priors, m){
+  if(!isTRUE(priors$kdyn.auto) || is.null(priors$sdb.r) || !is.finite(m)) return(priors$kdyn)
+  out <- priors$kdyn; out[1] <- .kdyn_hmsy(priors$sdb.r/m)
   out
 }
