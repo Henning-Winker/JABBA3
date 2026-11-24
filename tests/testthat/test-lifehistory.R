@@ -58,7 +58,7 @@ test_that("jb3_selex numbers curves and jb3_asem_prior", {
   expect_s3_class(jbplot_selex(sx), "patchwork")
   m <- jb3_model(ebsb = sx, ebsb.index = "LL.N", ebsb.catch = "LL"); expect_equal(length(m$ebsb), 2)
   # equilibrium prior: selection at maturity, catch removed from SB (H = MSY/SBmsy)
-  p0 <- jb3_asem_prior(lh, mat, removal = "SB")
+  p0 <- jb3_asem_prior(lh, mat, removal = "SB", timing = "start")     # legacy currency (start-of-year EB)
   expect_equal(nrow(p0$draws), 1); expect_equal(p0$BmsyK, 0.317, tolerance = 0.02); expect_equal(p0$draws$Hmsy, 0.238, tolerance = 0.02)
   expect_equal(unname(p0$r[1]), p0$draws$Hmsy*JABBA3:::.m_from_bmsyk(p0$BmsyK))
   p1 <- jb3_asem_prior(lh, s1, M.cv = 0.3, h.sd = 0.06, nsim = 50)
@@ -79,4 +79,24 @@ test_that("Selex with a removal curve by year on kobsim", {
   bk <- f$ts$est[f$ts$quant == "B/K"]
   expect_lt(abs(log(tail(bk, 1)) - log(tail(kobsim$truth$SB, 1)/kobsim$SB0)), 0.25)
   expect_error(jb3_model(ebsb = sx, ebsb.catch = c("S1", "S2")) |> (\(mm) jabba3(d, jb3_priors(d), mm, osa = FALSE))(), "one curve per model year")
+})
+
+test_that("mean-year exploitable biomass gives Hmsy = Fmsy (common currency); start of year gives Hmsy < Fmsy", {
+  lh <- c(linf = 40, k = 0.6, t0 = -0.2, a = 1e-5, b = 3, M = 0.9, s = 0.7, L50 = 18, L95 = 22, amax = 9)
+  sel <- c(SL50 = 15, SL95 = 20)
+  pm <- jb3_asem_prior(lh, sel, nsim = 1)
+  expect_equal(pm$draws$Hmsy, pm$draws$Fmsy, tolerance = 1e-6)
+  ps <- jb3_asem_prior(lh, sel, nsim = 1, timing = "start")
+  expect_lt(ps$draws$Hmsy, ps$draws$Fmsy)
+  expect_s3_class(jb3_selex(lh, list(F = sel)), "jb3selex")
+  expect_s3_class(jb3_selex(lh, list(F = sel), timing = "start"), "jb3selex")
+})
+
+test_that("FishLife process-error prior uses the Schaefer-equivalent r = 2 r / m", {
+  pr <- jb3_priors(r = c(0.4, 0.5))
+  expect_equal(JABBA3:::.sdb_prior_model(pr, 2)[[1]], pr$sdb[[1]])                     # Schaefer: unchanged
+  m <- JABBA3:::.m_from_bmsyk(0.4)
+  expect_equal(JABBA3:::.sdb_prior_model(pr, m)[[1]], 0.8 * 0.5 * (2 * 0.4 / m)^0.45)
+  pu <- jb3_priors(r = c(0.4, 0.5), sdb = c(0.1, 0.3, 1))
+  expect_equal(JABBA3:::.sdb_prior_model(pu, m), pu$sdb)                                # user prior unchanged
 })

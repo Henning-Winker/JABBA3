@@ -79,7 +79,7 @@ jb3_setup <- function(data, priors, model, peels = 0, index.peels = 0, prior.onl
     pew = .pe_ramp(model$pe.ramp, data$years[sst$stepyear]),
     ns = ns, Ny = Ny, stepyear = as.integer(sst$stepyear), stepseason = as.integer(sst$stepseason), yr1 = as.integer(sst$yr1),
     cshare = sst$share, allocF = as.integer(sst$allocF), gfac = sst$w[sst$stepseason]/ns,
-    r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = priors$sdb,
+    r.pr = priors$r, K.pr = c(K.pr[1]/mucatch, K.pr[2:3]), Kmax.pr = Kmax.pr, bk.pr = priors$bkinit, sdb.pr = .sdb_prior_model(priors, model$m),
     sdb.ig = priors$sdb.type == "igamma", ig.ab = as.numeric(priors$igamma %||% c(0.001, 0.001)), q.pr = q.pr, m.pr = priors$m, mu.m = model$m, kd.pr = priors$kdyn,
     sdi.pr = .sdi_prior(priors$sdi, nvar),
     est.m = priors$m[3] == 1, est.sdb = is.null(model$sdb.fixed), sdb.fix = model$sdb.fixed %||% 0.1,

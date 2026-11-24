@@ -48,8 +48,10 @@ the K profile is flat towards large K and the prior decides the scale}
 
 \item{bkinit}{initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)}
 
-\item{sdb}{process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
-r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
+\item{sdb}{process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r_S^0.45, 0.3) with r_S the
+Schaefer-equivalent of the median of the r prior, r_S = 2 r / m = 2 Hmsy for the model's shape m (FishLife
+relation for the SD at Bmsy; the conversion is made when the model is built, so the r of any shape gives the same
+process error for the same Hmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
 inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
 The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).}
 

@@ -18,8 +18,10 @@
 #' @param K.cv CV of the one-sided K prior (default 1, as JABBA); log-SD = sqrt(log(1 + CV^2)). Tighten (e.g. 0.3) when
 #'   the K profile is flat towards large K and the prior decides the scale
 #' @param bkinit initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)
-#' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
-#'   r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
+#' @param sdb process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r_S^0.45, 0.3) with r_S the
+#'   Schaefer-equivalent of the median of the r prior, r_S = 2 r / m = 2 Hmsy for the model's shape m (FishLife
+#'   relation for the SD at Bmsy; the conversion is made when the model is built, so the r of any shape gives the same
+#'   process error for the same Hmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
 #'   inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
 #'   The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).
 #' @param igamma c(shape, rate) of the gamma prior on 1/sdb^2 with \code{sdb = "igamma"}: default c(0.001, 0.001)
@@ -116,7 +118,7 @@ jb3_priors <- function(data = NULL, r = c(0.2, 0.5, 1), K = "half8", K.cv = 1, b
       if(!is.numeric(kmax.user) || kmax.user[1] <= 0) stop("K.max must be \"r\", a multiple of the maximum catch, or c(multiple, log.sd)", call. = FALSE)
       c(mult = kmax.user[1], log.sd = if(length(kmax.user) > 1) kmax.user[2] else 0.3, on = 1) }
   K.max <- stats::setNames(as.numeric(K.max), c("mult", "log.sd", "on"))
-  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, igamma = if(sdb.type == "igamma") as.numeric(igamma[1:2]) else NULL, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
+  structure(list(r = r, K = K, bkinit = bkinit, sdb = sdb, sdb.type = sdb.type, sdb.r = if(sdb.type == "fishlife") r[["median"]] else NULL, igamma = if(sdb.type == "igamma") as.numeric(igamma[1:2]) else NULL, sigR = sigR, q = q, m = m, kdyn = kdyn, rho = rho,
                  sdi = sdi, sdf = sdf, sdc = stats::setNames(as.numeric(sdc), c("median", "log.sd", "on")), status = status, creep = stats::setNames(as.numeric(creep[1:2]), c("mean", "sd")), K.max = K.max,
                  maxC = maxC, maxC.value = mC),
             class = "jb3priors", args = args)
@@ -168,7 +170,7 @@ print.jb3priors <- function(x, ...){
   tab <- rbind(r = x$r, K = x$K, bkinit = x$bkinit, sdb = x$sdb, m = x$m, sdi)
   cat("JABBA3 priors (lognormal: median, log.sd; on = 1)\n")
   print(signif(tab, 3))
-  cat("sdb:", switch(x$sdb.type, fishlife = sprintf("FishLife centre 0.80 x sigR (%.2f) x r^0.45", x$sigR),
+  cat("sdb:", switch(x$sdb.type, fishlife = sprintf("FishLife centre 0.80 x sigR (%.2f) x (2 r/m)^0.45 (r converted with the model shape; table: m = 2)", x$sigR),
                      igamma = sprintf("inverse-gamma(%g, %g) on the variance (JABBA)", (x$igamma %||% c(0.001, 0.001))[1], (x$igamma %||% c(0.001, 0.001))[2]), lognormal = "user lognormal"), "\n")
   cat("q:", if(is.null(x$q)) "flat on log q" else paste(nrow(x$q), "lognormal priors"), "\n")
   cat(sprintf("kdyn (dynamic sdb only): normal(%.2f, %.2f)%s\n", x$kdyn[1], x$kdyn[2], if(x$kdyn[3] == 0) " fixed at mean" else ""))
@@ -217,4 +219,13 @@ jb3_kr <- function(r = NULL, GT = NULL, maxC = NULL){
   v <- if(!is.null(r)) c(median = 3.04*r^-0.583, log.sd = 0.55) else if(!is.null(GT)) c(median = 1.71*GT^0.58, log.sd = 0.57) else c(median = 5.9, log.sd = 0.55)
   if(!is.null(maxC)) v <- c(v, K = v[["median"]]*maxC)
   v
+}
+
+# process-error prior used in the model: the FishLife centre with the Schaefer-equivalent r_S = 2 r / m of the r prior
+# median stored at jb3_priors() time (sdb.r) and the model's shape m; other priors (and priors made before sdb.r was
+# stored) are used as they are
+.sdb_prior_model <- function(priors, m){
+  if(!identical(priors$sdb.type, "fishlife") || is.null(priors$sdb.r) || !is.finite(m)) return(priors$sdb)
+  out <- priors$sdb; out[1] <- 0.80*priors$sigR*(2*priors$sdb.r/m)^0.45
+  out
 }

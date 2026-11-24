@@ -29,7 +29,8 @@ test_that("non-centred states reproduce the centred process model", {
     expect_equal(o$report(o$env$par)$P, f$report$P, tolerance = 1e-8)
   }
   # mode fits are unchanged by the parameterisation (always centred)
-  f1 <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5), K = "jabba"), jb3_model(shape = "fox", param = "noncentred"), osa = FALSE)
+  f1 <- jabba3(d, jb3_priors(d, r = c(0.2, 0.5), K = "jabba", sdb = c(0.8*0.5*0.2^0.45, 0.3, 1)),
+               jb3_model(shape = "fox", param = "noncentred"), osa = FALSE)   # JABBA 2.3 FishLife sdb prior (Fox r)
   expect_equal(f1$pars["K", "est"], 1174749, tolerance = 1e-4)
 })
 
