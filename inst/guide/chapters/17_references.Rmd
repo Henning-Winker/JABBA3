@@ -36,6 +36,8 @@ Kristensen, K., Nielsen, A., Berg, C.W., Skaug, H. and Bell, B.M. (2016). TMB:
 automatic differentiation and Laplace approximation. *Journal of Statistical
 Software* 70(5): 1-21.
 
+Meyer, R. and Millar, R.B. (1999). BUGS in Bayesian stock assessments. *Canadian Journal of Fisheries and Aquatic Sciences* 56: 1078-1086.
+
 Monnahan, C.C. and Kristensen, K. (2018). No-U-turn sampling for fast Bayesian
 inference in ADMB and TMB: introducing the adnuts and tmbstan R packages. *PLoS
 ONE* 13(5): e0197954.

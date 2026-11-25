@@ -110,7 +110,7 @@ the separate indices are numerous and short.
 Three steps, each added to the previous one:
 
 1. **Life-history prior on the process error scale** (the JABBA3 default,
-   $\sigma_{MSY} = \sigma_R \min(0.9\,H_{MSY}, 1.15)$) instead of the fixed $\sigma = 0.07$;
+   $\sigma_{LH} = \sigma_R \min(0.9\,H_{MSY}, 1.15)$ at the 2.5th percentile) instead of the fixed $\sigma = 0.07$;
 2. **production lag** at the age at maturity (here 3 years);
 3. **AR(1) process deviations** with $\rho = 0.75$ (the default; blue marlin falls
    in the 6-10 year generation-time class of `jb3_rho_table()`).

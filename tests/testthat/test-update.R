@@ -14,7 +14,7 @@ test_that("changing r keeps derived priors unless recompute = TRUE", {
   expect_equal(f1$priors$sdb, fit$priors$sdb)
   expect_equal(f1$priors$kdyn, fit$priors$kdyn)
   f2 <- update(fit, priors = list(r = c(0.3, 0.5)), recompute = TRUE)
-  expect_equal(f2$priors$sdb[["median"]], 0.5*0.9*0.3/2)                     # stored table value (Schaefer, Hmsy = r/2)
+  expect_equal(f2$priors$sdb[["median"]], 0.5*0.9*0.3/2*exp(qnorm(0.975)*0.3))                     # stored table value (Schaefer, Hmsy = r/2)
   expect_false(isTRUE(all.equal(f2$priors$kdyn, fit$priors$kdyn)))
 })
 

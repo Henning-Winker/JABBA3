@@ -78,7 +78,7 @@ update.jabba3 <- function(object, data = NULL, priors = NULL, model = NULL, reco
   }
   # change only the named priors; all others keep their values
   new <- do.call(jb3_priors, c(list(data = data), .replace_args(a0 %||% list(), priors)))
-  fields <- unique(unlist(lapply(names(priors), function(n) switch(n, sdb = c("sdb", "sdb.type", "igamma"), psi = "bkinit", n))))
+  fields <- unique(unlist(lapply(names(priors), function(n) switch(n, sdb = c("sdb", "sdb.type", "sdb.pct", "igamma"), sdb.pct = c("sdb", "sdb.pct"), psi = "bkinit", n))))
   out <- pr0
   for(f in fields) out[f] <- list(new[[f]])
   attr(out, "args") <- .replace_args(a0 %||% list(), priors)

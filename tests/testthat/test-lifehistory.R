@@ -93,15 +93,17 @@ test_that("mean-year exploitable biomass gives Hmsy = Fmsy (common currency); st
 })
 
 test_that("life-history process-error priors on Hmsy = r/m: sd_msy = sigR min(0.9 Hmsy, 1.15), kdyn = 0.148 - 0.235 log Hmsy", {
-  pr <- jb3_priors(r = c(0.4, 0.5))
-  expect_equal(pr$sdb[[1]], 0.5*0.9*0.4/2)                                               # table: Schaefer, Hmsy = r/2
+  pr <- jb3_priors(r = c(0.4, 0.5)); px <- exp(qnorm(0.975)*0.3)                          # sigma_LH = 2.5th percentile
+  expect_equal(pr$sdb[[1]], 0.5*0.9*0.4/2*px)                                            # table: Schaefer, Hmsy = r/2
   m <- JABBA3:::.m_from_bmsyk(0.4)
-  expect_equal(JABBA3:::.sdb_prior_model(pr, m)[[1]], 0.5*0.9*0.4/m)
-  expect_equal(JABBA3:::.sdb_prior_model(jb3_priors(r = c(4, 0.5)), 1.5)[[1]], 0.5*1.15)  # plateau
+  expect_equal(JABBA3:::.sdb_prior_model(pr, m)[[1]], 0.5*0.9*0.4/m*px)
+  expect_equal(JABBA3:::.sdb_prior_model(jb3_priors(r = c(4, 0.5)), 1.5)[[1]], 0.5*1.15*px)  # plateau
+  expect_equal(JABBA3:::.sdb_prior_model(jb3_priors(r = c(0.4, 0.5), sdb.pct = 0.5), m)[[1]], 0.5*0.9*0.4/m)  # sigma_LH as median
+  po <- pr; po$sdb.pct <- NULL; expect_equal(JABBA3:::.sdb_prior_model(po, m)[[1]], 0.5*0.9*0.4/m)        # older priors
   expect_equal(JABBA3:::.kdyn_prior_model(pr, m)[[1]], max(0, 0.148 - 0.235*log(0.4/m)))
   pu <- jb3_priors(r = c(0.4, 0.5), sdb = c(0.1, 0.3, 1), kdyn = c(0.3, 0.1, 1))
   expect_equal(JABBA3:::.sdb_prior_model(pu, m), pu$sdb); expect_equal(JABBA3:::.kdyn_prior_model(pu, m), pu$kdyn)   # user priors unchanged
   data(iccat); d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se)
   f <- suppressWarnings(jabba3(d, jb3_priors(d, r = c(0.3, 0.5)), jb3_model(BmsyK = 0.4), osa = FALSE))
-  expect_equal(f$setup$dat$sdb.pr[[1]], 0.5*0.9*0.3/f$model$m)                           # applied in the model
+  expect_equal(f$setup$dat$sdb.pr[[1]], 0.5*0.9*0.3/f$model$m*px)                           # applied in the model
 })

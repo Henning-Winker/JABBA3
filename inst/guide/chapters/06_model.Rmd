@@ -76,8 +76,8 @@ knitr::kable(jb3_rho_table())
 jb3_rho_gt(c(2, 4, 8, 15))
 ```
 
-The scale prior on $\sigma_{MSY}$ is tied to the harvest rate at MSY (median
-$\sigma_R \min(0.9\,H_{MSY}, 1.15)$ with $H_{MSY} = r/m$; chapter *Priors*), so it
+The scale prior on $\sigma_{MSY}$ is tied to the harvest rate at MSY ($\sigma_{LH} = \sigma_R \min(0.9\,H_{MSY}, 1.15)$ with $H_{MSY} = r/m$ at its
+2.5th percentile; chapter *Priors*), so it
 follows the r prior and the shape in sensitivity runs.
 
 $\rho$ can be estimated with a normal prior, by switching `priors$rho` on;
