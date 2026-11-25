@@ -11,6 +11,7 @@ jb3_priors(
   K.cv = 1,
   bkinit = c(0.9, 0.246, 1),
   sdb = "fishlife",
+  sdb.pct = 0.025,
   igamma = c(0.001, 0.001),
   sigR = 0.5,
   q = NULL,
@@ -48,9 +49,17 @@ the K profile is flat towards large K and the prior decides the scale}
 
 \item{bkinit}{initial depletion B1/K (JABBA: \code{psi}); default c(0.9, 0.246) (JABBA: CV 0.25)}
 
-\item{sdb}{process error SD: \code{"fishlife"} (default) = LN(0.80 x sigR x r^0.45, 0.3) with r the median of the
-r prior (FishLife relation for the SD at Bmsy); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
-inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).
+\item{sdb}{process error SD: \code{"fishlife"} (default) = lognormal with log-SD 0.3 whose \code{sdb.pct} percentile
+is the life-history SD at Bmsy, sigma_LH = sigR x min(0.9 Hmsy, 1.15) (the process SD without model or data
+misspecification, treated as a lower plausible bound; median = sigma_LH x exp(qnorm(1 - sdb.pct) x 0.3) = 1.80
+sigma_LH by default), with Hmsy = r/m the harvest rate at MSY implied by the median of the r prior and the
+model's shape m (Hmsy = Fmsy in the JABBA3 currency; the conversion is made when the model is built, so the same
+Hmsy gives the same prior for any shape). Fitted across 496 FishLife species and two selectivity patterns
+(R^2 0.96; BioProcDyn); or \code{c(median, log.sd, on)}; or \code{"igamma"} for JABBA's
+inverse-gamma prior on the process variance, with shape and rate \code{igamma} (JABBA \code{build_jabba(igamma = )}).}
+
+\item{sdb.pct}{percentile of the \code{"fishlife"} sdb prior placed at the life-history SD sigma_LH (default 0.025: the
+lower end of the 95\% prior interval; 0.5 = sigma_LH as the median, 0.01 = lower end of the 99\% interval)
 The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mode (the process error can collapse to 0).}
 
 \item{igamma}{c(shape, rate) of the gamma prior on 1/sdb^2 with \code{sdb = "igamma"}: default c(0.001, 0.001)
@@ -65,7 +74,8 @@ The diffuse inverse-gamma(0.001, 0.001) is not recommended for the posterior mod
 \code{c(median, log.sd, 1)} to estimate m}
 
 \item{kdyn}{depletion dependence of the process error SD (\code{sdb.form = "dyn"}), \code{c(mean, sd, on)} normal
-on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.064 - 0.155 log r)}, sd 0.15}
+on k, bounded to (-0.5, 2); \code{NULL} = life-history centre \code{max(0, 0.148 - 0.235 log Hmsy)}, Hmsy = r/m with the
+model shape (set when the model is built), sd 0.15}
 
 \item{rho}{AR(1) coefficient of the process deviations, \code{c(mean, sd, on)} normal on rho in (0, 0.99); off by
 default (rho fixed by \code{jb3_model(rho = )})}

@@ -65,6 +65,11 @@ Fits the Pella-Tomlinson state-space surplus production model in RTMB (posterior
 log-depletion states Laplace-integrated) or with NUTS (\code{tmbstan}, all states sampled). Optionally runs one of the
 BioProcDyn workflows (Tier 1 lag, Tier 2 tuned dynamic process error, Selex) automatically.
 }
+\details{
+F in all outputs (F, F/Fmsy, Fmsy) is catch over mean-of-year exploitable biomass, F = C/B. With the mean-of-year
+currency of the life-history priors this equals the fishing mortality of fully selected fish, so F/Fmsy is comparable
+with F/Fmsy of age-structured assessments; it is not the exploitation fraction U = 1 - exp(-F) (no conversion applies).
+}
 \examples{
 data(iccat)
 d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se, stock = "bet")

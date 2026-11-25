@@ -16,7 +16,8 @@ jb3_selex(
   amax = NULL,
   Fgrid = NULL,
   fit.range = c(0.1, 0.9),
-  P.lim = c(0.02, 1.3)
+  P.lim = c(0.02, 1.3),
+  timing = c("mean", "start")
 )
 }
 \arguments{
@@ -47,6 +48,9 @@ index mapped with this curve}
 \item{P.lim}{end points \eqn{(P_1, P_2)} of the curve, beyond which it is held constant; the default matches the state
 bounds of \code{jb3_model(P.bound = )}, so that the curve is smooth over all states the model can reach (a kink
 inside that range can stall the gradient-based optimiser)}
+
+\item{timing}{exploitable biomass of the EB/SB curves: \code{"mean"} (default) over the year with mid-year weights
+(catch / EB = F, so H_MSY = F_MSY) or \code{"start"} of the year (earlier JABBA3 versions)}
 }
 \value{
 object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for

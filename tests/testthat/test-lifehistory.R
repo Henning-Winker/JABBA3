@@ -58,7 +58,7 @@ test_that("jb3_selex numbers curves and jb3_asem_prior", {
   expect_s3_class(jbplot_selex(sx), "patchwork")
   m <- jb3_model(ebsb = sx, ebsb.index = "LL.N", ebsb.catch = "LL"); expect_equal(length(m$ebsb), 2)
   # equilibrium prior: selection at maturity, catch removed from SB (H = MSY/SBmsy)
-  p0 <- jb3_asem_prior(lh, mat, removal = "SB")
+  p0 <- jb3_asem_prior(lh, mat, removal = "SB", timing = "start")     # legacy currency (start-of-year EB)
   expect_equal(nrow(p0$draws), 1); expect_equal(p0$BmsyK, 0.317, tolerance = 0.02); expect_equal(p0$draws$Hmsy, 0.238, tolerance = 0.02)
   expect_equal(unname(p0$r[1]), p0$draws$Hmsy*JABBA3:::.m_from_bmsyk(p0$BmsyK))
   p1 <- jb3_asem_prior(lh, s1, M.cv = 0.3, h.sd = 0.06, nsim = 50)
@@ -79,4 +79,31 @@ test_that("Selex with a removal curve by year on kobsim", {
   bk <- f$ts$est[f$ts$quant == "B/K"]
   expect_lt(abs(log(tail(bk, 1)) - log(tail(kobsim$truth$SB, 1)/kobsim$SB0)), 0.25)
   expect_error(jb3_model(ebsb = sx, ebsb.catch = c("S1", "S2")) |> (\(mm) jabba3(d, jb3_priors(d), mm, osa = FALSE))(), "one curve per model year")
+})
+
+test_that("mean-year exploitable biomass gives Hmsy = Fmsy (common currency); start of year gives Hmsy < Fmsy", {
+  lh <- c(linf = 40, k = 0.6, t0 = -0.2, a = 1e-5, b = 3, M = 0.9, s = 0.7, L50 = 18, L95 = 22, amax = 9)
+  sel <- c(SL50 = 15, SL95 = 20)
+  pm <- jb3_asem_prior(lh, sel, nsim = 1)
+  expect_equal(pm$draws$Hmsy, pm$draws$Fmsy, tolerance = 1e-6)
+  ps <- jb3_asem_prior(lh, sel, nsim = 1, timing = "start")
+  expect_lt(ps$draws$Hmsy, ps$draws$Fmsy)
+  expect_s3_class(jb3_selex(lh, list(F = sel)), "jb3selex")
+  expect_s3_class(jb3_selex(lh, list(F = sel), timing = "start"), "jb3selex")
+})
+
+test_that("life-history process-error priors on Hmsy = r/m: sd_msy = sigR min(0.9 Hmsy, 1.15), kdyn = 0.148 - 0.235 log Hmsy", {
+  pr <- jb3_priors(r = c(0.4, 0.5)); px <- exp(qnorm(0.975)*0.3)                          # sigma_LH = 2.5th percentile
+  expect_equal(pr$sdb[[1]], 0.5*0.9*0.4/2*px)                                            # table: Schaefer, Hmsy = r/2
+  m <- JABBA3:::.m_from_bmsyk(0.4)
+  expect_equal(JABBA3:::.sdb_prior_model(pr, m)[[1]], 0.5*0.9*0.4/m*px)
+  expect_equal(JABBA3:::.sdb_prior_model(jb3_priors(r = c(4, 0.5)), 1.5)[[1]], 0.5*1.15*px)  # plateau
+  expect_equal(JABBA3:::.sdb_prior_model(jb3_priors(r = c(0.4, 0.5), sdb.pct = 0.5), m)[[1]], 0.5*0.9*0.4/m)  # sigma_LH as median
+  po <- pr; po$sdb.pct <- NULL; expect_equal(JABBA3:::.sdb_prior_model(po, m)[[1]], 0.5*0.9*0.4/m)        # older priors
+  expect_equal(JABBA3:::.kdyn_prior_model(pr, m)[[1]], max(0, 0.148 - 0.235*log(0.4/m)))
+  pu <- jb3_priors(r = c(0.4, 0.5), sdb = c(0.1, 0.3, 1), kdyn = c(0.3, 0.1, 1))
+  expect_equal(JABBA3:::.sdb_prior_model(pu, m), pu$sdb); expect_equal(JABBA3:::.kdyn_prior_model(pu, m), pu$kdyn)   # user priors unchanged
+  data(iccat); d <- jb3_data(iccat$bet$catch, iccat$bet$cpue, iccat$bet$se)
+  f <- suppressWarnings(jabba3(d, jb3_priors(d, r = c(0.3, 0.5)), jb3_model(BmsyK = 0.4), osa = FALSE))
+  expect_equal(f$setup$dat$sdb.pr[[1]], 0.5*0.9*0.3/f$model$m*px)                           # applied in the model
 })

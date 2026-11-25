@@ -20,7 +20,8 @@ jb3_asem_prior(
   sex_ratio = NULL,
   amin = 0,
   amax = NULL,
-  seed = 1
+  seed = 1,
+  timing = c("mean", "start")
 )
 }
 \arguments{
@@ -41,6 +42,10 @@ selectivity of fleet \code{catch} sets F_MSY}
 \item{nsim}{number of draws (1 without uncertainty)}
 
 \item{seed}{random seed}
+
+\item{timing}{exploitable biomass of the equilibrium: \code{"mean"} (default) over the year with mid-year weights
+(age + 0.5) in catch and exploitable biomass, so that H_MSY = F_MSY (the common currency with F and with FLicc);
+\code{"start"} at the start of the year (earlier JABBA3 versions; H_MSY < F_MSY, increasingly with M)}
 }
 \value{
 object of class \code{jb3asem}: \code{r} (c(median, log.sd) for \code{jb3_priors(r = )}, conditional on the

@@ -41,7 +41,7 @@ jb3_tier1 <- function(fit, amat, ...){
 #' @export
 jb3_tier2 <- function(fit, amat = NULL, ...){
   if(fit$model$sdb.form != "const") stop("Tier 2 needs a step-1 fit with constant sdb", call. = FALSE)
-  k <- fit$priors$kdyn[["mean"]]
+  k <- (fit$setup$dat$kd.pr %||% fit$priors$kdyn)[[1]]          # life-history kdyn with the model shape
   x <- pmin(pmax(fit$report$BBmsy, 0.2), 3)
   lev <- fit$report$sdb/sqrt(mean(x^(-2*k)))
   mod <- fit$model; mod$sdb.form <- "dyn"; mod$sdb.fixed <- lev

@@ -37,7 +37,8 @@
   amax <- amax %||% .lhget(p, "amax", ceiling(-log(0.01)/M))            # age at which 1% of a cohort survives
   age <- amin:amax
   len <- linf*(1 - exp(-k*(age - t0))); len[len < 0.01*linf] <- 0.01*linf
-  list(age = age, len = len, wt = a*len^b, mat = 1/(1 + exp(-log(19)*(len - L50)/(L95 - L50))), M = rep(M, length(age)),
+  len.mid <- pmax(linf*(1 - exp(-k*(age + 0.5 - t0))), 0.01*linf)    # mid-year length (catch, mean exploitable biomass)
+  list(age = age, len = len, wt = a*len^b, wt.mid = a*len.mid^b, mat = 1/(1 + exp(-log(19)*(len - L50)/(L95 - L50))), M = rep(M, length(age)),
        linf = linf, k = k, t0 = t0, L50 = L50, L95 = L95, a = a, b = b, h = .lhget(p, "s", .lhget(p, "h", 0.7)))
 }
 
@@ -242,6 +243,8 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 #' @param P.lim end points \eqn{(P_1, P_2)} of the curve, beyond which it is held constant; the default matches the state
 #'   bounds of \code{jb3_model(P.bound = )}, so that the curve is smooth over all states the model can reach (a kink
 #'   inside that range can stall the gradient-based optimiser)
+#' @param timing exploitable biomass of the EB/SB curves: \code{"mean"} (default) over the year with mid-year weights
+#'   (catch / EB = F, so H_MSY = F_MSY) or \code{"start"} of the year (earlier JABBA3 versions)
 #' @return object of class \code{jb3selex}: \code{ebsb} (named list of c(u1, u2, u3, P1, P2), ready for
 #'   \code{jb3_model(ebsb = )}), \code{curves} (equilibrium ratio by fleet, column \code{EB_SB}, with \code{units}),
 #'   \code{units}, \code{at.len} and \code{at.age} (selectivity and maturity), \code{leslie} (r and GT)
@@ -255,7 +258,9 @@ jb3_sel5 <- function(x, pars, type = c("length", "age")){
 #' sx2 <- jb3_selex(lh, list(Trawl = tr, Trawl.N = tr), units = c("biomass", "numbers"))
 #' @export
 jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h = NULL, CVL = 0.1, sex_ratio = NULL,
-                      amin = 0, amax = NULL, Fgrid = NULL, fit.range = c(0.1, 0.9), P.lim = c(0.02, 1.3)){
+                      amin = 0, amax = NULL, Fgrid = NULL, fit.range = c(0.1, 0.9), P.lim = c(0.02, 1.3),
+                      timing = c("mean", "start")){
+  timing <- match.arg(timing)
   ss <- .selex_setup(lhpar, selpar, sel.type, CVL, sex_ratio, amin, amax)
   bio <- ss$bio; sela <- ss$sela; sr <- ss$sr; sexes <- ss$sexes; st <- ss$st; sf <- ss$sf; sel <- ss$sel
   h <- h %||% bio[[1]]$h
@@ -263,8 +268,8 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
   un <- stats::setNames(rep_len(as.character(units), length(sel)), names(sel))
   if(any(!un %in% c("biomass", "numbers"))) stop("units must be \"biomass\" or \"numbers\"", call. = FALSE)
   curves <- do.call(rbind, lapply(names(sel), function(f){
-    sb0 <- .eq_pr(0, bio, sela[[f]], sr)[["sb"]]
-    Pof <- function(F){ p <- .eq_pr(F, bio, sela[[f]], sr); R <- max(0, (4*h*p[["sb"]] - (1 - h)*sb0)/((5*h - 1)*p[["sb"]]))
+    sb0 <- .eq_pr(0, bio, sela[[f]], sr, timing = timing)[["sb"]]
+    Pof <- function(F){ p <- .eq_pr(F, bio, sela[[f]], sr, timing = timing); R <- max(0, (4*h*p[["sb"]] - (1 - h)*sb0)/((5*h - 1)*p[["sb"]]))
       c(P = p[["sb"]]*R/sb0, EB_SB = (if(un[[f]] == "numbers") p[["en"]] else p[["eb"]])/p[["sb"]]) }
     Fg <- Fgrid %||% { Fm <- 0.5; while(Pof(Fm)[["P"]] > 0.02 && Fm < 50) Fm <- 2*Fm; seq(0, Fm, length.out = 150) }
     d <- t(sapply(Fg, Pof)); d <- data.frame(fleet = f, units = un[[f]], F = Fg, d)
@@ -300,7 +305,7 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
   st <- stats::setNames(rep_len(sel.type, length(sel)), names(sel))
   if(any(st == "age" & sapply(sel, .sel_fun_from) != "jabba5")) stop("age-based selectivity needs the JABBA 5-parameter form (SL50, SL95, SLdesc, CVdesc, Smin)", call. = FALSE)
   bio <- lapply(stats::setNames(sexes, sexes), function(s) .lh_age(.lh_one(lhpar, s), amin, amax))
-  na <- min(sapply(bio, function(b) length(b$age))); bio <- lapply(bio, function(b){ for(nm in c("age", "len", "wt", "mat", "M")) b[[nm]] <- b[[nm]][seq_len(na)]; b })
+  na <- min(sapply(bio, function(b) length(b$age))); bio <- lapply(bio, function(b){ for(nm in c("age", "len", "wt", "wt.mid", "mat", "M")) b[[nm]] <- b[[nm]][seq_len(na)]; b })
   sr <- sex_ratio %||% rep(1/length(sexes), length(sexes))
   sf <- sapply(sel, .sel_fun_from)
   sela <- lapply(names(sel), function(f) lapply(bio, function(b)
@@ -309,16 +314,26 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
   list(bio = bio, sela = sela, sr = sr, sexes = sexes, st = st, sf = sf, sel = sel)
 }
 
-# equilibrium per recruit at fishing mortality F (selectivity S, a list over sexes): spawning biomass, exploitable
-# biomass and numbers (start of year) and yield in weight (Baranov); the last age is a plus group
-.eq_pr <- function(F, bio, S, sr, Mmult = 1){
+# equilibrium per recruit at fishing mortality F (selectivity S, a list over sexes): spawning biomass (start of year),
+# exploitable biomass and numbers, and yield in weight (Baranov); the last age is a plus group.
+# timing = "mean" (default): exploitable biomass and numbers are means over the year, N (1 - exp(-Z))/Z, and catch and
+# exploitable biomass use mid-year weights (age + 0.5), so that yield / exploitable biomass = F (Hmsy = Fmsy, the common
+# currency with F). timing = "start": exploitable biomass at the start of the year (JABBA3 <= 0.x).
+.eq_pr <- function(F, bio, S, sr, Mmult = 1, timing = "mean"){
   sb <- 0; eb <- 0; en <- 0; y <- 0
   for(j in seq_along(bio)){ b <- bio[[j]]; Sj <- S[[j]]; na <- length(b$age); M <- b$M*Mmult; Z <- M + F*Sj
     N <- numeric(na); N[1] <- 1
     if(na > 1) for(a in 2:na) N[a] <- N[a - 1]*exp(-Z[a - 1])
     N[na] <- N[na]/max(1e-12, 1 - exp(-Z[na]))
-    sb <- sb + sr[j]*sum(N*b$wt*b$mat); eb <- eb + sr[j]*sum(N*b$wt*Sj); en <- en + sr[j]*sum(N*Sj)
-    y <- y + sr[j]*sum(F*Sj/Z*(1 - exp(-Z))*N*b$wt) }
+    sb <- sb + sr[j]*sum(N*b$wt*b$mat)
+    if(identical(timing, "start")){
+      eb <- eb + sr[j]*sum(N*b$wt*Sj); en <- en + sr[j]*sum(N*Sj)
+      y <- y + sr[j]*sum(F*Sj/Z*(1 - exp(-Z))*N*b$wt)
+    } else {
+      fz <- ifelse(Z > 1e-10, (1 - exp(-Z))/Z, 1); wm <- b$wt.mid %||% b$wt
+      eb <- eb + sr[j]*sum(N*fz*wm*Sj); en <- en + sr[j]*sum(N*fz*Sj)
+      y <- y + sr[j]*sum(F*Sj*N*fz*wm)
+    } }
   c(sb = sb, eb = eb, en = en, y = y)
 }
 
@@ -346,6 +361,9 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
 #' @param lhpar,selpar,sel.type,CVL,sex_ratio,amin,amax as in \code{\link{jb3_selex}()}; with several fleets the
 #'   selectivity of fleet \code{catch} sets F_MSY
 #' @param catch fleet (name or position) whose selectivity defines the fishery
+#' @param timing exploitable biomass of the equilibrium: \code{"mean"} (default) over the year with mid-year weights
+#'   (age + 0.5) in catch and exploitable biomass, so that H_MSY = F_MSY (the common currency with F and with FLicc);
+#'   \code{"start"} at the start of the year (earlier JABBA3 versions; H_MSY < F_MSY, increasingly with M)
 #' @param state "SB" (Selex) or "EB" (standard JABBA3)
 #' @param removal for \code{state = "SB"}: "EB" (catch removed through the EB/SB curve, default as in
 #'   \code{jb3_model()}) or "SB" (removed from SB directly, \code{ebsb.removal = FALSE})
@@ -368,8 +386,8 @@ jb3_selex <- function(lhpar, selpar, sel.type = "length", units = "biomass", h =
 #' @export
 jb3_asem_prior <- function(lhpar, selpar, sel.type = "length", catch = 1, state = c("SB", "EB"), removal = c("EB", "SB"),
                            M = NULL, h = NULL, M.cv = 0, h.sd = 0, nsim = 1000, CVL = 0.1, sex_ratio = NULL, amin = 0,
-                           amax = NULL, seed = 1){
-  state <- match.arg(state); removal <- match.arg(removal)
+                           amax = NULL, seed = 1, timing = c("mean", "start")){
+  state <- match.arg(state); removal <- match.arg(removal); timing <- match.arg(timing)
   ss <- .selex_setup(lhpar, selpar, sel.type, CVL, sex_ratio, amin, amax)
   bio <- ss$bio; sr <- ss$sr
   S <- ss$sela[[catch]]; if(is.null(S)) stop("catch: fleet ", catch, " not found", call. = FALSE)
@@ -379,8 +397,8 @@ jb3_asem_prior <- function(lhpar, selpar, sel.type = "length", catch = 1, state 
   Md <- if(!is.null(M) && length(M) > 1) rep_len(M, nsim) else (M %||% M0)*exp(stats::rnorm(nsim, -0.5*log(1 + M.cv^2), sqrt(log(1 + M.cv^2))))
   hd <- if(!is.null(h) && length(h) > 1) rep_len(h, nsim) else pmin(pmax(stats::rnorm(nsim, h %||% h0, h.sd), 0.21), 0.99)
   one <- function(Mi, hi){
-    mm <- Mi/M0; pr0 <- .eq_pr(0, bio, S, sr, mm); sb0 <- pr0[["sb"]]
-    eq <- function(F){ p <- .eq_pr(F, bio, S, sr, mm); R <- max(0, (4*hi*p[["sb"]] - (1 - hi)*sb0)/((5*hi - 1)*p[["sb"]]))
+    mm <- Mi/M0; pr0 <- .eq_pr(0, bio, S, sr, mm, timing); sb0 <- pr0[["sb"]]
+    eq <- function(F){ p <- .eq_pr(F, bio, S, sr, mm, timing); R <- max(0, (4*hi*p[["sb"]] - (1 - hi)*sb0)/((5*hi - 1)*p[["sb"]]))
       c(R*p, R = R) }
     Fg <- exp(seq(log(0.01*Mi), log(10*Mi), length.out = 200)); Y <- sapply(Fg, function(F) eq(F)[["y"]])
     i <- which.max(Y); lo <- Fg[max(1, i - 1)]; hi_ <- Fg[min(length(Fg), i + 1)]

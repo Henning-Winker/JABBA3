@@ -4,6 +4,10 @@
 #' log-depletion states Laplace-integrated) or with NUTS (\code{tmbstan}, all states sampled). Optionally runs one of the
 #' BioProcDyn workflows (Tier 1 lag, Tier 2 tuned dynamic process error, Selex) automatically.
 #'
+#' F in all outputs (F, F/Fmsy, Fmsy) is catch over mean-of-year exploitable biomass, F = C/B. With the mean-of-year
+#' currency of the life-history priors this equals the fishing mortality of fully selected fish, so F/Fmsy is comparable
+#' with F/Fmsy of age-structured assessments; it is not the exploitation fraction U = 1 - exp(-F) (no conversion applies).
+#'
 #' @param data \code{\link{jb3_data}()} object
 #' @param priors \code{\link{jb3_priors}()} object (default: JABBA defaults with the FishLife sdb prior)
 #' @param model \code{\link{jb3_model}()} object

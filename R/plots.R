@@ -516,11 +516,11 @@ jbplot_spdiags <- function(fit){
 #' @export
 jbplot_priorpost <- function(fit, pars = c("r", "K", "bkinit", "sdb", "m", "kdyn")){
   pr <- fit$priors; pp <- fit$pars; dat <- fit$setup$dat
-  lst <- list(r = pr$r, K = c(dat$K.pr[1]*fit$mucatch, pr$K[2:3]), bkinit = pr$bkinit, sdb = pr$sdb, m = pr$m)
+  lst <- list(r = pr$r, K = c(dat$K.pr[1]*fit$mucatch, pr$K[2:3]), bkinit = pr$bkinit, sdb = dat$sdb.pr %||% pr$sdb, m = pr$m)
   pl <- lapply(pars, function(nm){
     if(!nm %in% rownames(pp)) return(NULL)
     if((nm == "kdyn" && !dat$est.k) || (nm == "m" && !dat$est.m) || (nm == "sdb" && !dat$est.sdb)) return(NULL)
-    if(nm == "kdyn"){ mu <- pr$kdyn[[1]]; s <- pr$kdyn[[2]]; on <- TRUE; logsc <- FALSE } else {
+    if(nm == "kdyn"){ kp <- dat$kd.pr %||% pr$kdyn; mu <- kp[[1]]; s <- kp[[2]]; on <- TRUE; logsc <- FALSE } else {
       x <- lst[[nm]]; mu <- log(x[[1]]); s <- x[[2]]; on <- isTRUE(x[[3]] == 1) && is.finite(mu); logsc <- TRUE }
     if(nm == "sdb" && dat$sdb.ig){ ab <- dat$ig.ab %||% c(0.001, 0.001)      # inverse gamma: exact density of log sdb
       on <- trigamma(ab[1]) <= 5.5; mu <- -0.5*(digamma(ab[1]) - log(ab[2])); s <- 0.5*sqrt(trigamma(ab[1])) }
