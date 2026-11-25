@@ -564,29 +564,55 @@ pr
 #' | `q` | flat on log q | matrix with one row `c(median, log.sd, on)` per catchability group |
 #' | `m` | off | shape fixed from `BmsyK`; `c(median, log.sd, 1)` estimates it |
 #' | `rho` | off (`c(0.7, 0.15, 0)`) | normal prior on the AR(1) coefficient, when estimated |
-#' | `kdyn` | `max(0, 0.064 - 0.155 log r)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only) |
+#' | `kdyn` | `max(0, 0.148 - 0.235 log` $H_{MSY}$`)`, sd 0.15 | depletion dependence of `sdb` (dynamic SD only); $H_{MSY} = r/m$ |
 #' | `sdi` | off | index SD prior, used with `obs.error = "spict"` |
 #' | `status` | `NULL` | data.frame(year, type, median, log.sd); type `"BK"`, `"BBmsy"` or `"FFmsy"` |
 #' | `bbmsyinit` | `NULL` | initial status as $B_1/B_{MSY}$ instead of $B_1/K$: c(median, log.sd); switches `bkinit` off |
 #' 
-#' ## Process error: the FishLife prior
+#' ## Process error: the life-history prior
 #' 
 #' `sdb = "fishlife"` (default) replaces JABBA's diffuse inverse-gamma prior on
-#' the process variance by a lognormal prior with a life-history centre,
+#' the process variance by a lognormal prior anchored on a life-history process
+#' error SD at the harvest rate at MSY,
 #' 
 #' $$
-#' \sigma_{MSY} \sim LN\left(\log(0.80\,\sigma_R\,r^{0.45}),\ 0.3\right),
+#' \sigma_{LH} = \sigma_R \min(0.9\,H_{MSY},\ 1.15), \qquad H_{MSY} = r/m ,
 #' $$
 #' 
-#' with $r$ the median of the r prior and $\sigma_R$ the recruitment variability
-#' (`sigR = 0.5` when unknown). The relation comes from age-structured
-#' simulations of FishLife species (Thorson 2020) with selectivity at maturity
-#' (BioProcDyn). The inverse-gamma prior is still available (`sdb = "igamma"`)
+#' $$
+#' \sigma_{MSY} \sim LN\left(\log\left[\sigma_{LH}\, e^{1.96 \times 0.3}\right],\ 0.3\right),
+#' $$
+#' 
+#' with $r$ the median of the r prior, $m$ the shape of the model and $\sigma_R$
+#' the recruitment variability (`sigR = 0.5` when unknown). $H_{MSY}$ is the
+#' harvest rate at MSY, which equals $F_{MSY}$ in the JABBA3 currency (catch over
+#' mean exploitable biomass), so the same productivity gives the same prior for
+#' any shape. The relation comes from age-structured simulations of 496 FishLife
+#' species (Thorson 2020) under two selectivity patterns (BioProcDyn): the process
+#' error SD at $B_{MSY}$ scales almost linearly with $H_{MSY}$ up to a plateau at
+#' about $\sigma_R$ for very productive stocks ($R^2$ = 0.96; with the Leslie r
+#' as the predictor $R^2$ = 0.65, and selectivity shifts the relation).
+#' 
+#' $\sigma_{LH}$ describes the deviations of the true age-structured dynamics from
+#' their own equilibrium production curve, i.e. the process error expected without
+#' model or data misspecification: fitted to (near) perfect data, the lag + AR(1)
+#' model recovers it. Misspecification in a real assessment can only add to it, so
+#' $\sigma_{LH}$ is treated as a lower plausible bound and placed at the 2.5th
+#' percentile of the prior (`sdb.pct = 0.025`), giving a median of
+#' $1.80\,\sigma_{LH}$ and a 95% prior interval of $\sigma_{LH}$ to
+#' $3.2\,\sigma_{LH}$ (cf. priors set from plausible ranges, Meyer and Millar 1999).
+#' Too little process error makes the fits overconfident and more often strongly
+#' optimistic; in the limit of a deterministic model the 95% intervals cover the
+#' truth in about half of the simulated cases. `sdb.pct = 0.5` uses
+#' $\sigma_{LH}$ as the median. The
+#' centre is converted with the model's shape when the model is built; the printed
+#' priors show the Schaefer case ($H_{MSY} = r/2$). The inverse-gamma prior is still available (`sdb = "igamma"`)
 #' but its mode is at zero, so it is not recommended for posterior-mode fits; a
 #' fixed-scale prior is given as `sdb = c(median, log.sd, 1)`.
 #' 
 ## ----priors-sdb---------------------------------------------------------------
 jb3_priors(d, r = c(0.2, 0.5), sigR = 0.8)$sdb
+jb3_priors(d, r = c(0.2, 0.5), sdb.pct = 0.5)$sdb     # sigma_LH as the median
 jb3_priors(d, r = c(0.2, 0.5), sdb = c(0.1, 0.3, 1))$sdb
 
 #' 
@@ -827,9 +853,9 @@ knitr::kable(jb3_rho_table())
 jb3_rho_gt(c(2, 4, 8, 15))
 
 #' 
-#' The scale prior on $\sigma_{MSY}$ stays tied to r (median
-#' $0.80\,\sigma_R\,r^{0.45}$, unbiased across the 486 species), so it follows the
-#' r prior directly in sensitivity runs on r.
+#' The scale prior on $\sigma_{MSY}$ is tied to the harvest rate at MSY ($\sigma_{LH} = \sigma_R \min(0.9\,H_{MSY}, 1.15)$ with $H_{MSY} = r/m$ at its
+#' 2.5th percentile; chapter *Priors*), so it
+#' follows the r prior and the shape in sensitivity runs.
 #' 
 #' $\rho$ can be estimated with a normal prior, by switching `priors$rho` on;
 #' with a single index this is less stable than fixing it.
@@ -2421,7 +2447,7 @@ knitr::kable(do.call(rbind, lapply(names(dg), function(n) data.frame(run = n, dg
 #' Three steps, each added to the previous one:
 #' 
 #' 1. **Life-history prior on the process error scale** (the JABBA3 default,
-#'    $\sigma_{MSY} = 0.80 \sigma_R r^{0.45}$) instead of the fixed $\sigma = 0.07$;
+#'    $\sigma_{LH} = \sigma_R \min(0.9\,H_{MSY}, 1.15)$ at the 2.5th percentile) instead of the fixed $\sigma = 0.07$;
 #' 2. **production lag** at the age at maturity (here 3 years);
 #' 3. **AR(1) process deviations** with $\rho = 0.75$ (the default; blue marlin falls
 #'    in the 6-10 year generation-time class of `jb3_rho_table()`).
@@ -3848,6 +3874,8 @@ fp
 #' Kristensen, K., Nielsen, A., Berg, C.W., Skaug, H. and Bell, B.M. (2016). TMB:
 #' automatic differentiation and Laplace approximation. *Journal of Statistical
 #' Software* 70(5): 1-21.
+#' 
+#' Meyer, R. and Millar, R.B. (1999). BUGS in Bayesian stock assessments. *Canadian Journal of Fisheries and Aquatic Sciences* 56: 1078-1086.
 #' 
 #' Monnahan, C.C. and Kristensen, K. (2018). No-U-turn sampling for fast Bayesian
 #' inference in ADMB and TMB: introducing the adnuts and tmbstan R packages. *PLoS
