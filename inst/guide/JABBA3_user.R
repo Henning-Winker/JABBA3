@@ -3768,6 +3768,19 @@ fp
 #' \frac{B_{MSY}}{K} = m^{-1/(m-1)}, \qquad F_{MSY} = \frac{r}{m}, \qquad MSY = F_{MSY} B_{MSY}.
 #' $$
 #' 
+#' **What F means in JABBA3.** $F = C/\bar B$ is catch over mean-of-year
+#' exploitable biomass. A surplus production model has no within-year timing;
+#' the mean-of-year interpretation comes from the life-history priors, which
+#' equate $r/m$ with $MSY/\bar{EB}_{MSY}$ of age-structured models. On this scale
+#' the catch equation gives $C = F\,\bar{EB}$, so JABBA3's $F$ equals the
+#' fishing mortality of fully selected fish, and $F/F_{MSY}$ is directly
+#' comparable with $F/F_{MSY}$ of age-structured assessments. Absolute $F$
+#' differs from $F_{bar}$ only through selectivity over the $F_{bar}$ age range.
+#' $F$ is not the start-of-year exploitation fraction $U = 1 - e^{-F}$ of
+#' Hilborn and Walters or sraplus, so no $-\log(1-U)$ conversion applies; $F$
+#' (the harvest rate at MSY, $H_{MSY}$, in the process-error prior) can exceed 1
+#' for fast-growing species.
+#' 
 #' **Observations.** Index $i$ in year $t$:
 #' 
 #' $$
